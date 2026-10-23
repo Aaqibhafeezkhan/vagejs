@@ -10,24 +10,41 @@ let service: TurndownService | undefined;
 
 function converter(): TurndownService {
   if (service) return service;
-  service = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-", emDelimiter: "_" });
+  const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-", emDelimiter: "_" });
   // Never carry executable or embedded content into the copy, even from trusted HTML.
-  service.remove(["script", "style", "noscript", "template", "iframe", "object", "embed", "form", "button", "input", "select", "textarea"]);
-  // Simple GFM tables (one header row, plain cells).
+  td.remove(["script", "style", "noscript", "template", "iframe", "object", "embed", "form", "button", "select", "textarea"]); // svg and math are removed from the DOM first
+  // "<" in text must stay text: a Markdown viewer that renders HTML would otherwise run it.
+  const baseEscape = td.escape.bind(td);
+  td.escape = (text: string) => baseEscape(text).replace(/</g, "\\<");
+  td.addRule("checkbox", {
+    filter: (node) => node.nodeName === "INPUT",
+    replacement: (_c, node) => ((node as HTMLInputElement).type === "checkbox" ? ((node as HTMLInputElement).checked || (node as HTMLInputElement).hasAttribute("checked") ? "[x] " : "[ ] ") : ""),
+  });
+  td.addRule("strikethrough", { filter: ["del", "s"], replacement: (content) => (content.trim() ? `~~${content}~~` : "") });
+  td.addRule("preformatted", {
+    filter: (node) => node.nodeName === "PRE" && !node.querySelector("code"),
+    replacement: (_c, node) => `\n\n\`\`\`\n${(node.textContent ?? "").replace(/\n$/, "")}\n\`\`\`\n\n`,
+  });
+  // A link nobody can see or click on the page shouldn't appear in the copy.
+  td.addRule("emptyLink", {
+    filter: (node) => node.nodeName === "A" && !(node.textContent ?? "").trim() && !node.querySelector("img[alt]:not([alt=''])"),
+    replacement: () => "",
+  });
+  // Simple GFM tables. Only this table's own rows (a nested table is converted inside its cell).
   const cell = (s: string) => s.replace(/\n+/g, " ").replace(/\|/g, "\\|").trim();
-  service.addRule("table", {
+  td.addRule("table", {
     filter: "table",
     replacement: (_content, node) => {
-      const rows = [...(node as HTMLTableElement).querySelectorAll("tr")].map((tr) =>
-        [...tr.querySelectorAll("th, td")].map((c) => cell(service!.turndown((c as HTMLElement).innerHTML))),
-      );
+      const table = node as HTMLTableElement;
+      const rows = Array.from(table.rows ?? []).map((tr) => Array.from(tr.cells ?? []).map((c) => cell(td.turndown(c as HTMLElement))));
       if (!rows.length) return "";
       const width = Math.max(...rows.map((r) => r.length));
       const line = (r: string[]) => `| ${Array.from({ length: width }, (_, i) => r[i] ?? "").join(" | ")} |`;
       return `\n\n${[line(rows[0]!), line(Array(width).fill("---")), ...rows.slice(1).map(line)].join("\n")}\n\n`;
     },
   });
-  return service;
+  service = td;
+  return td;
 }
 
 /**
@@ -50,7 +67,14 @@ export async function htmlToMarkdown(html: string, options: { route: string; ori
       return value;
     }
   };
-  for (const a of template.content.querySelectorAll("a[href]")) a.setAttribute("href", absolute(a.getAttribute("href")!));
+  // Hidden content isn't on the page for visitors, so it isn't in the copy either.
+  for (const el of template.content.querySelectorAll("[hidden], svg, math")) el.remove();
+  for (const a of template.content.querySelectorAll("a[href]")) {
+    const href = a.getAttribute("href")!.trim();
+    // Script and data URLs never become links in the copy (trusted HTML can contain them).
+    if (/^(javascript|vbscript|data):/i.test(href.replace(/[\s\u0000-\u001f]/g, ""))) a.removeAttribute("href");
+    else a.setAttribute("href", absolute(href));
+  }
   for (const img of template.content.querySelectorAll("img[src]")) {
     img.setAttribute("src", absolute(img.getAttribute("src")!));
     img.removeAttribute("srcset");

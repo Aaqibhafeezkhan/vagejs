@@ -162,3 +162,39 @@ describe("vage verify re-review fixes", () => {
     expect(result.differences.find((d) => d.route === "/about.md" && d.kind === "links-added")?.severity).toBe("error");
   });
 });
+
+describe("vage verify, final review", () => {
+  const inject = (snippet: string) => (route: string, html: string) => (route === "/about/" ? html.replace("</body>", `${snippet}</body>`) : html);
+  it("only trusts /cdn-cgi/ on the site's own host", async () => {
+    for (const snippet of [
+      '<script src="https://evil.example/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script>',
+      '<script src="https://evil.example/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>',
+      '<a href="https://evil.example/cdn-cgi/l/email-protection#ab">mail</a>',
+    ]) {
+      const { root, fake } = await liveSite(inject(snippet));
+      expect((await verifySite(root, { fetch: fake, crawlers: false })).ok, snippet).toBe(false);
+    }
+    const own = await liveSite(inject('<script src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><a href="/cdn-cgi/l/email-protection#ab12">mail</a>'));
+    expect((await verifySite(own.root, { fetch: own.fake, crawlers: false })).ok).toBe(true);
+  });
+
+  it("finds links in generated files however they're written, including llms.txt", async () => {
+    const { textLinks } = await import("../src/checks/verify.js");
+    const links = textLinks("A HTTPS://Evil.example/x, //evil2.example, www.evil3.example and [r](../rel/) <https://auto.example>\n[ref]: https://ref.example/");
+    for (const l of ["https://evil.example/x", "//evil2.example", "www.evil3.example", "../rel/", "https://auto.example", "https://ref.example/"]) expect(links.has(l), l).toBe(true);
+
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { llmsTxt: { full: true } } };');
+    await build(root);
+    const dist = path.join(root, "dist");
+    const live = (async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      const file = url.pathname.endsWith("/") ? path.join(dist, url.pathname, "index.html") : path.join(dist, url.pathname);
+      if (!fs.existsSync(file)) return new Response("", { status: 404 });
+      const body = fs.readFileSync(file, "utf8");
+      return new Response(url.pathname === "/llms.txt" ? `${body}\n- [Partner](HTTPS://quiet.example/)\n` : body);
+    }) as typeof fetch;
+    const result = await verifySite(root, { fetch: live, crawlers: false });
+    expect(result.differences.find((d) => d.route === "/llms.txt" && d.kind === "links-added")?.severity).toBe("error");
+  });
+});

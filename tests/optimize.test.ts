@@ -157,6 +157,7 @@ describe("image pipeline re-review fixes", () => {
     const v = await imageVariants("/images/turned.webp", root, { optimize: true, widths: [400, 800, 1600], quality: 75, sizes: "100vw" }, await sharpResize(root));
     const labels = v!.srcset.split(", ").map((e) => Number(e.split(" ")[1]!.slice(0, -1)));
     expect(new Set(labels).size).toBe(labels.length);
+    expect(v!.files.size).toBe(labels.length); // no duplicate, unused files
     for (const entry of v!.srcset.split(", ")) {
       const [url, w] = entry.split(" ");
       const meta = await sharp(v!.files.get(url!.slice(1))!).metadata();

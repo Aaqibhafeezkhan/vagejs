@@ -62,11 +62,41 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex").slice(0,
  * Scripts Cloudflare adds by itself, matched by their exact shape so an injected script
  * that merely mentions /cdn-cgi/ is still reported as an added script.
  */
-const CDN_SCRIPT = /^https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js(\/[\w.]*)?$|^https?:\/\/[^/]+\/cdn-cgi\/(scripts\/[0-9a-f]+\/cloudflare-static\/email-decode\.min\.js|challenge-platform\/(h\/[a-z]\/)?scripts\/jsd\/main\.js)$/;
+const BEACON = /^https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js(\/[\w.]*)?$/;
+const CDN_PATH = /^\/cdn-cgi\/(scripts\/[0-9a-f]+\/cloudflare-static\/email-decode\.min\.js|challenge-platform\/(h\/[a-z]\/)?scripts\/jsd\/main\.js)$/;
+/** Cloudflare's scripts: the Web Analytics beacon, or a /cdn-cgi/ script on the site's own host (never another site's). */
+const isCdnScript = (url: string, pageHost: string) => {
+  if (BEACON.test(url)) return true;
+  try {
+    const u = new URL(url);
+    return u.host === pageHost && !u.search && CDN_PATH.test(u.pathname);
+  } catch {
+    return false;
+  }
+};
 /** Cloudflare's JS-detection loader: sets window.__CF$cv$params and loads /cdn-cgi/challenge-platform/.../main.js, nothing else. */
 const CDN_INLINE = /^\s*\(function\(\)\{function c\(\)\{var b=a\.contentDocument\|\|a\.contentWindow\.document;if\(b\)\{var d=b\.createElement\('script'\);d\.innerHTML="window\.__CF\$cv\$params=\{r:'[0-9a-f]+',t:'[A-Za-z0-9+\/=]+'\};var a=document\.createElement\('script'\);a\.src='\/cdn-cgi\/challenge-platform\/scripts\/jsd\/main\.js';document\.getElementsByTagName\('head'\)\[0\]\.appendChild\(a\);";b\.getElementsByTagName\('head'\)\[0\]\.appendChild\(d\)\}\}if\(document\.body\)\{var a=document\.createElement\('iframe'\);a\.height=1;a\.width=1;a\.style\.position='absolute';a\.style\.top=0;a\.style\.left=0;a\.style\.border='none';a\.style\.visibility='hidden';document\.body\.appendChild\(a\);if\('loading'!==document\.readyState\)c\(\);else if\(window\.addEventListener\)document\.addEventListener\('DOMContentLoaded',c\);else\{var e=document\.onreadystatechange\|\|function\(\)\{\};document\.onreadystatechange=function\(b\)\{e\(b\);'loading'!==document\.readyState&&\(document\.onreadystatechange=e,c\(\)\)\}\}\}\}\)\(\);\s*$/;
-/** Cloudflare email protection rewrites mailto: links to this; not a content change. */
-const CDN_LINK = /^https?:\/\/[^/]+\/cdn-cgi\/l\/email-protection(#[0-9a-f]*)?$/;
+/** Cloudflare email protection rewrites mailto: links to this (on the site's own host); not a content change. */
+const isCdnLink = (url: string, pageHost: string) => {
+  try {
+    const u = new URL(url);
+    return u.host === pageHost && u.pathname === "/cdn-cgi/l/email-protection" && !u.search && /^(#[0-9a-f]*)?$/.test(u.hash);
+  } catch {
+    return false;
+  }
+};
+
+/** Every link-like target in a text file (Markdown, RSS, llms.txt), normalized for comparison. */
+export function textLinks(text: string): Set<string> {
+  const found = new Set<string>();
+  const add = (raw: string) => found.add(raw.trim().replace(/[.,;:!?]+$/, "").toLowerCase());
+  for (const m of text.matchAll(/\]\(\s*<?([^)\s>]+)/g)) add(m[1]!); // [text](target)
+  for (const m of text.matchAll(/^\s{0,3}\[[^\]]+\]:\s*<?([^\s>]+)/gm)) add(m[1]!); // [ref]: target
+  for (const m of text.matchAll(/<((?:[a-z][a-z0-9+.-]*:|\/\/)[^>\s]+)>/gi)) add(m[1]!); // <autolink>
+  for (const m of text.matchAll(/(?:\b[a-z][a-z0-9+.-]*:)?\/\/[^\s)<>"'\]]+|\bwww\.[^\s)<>"'\]]+/gi)) add(m[0]); // bare URLs, //host, www.
+  for (const m of text.matchAll(/<link>([^<]+)<\/link>|<guid[^>]*>([^<]+)<\/guid>/gi)) add((m[1] ?? m[2])!); // RSS
+  return found;
+}
 
 const TARGETS: [string, string, (el: import("node-html-parser").HTMLElement) => string | null | undefined][] = [
   ["a, area", "", (el) => el.getAttribute("href") ?? el.getAttribute("xlink:href")],
@@ -81,6 +111,7 @@ const TARGETS: [string, string, (el: import("node-html-parser").HTMLElement) => 
 /** What matters for injected spam: where the page sends people, what runs on it, and its visible text, independent of formatting. */
 export function fingerprint(html: string, pageUrl: string): PageFingerprint {
   const doc = parse(html);
+  const pageHost = new URL(pageUrl).host;
   const abs = (href: string) => {
     try {
       return new URL(href.trim(), pageUrl).href;
@@ -94,7 +125,7 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
       const value = read(el);
       if (!value || value.trim().startsWith("mailto:")) continue;
       const url = abs(value);
-      if (CDN_LINK.test(url)) continue;
+      if (isCdnLink(url, pageHost)) continue;
       links.add(prefix + url);
     }
   }
@@ -104,7 +135,7 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
     const src = el.getAttribute("src");
     if (src) {
       const url = abs(src);
-      if (CDN_SCRIPT.test(url.replace(/\?.*$/, ""))) cdnScripts.add(url.replace(/\?.*$/, ""));
+      if (isCdnScript(url, pageHost)) cdnScripts.add(url.replace(/\?.*$/, ""));
       else scripts.add(`src:${url}`);
     } else if (el.getAttribute("type") === "application/ld+json") scripts.add(`json-ld:${sha(el.text.replace(/\s+/g, ""))}`);
     else if (CDN_INLINE.test(el.text)) cdnScripts.add("Cloudflare's inline bot-detection script (/cdn-cgi/challenge-platform/)");
@@ -231,7 +262,7 @@ export async function verifySite(
       });
     }
     // Generated files must match too: the feed, Markdown copies and optimized images.
-    const generated = [...model.files.keys()].filter((name) => name.endsWith("feed.xml") || (name.endsWith(".md") && !name.includes("/_")));
+    const generated = [...model.files.keys()].filter((name) => name.endsWith("feed.xml") || name === "llms.txt" || name === "llms-full.txt" || (name.endsWith(".md") && !name.includes("/_")));
     for (const name of generated) {
       const live = await get(`${origin}/${name}`);
       const local = model.files.get(name)!;
@@ -239,9 +270,8 @@ export async function verifySite(
       if (live.status !== 200) differences.push({ route: `/${name}`, severity: "error", kind: "unreachable", detail: live.status ? `HTTP ${live.status}` : "no response" });
       else if (norm(live.body) !== norm(local)) {
         // Any URL in the live file that isn't in the build is treated like an added link.
-        const urls = (t: string) => new Set(t.match(/https?:\/\/[^\s)<>"'\]]+/g) ?? []);
-        const known = urls(local);
-        const added = [...urls(live.body)].filter((u) => !known.has(u));
+        const known = textLinks(local);
+        const added = [...textLinks(live.body)].filter((u) => !known.has(u));
         const spam = spamHits(live.body).filter((h) => !spamHits(local).includes(h));
         if (added.length) differences.push({ route: `/${name}`, severity: "error", kind: "links-added", detail: `Links in the live file that aren't in your build: ${added.slice(0, 5).join(", ")}` });
         differences.push({ route: `/${name}`, severity: spam.length ? "error" : "warning", kind: "text-changed", detail: `The live file differs from your build${spam.length ? ` and contains spam words (${spam.join(", ")})` : ""}.` });

@@ -99,10 +99,11 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
       fs.writeFileSync(tmp, data);
       fs.renameSync(tmp, cached);
     }
-    files.set(`${IMAGE_DIR}/${name}`, cached);
-    // Label with the file's real width (rotation can change it), and skip duplicates.
+    // Label with the file's real width (rotation can change it); publish each width once.
     const actual = imageSize(cached)?.width ?? w;
-    if (!entries.some((e) => e.endsWith(` ${actual}w`))) entries.push(`/${IMAGE_DIR}/${name} ${actual}w`);
+    if (entries.some((e) => e.endsWith(` ${actual}w`))) continue;
+    files.set(`${IMAGE_DIR}/${name}`, cached);
+    entries.push(`/${IMAGE_DIR}/${name} ${actual}w`);
   }
   return entries.length ? { srcset: entries.join(", "), files } : undefined;
 }

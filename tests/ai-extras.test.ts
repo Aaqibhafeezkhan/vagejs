@@ -170,3 +170,37 @@ describe("git dates review fixes", () => {
     expect(fs.readFileSync(path.resolve("templates/starter/.github/workflows/ci.yml"), "utf8")).toContain("fetch-depth: 0");
   });
 });
+
+describe("Markdown copies, final review", () => {
+  async function copyOf(body: string, extra = "") {
+    const root = copyFixture();
+    write(root, "vage.config.ts", `export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true, llmsTxt: { full: true } }${extra} };`);
+    write(root, "src/pages/p.md", `---\ntitle: P\ndescription: P.\n---\n# P\n\n${body}\n`);
+    await build(root);
+    return read(root, "p.md");
+  }
+
+  it("converts nested tables without crashing", async () => {
+    const text = await copyOf("<table><tr><td>outer<table><tr><td>inner</td></tr></table></td></tr></table>");
+    expect(text).toContain("outer");
+    expect(text).toContain("inner");
+  });
+
+  it("leaves out hidden, SVG and empty links, script URLs, and escapes < in text", async () => {
+    const text = await copyOf(
+      '<div hidden>SECRET15 <a href="https://secret15.test">hiddenlink</a></div>\n\n<svg><desc>SECRET12</desc><title>SECRET13</title></svg>\n\n<a href="https://secret24.test"></a>\n\nText &lt;script&gt;alert(1)&lt;/script&gt; end.',
+    );
+    expect(text).not.toMatch(/SECRET1[235]|secret15\.test|secret24\.test/);
+    expect(text).not.toMatch(/(^|[^\\])<script>/);
+    const trusted = await copyOf('<a href="javascript:alert(1)">click</a> <span style="display:none">x</span>', ', markdown: { html: "allow" }');
+    expect(trusted).not.toContain("javascript:");
+  });
+
+  it("keeps <pre> and strikethrough; task lists match the page", async () => {
+    const text = await copyOf("<pre>line one\n  line two</pre>\n\n~~not this~~ but this\n\n- [x] done\n- [ ] todo");
+    expect(text).toContain("```\nline one\n  line two\n```");
+    expect(text).toContain("~~not this~~");
+    // The sanitizer removes <input>, so the page shows no checkboxes; neither does the copy.
+    expect(text).toMatch(/-\s+done/);
+  });
+});
