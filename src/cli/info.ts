@@ -38,8 +38,8 @@ export function frameworkInfo(cli: CAC, version: string) {
     },
     generatedFiles: ["robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt (opt-in)", "404.html", "redirect pages", "<indexnow-key>.txt (opt-in)", "_redirects (cloudflare-pages target)"],
     environment: {
-      PAGESPEED_API_KEY: "optional; PageSpeed Insights quota for `vage audit --url`",
-      CRUX_API_KEY: "optional; CrUX field data for `vage audit --url` (falls back to PAGESPEED_API_KEY)",
+      PAGESPEED_API_KEY: "your own key; required for `vage audit --url` (or save it with `vage connect pagespeed`)",
+      CRUX_API_KEY: "your own key; CrUX field data for `vage audit --url` (falls back to the PageSpeed key; or `vage connect crux`)",
       GOOGLE_OAUTH_CLIENT_ID: "required for `vage connect`; Google Cloud OAuth client of type Desktop app",
       GOOGLE_OAUTH_CLIENT_SECRET: "optional; the Desktop client's secret",
       VAGE_CONFIG_DIR: "optional; where the Google token is stored (default: OS user config dir)",

@@ -102,7 +102,14 @@ cli
       // Loaded lazily: jsdom and axe are only needed for audits.
       const { audit } = await import("../audit/audit.js");
       const { kbText } = await import("../audit/budgets.js");
-      const result = await audit(opts.root, { url: opts.url, lighthouse: opts.lighthouse, strict: opts.strict, strategies: [...strategies] });
+      const interactive = Boolean(process.stdin.isTTY && !opts.json);
+      const result = await audit(opts.root, {
+        url: opts.url,
+        lighthouse: opts.lighthouse,
+        strict: opts.strict,
+        strategies: [...strategies],
+        askForKey: interactive ? askForApiKey : undefined,
+      });
       if (opts.json) print(result);
       else {
         for (const p of result.pages) {
@@ -235,12 +242,18 @@ const OAUTH_SETUP = `Set GOOGLE_OAUTH_CLIENT_ID (and GOOGLE_OAUTH_CLIENT_SECRET)
 Keep these in your shell or a git-ignored .env, never in vage.config.ts.`;
 
 cli
-  .command("connect <service>", "Connect Google Search Console (gsc) or Analytics (ga4) with read-only OAuth")
+  .command("connect <service>", "Connect Search Console (gsc) or Analytics (ga4) via OAuth, or save your own PageSpeed / CrUX API key (pagespeed, crux)")
   .option("--no-open", "Print the consent URL instead of opening a browser")
   .option("--json", "Print machine-readable JSON")
   .action((service: string, opts: { open: boolean; json?: boolean }) =>
     run(opts, async () => {
-      if (service !== "gsc" && service !== "ga4") throw new VageError(`Unknown service "${service}". Use "gsc" or "ga4".`);
+      if (service === "pagespeed" || service === "crux") {
+        if (!process.stdin.isTTY) throw new VageError(`Run this in a terminal, or set ${(await import("../integrations/api-keys.js")).API_KEYS[service].env} in your environment instead.`);
+        const saved = await askForApiKey(service, { alwaysSave: true });
+        if (opts.json) return print({ ok: Boolean(saved), service });
+        return console.log(saved ? "Saved. `vage audit --url` will use this key." : "Nothing saved.");
+      }
+      if (service !== "gsc" && service !== "ga4") throw new VageError(`Unknown service "${service}". Use gsc, ga4, pagespeed or crux.`);
       const google = await import("../integrations/google-auth.js");
       const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
       if (!clientId) throw new VageError(`GOOGLE_OAUTH_CLIENT_ID is not set.\n${OAUTH_SETUP}`);
@@ -274,11 +287,17 @@ cli
   );
 
 cli
-  .command("disconnect <provider>", "Revoke and delete the stored Google connection (provider: google)")
+  .command("disconnect <provider>", "Remove a stored connection: google (revokes OAuth), pagespeed or crux (saved API key)")
   .option("--json", "Print machine-readable JSON")
   .action((provider: string, opts: { json?: boolean }) =>
     run(opts, async () => {
-      if (provider !== "google") throw new VageError(`Unknown provider "${provider}". Use "google".`);
+      if (provider === "pagespeed" || provider === "crux") {
+        const { removeApiKey } = await import("../integrations/api-keys.js");
+        const removed = removeApiKey(provider);
+        if (opts.json) return print({ ok: true, removed });
+        return console.log(removed ? `Removed the saved ${provider} key. (Also revoke it in Google Cloud Console if it is no longer needed.)` : `No saved ${provider} key.`);
+      }
+      if (provider !== "google") throw new VageError(`Unknown provider "${provider}". Use google, pagespeed or crux.`);
       const { disconnectGoogle } = await import("../integrations/google-auth.js");
       const result = await disconnectGoogle();
       if (opts.json) return print({ ok: true, ...result });
@@ -502,6 +521,57 @@ function reportPublish(result: import("../deploy/publish.js").PublishResult) {
 
 function print(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
+}
+
+/** Asks for the user's own API key (hidden input), optionally saving it outside the project. */
+async function askForApiKey(name: "pagespeed" | "crux", opts: { alwaysSave?: boolean } = {}): Promise<string | undefined> {
+  const { API_KEYS, saveApiKey } = await import("../integrations/api-keys.js");
+  const k = API_KEYS[name];
+  console.log(`\n${k.label} uses your own Google Cloud API key (VAGE JS has no shared key).\nGet one: ${k.howTo}`);
+  const key = (await askHidden(`Paste your ${name} API key (input hidden, Enter to skip): `)).trim();
+  if (!key) return undefined;
+  let save = opts.alwaysSave ?? false;
+  if (!save) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      save = !/^n(o)?$/i.test((await rl.question("Save it for future audits, outside this project? [Y/n] ")).trim());
+    } finally {
+      rl.close();
+    }
+  }
+  if (save) console.log(`Saved to ${saveApiKey(name, key)} (mode 600).`);
+  return key;
+}
+
+function askHidden(question: string): Promise<string> {
+  const stdin = process.stdin;
+  process.stdout.write(question);
+  stdin.setRawMode(true);
+  stdin.resume();
+  stdin.setEncoding("utf8");
+  return new Promise((resolve, reject) => {
+    let value = "";
+    const done = () => {
+      stdin.off("data", onData);
+      stdin.setRawMode(false);
+      stdin.pause();
+      process.stdout.write("\n");
+    };
+    const onData = (chunk: string) => {
+      for (const ch of chunk) {
+        if (ch === "\r" || ch === "\n") {
+          done();
+          return resolve(value);
+        }
+        if (ch === "\u0003") {
+          done();
+          return reject(new VageError("Cancelled."));
+        }
+        value = ch === "\u007f" || ch === "\b" ? value.slice(0, -1) : value + ch;
+      }
+    };
+    stdin.on("data", onData);
+  });
 }
 
 function openBrowser(url: string) {

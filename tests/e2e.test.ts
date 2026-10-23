@@ -129,11 +129,16 @@ describe("vage CLI (packed package)", () => {
   });
 
   it("explains missing Google setup without network calls", () => {
-    const env = { ...process.env, GOOGLE_OAUTH_CLIENT_ID: "", VAGE_CONFIG_DIR: path.join(work, "cfg") };
+    const env = { ...process.env, GOOGLE_OAUTH_CLIENT_ID: "", PAGESPEED_API_KEY: "", CRUX_API_KEY: "", VAGE_CONFIG_DIR: path.join(work, "cfg") };
     const run = (args: string[]) => spawnSync(process.execPath, [CLI, ...args], { cwd: work, encoding: "utf8", env });
     expect(run(["connect", "gsc"]).stderr).toMatch(/GOOGLE_OAUTH_CLIENT_ID is not set[\s\S]*Desktop app/);
     expect(run(["report", "search", "--property", "sc-domain:x.example"]).stderr).toMatch(/Not connected to Google. Run "vage connect gsc"/);
     expect(run(["disconnect", "google"]).stdout).toMatch(/No Google connection was stored/);
+    // Audits never fall back to a shared/keyless PageSpeed call; non-interactive runs explain how to add the user's key.
+    const audit = run(["audit", "--url", "https://example.com/", "--json"]);
+    expect(audit.status).toBe(1);
+    expect(JSON.parse(audit.stdout).findings[0].message).toMatch(/needs your own API key/);
+    expect(run(["connect", "pagespeed"]).stderr).toMatch(/set PAGESPEED_API_KEY/);
   });
 
   it("guards outward integrations behind configuration", () => {

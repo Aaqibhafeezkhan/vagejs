@@ -95,7 +95,7 @@ From the published pages and config (never from `public/`; a hand-written `publi
 Budgets live in `vage.config.ts` under `performance.budgets` (Lighthouse scores and per-page KB/requests). They are starting points, not standards.
 Budget misses and lab scores are warnings (`--strict` fails on them). axe violations of serious/critical impact are errors.
 Lab results (Lighthouse, PageSpeed) are simulated and vary between runs; field data (CrUX, real users at p75) is what Google's Core Web Vitals assessment uses, and is missing for low-traffic sites.
-Never put API keys in `vage.config.ts`; use environment variables (`PAGESPEED_API_KEY`, `CRUX_API_KEY`).
+`vage audit --url` uses the **site owner's own** Google Cloud API keys; VAGE JS has none of its own and never calls PageSpeed without a key. Keys come from `PAGESPEED_API_KEY` / `CRUX_API_KEY`, or are saved by the owner with `npx vage connect pagespeed` / `crux` (stored outside the project). Never ask for, print, or commit a key; never put one in `vage.config.ts`.
 
 ## Publishing and deployment
 

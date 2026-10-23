@@ -9,9 +9,11 @@ import { runLighthouse } from "../src/audit/lighthouse.js";
 import { cruxField, pageSpeed, redact } from "../src/audit/remote.js";
 import { rate } from "../src/audit/vitals.js";
 import { parseConfig } from "../src/core/config.js";
+import { removeApiKey, resolveApiKey, saveApiKey } from "../src/integrations/api-keys.js";
 import { copyFixture, write } from "./helpers.js";
 
-const KEY = "AIzaTEST-secret-key";
+const KEY = "AIzaTEST-secret-key-0123456789";
+const tmpConfig = () => fs.mkdtempSync(path.join(os.tmpdir(), "vage-keys-"));
 const budgets = parseConfig({}).performance.budgets;
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const noSleep = async () => {};
@@ -202,7 +204,7 @@ describe("vage audit", () => {
     const result = await audit(copyFixture(), {
       url: "https://site.example/",
       strategies: ["mobile"],
-      env: { PAGESPEED_API_KEY: KEY },
+      env: { PAGESPEED_API_KEY: KEY, VAGE_CONFIG_DIR: tmpConfig() },
       remote: { fetch, sleep: noSleep },
     });
     expect(result.findings.map((f) => f.message)).toEqual([
@@ -215,11 +217,46 @@ describe("vage audit", () => {
   });
 
   it("treats API outages as warnings unless --strict", async () => {
-    const options = { url: "https://site.example/", strategies: ["mobile" as const], env: {}, remote: { fetch: async () => json(503, {}), sleep: noSleep } };
+    const fetch = async (u: string | URL | Request) => json(String(u).includes("pagespeedonline") ? 503 : 404, {});
+    const options = { url: "https://site.example/", strategies: ["mobile" as const], env: { PAGESPEED_API_KEY: KEY, VAGE_CONFIG_DIR: tmpConfig() }, remote: { fetch, sleep: noSleep } };
     const relaxed = await audit(copyFixture(), options);
-    expect(relaxed).toMatchObject({ ok: true, warnings: 1 });
-    expect(relaxed.notes.join(" ")).toMatch(/set CRUX_API_KEY/);
+    expect(relaxed).toMatchObject({ ok: true, errors: 0, warnings: 1 });
     expect(await audit(copyFixture(), { ...options, strict: true })).toMatchObject({ ok: false, errors: 1 });
+  });
+
+  it("uses only the user's own key: no keyless calls, asks when interactive", async () => {
+    const fetch = vi.fn(async () => json(200, lhr({ performance: 1 })));
+    const base = { url: "https://site.example/", strategies: ["mobile" as const], remote: { fetch, sleep: noSleep } };
+
+    const none = await audit(copyFixture(), { ...base, env: { VAGE_CONFIG_DIR: tmpConfig() } });
+    expect(none.findings[0]).toMatchObject({ rule: "pagespeed", severity: "error", message: expect.stringMatching(/needs your own API key. Set PAGESPEED_API_KEY, or save one with "vage connect pagespeed"/) });
+    expect(none.ok).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(none.notes.join(" ")).toMatch(/No field data. Chrome UX Report \(CrUX\) API needs your own API key/);
+
+    const askForKey = vi.fn(async (name: string) => (name === "pagespeed" ? KEY : undefined));
+    const asked = await audit(copyFixture(), { ...base, env: { VAGE_CONFIG_DIR: tmpConfig() }, askForKey });
+    expect(askForKey).toHaveBeenCalledWith("pagespeed");
+    expect(asked.lab).toHaveLength(1);
+    expect((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].headers).toMatchObject({ "x-goog-api-key": KEY });
+  });
+});
+
+describe("user API keys", () => {
+  it("prefers the environment, then the saved key; stores privately outside the project", () => {
+    const env = { VAGE_CONFIG_DIR: tmpConfig() };
+    expect(resolveApiKey("pagespeed", env)).toBeUndefined();
+    const file = saveApiKey("pagespeed", ` ${KEY} `, env);
+    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    expect(resolveApiKey("pagespeed", env)).toBe(KEY);
+    expect(resolveApiKey("pagespeed", { ...env, PAGESPEED_API_KEY: "AIzaFROM-ENVIRONMENT-123456" })).toBe("AIzaFROM-ENVIRONMENT-123456");
+    expect(resolveApiKey("crux", env)).toBeUndefined();
+    expect(removeApiKey("pagespeed", env)).toBe(true);
+    expect(fs.existsSync(file)).toBe(false);
+  });
+
+  it("rejects values that are not API keys", () => {
+    expect(() => saveApiKey("crux", "not a key", { VAGE_CONFIG_DIR: tmpConfig() })).toThrow(/doesn't look like a Google API key/);
   });
 
   it("explains how to install Lighthouse when it is missing", async () => {

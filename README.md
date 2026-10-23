@@ -17,6 +17,7 @@ vage deploy        [--remote URL] [--no-wait] [--dry-run] [--yes] # GitHub Pages
 vage deploy --target cloudflare-pages --project NAME [--branch B] # Wrangler upload; preview URL per branch
 vage indexnow --changed-since REF | --urls … | --all              # IndexNow URL notification (asks first)
 vage connect gsc|ga4 / vage disconnect google      # read-only Google OAuth (PKCE, loopback); token outside the repo
+vage connect pagespeed|crux / vage disconnect …   # save your own Google API key for audit --url (outside the repo)
 vage report search|analytics [--days N] [--json]  # Search Console top queries/pages; GA4 top pages
 vage guidelines [--json]                          # rule pack: provider facts in use, sources, changelog
 vage info     [--json]                            # commands + config/frontmatter JSON Schemas for agents
@@ -54,4 +55,4 @@ Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-la
 
 ## License
 
-MIT
+MIT © 2026 vagejs.com

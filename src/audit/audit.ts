@@ -4,6 +4,7 @@ import type { Finding } from "../checks/check.js";
 import { buildSite } from "../core/build.js";
 import type { SiteConfig } from "../core/config.js";
 import { loadProjectConfig } from "../core/project-config.js";
+import { missingKeyMessage, resolveApiKey, type ApiKeyName } from "../integrations/api-keys.js";
 import { VageError } from "../core/errors.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { auditAccessibility } from "./a11y.js";
@@ -22,6 +23,8 @@ export interface AuditOptions {
   strategies?: Strategy[];
   env?: Record<string, string | undefined>;
   remote?: RemoteOptions;
+  /** Asks the user for their own key when none is configured (interactive CLI only). */
+  askForKey?: (name: ApiKeyName) => Promise<string | undefined>;
 }
 
 export interface AuditResult {
@@ -104,20 +107,27 @@ async function auditUrl(root: string, url: string, strategies: Strategy[], optio
   const failure = (rule: string, err: unknown) =>
     findings.push({ rule, severity: options.strict ? "error" : "warning", message: (err as Error).message });
 
-  const psiKey = env.PAGESPEED_API_KEY;
-  if (!psiKey) notes.push("PAGESPEED_API_KEY is not set; PageSpeed Insights works without a key but with low shared quota.");
-  for (const strategy of strategies) {
-    try {
-      lab.push(await pageSpeed(url, strategy, psiKey, options.remote));
-    } catch (err) {
-      failure("pagespeed", err);
+  // Always the user's own keys: never a shared or built-in key, and no keyless fallback.
+  const keyFor = async (name: ApiKeyName) => resolveApiKey(name, env) ?? (await options.askForKey?.(name));
+
+  const psiKey = await keyFor("pagespeed");
+  if (!psiKey) {
+    findings.push({ rule: "pagespeed", severity: "error", message: missingKeyMessage("pagespeed") });
+  } else {
+    for (const strategy of strategies) {
+      try {
+        lab.push(await pageSpeed(url, strategy, psiKey, options.remote));
+      } catch (err) {
+        failure("pagespeed", err);
+      }
     }
   }
   findings.push(...scoreFindings(lab, site));
 
-  const cruxKey = env.CRUX_API_KEY ?? psiKey;
+  // One Google Cloud key can enable both APIs, so the PageSpeed key is tried for CrUX too.
+  const cruxKey = resolveApiKey("crux", env) ?? psiKey ?? (await options.askForKey?.("crux"));
   if (!cruxKey) {
-    notes.push("No field data: set CRUX_API_KEY (a Google Cloud API key with the Chrome UX Report API enabled).");
+    notes.push(`No field data. ${missingKeyMessage("crux")}`);
   } else {
     for (const strategy of strategies) {
       try {
