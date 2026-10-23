@@ -203,13 +203,21 @@ export const configSchema = z.strictObject({
   performance: performanceSchema.default(() => performanceSchema.parse({})),
   deploy: z
     .strictObject({
-      target: z.enum(["github-pages", "cloudflare-pages"]).default("github-pages").describe("Host used by `vage deploy`."),
+      target: z
+        .enum(["github-pages", "cloudflare-pages", "cloudflare-workers"])
+        .default("github-pages")
+        .describe("Host used by `vage deploy`. Cloudflare now creates new sites as Workers: prefer cloudflare-workers there."),
       cloudflareProject: z.string().regex(/^[a-z0-9][a-z0-9-]{0,57}$/).optional().describe("Cloudflare Pages project name."),
+      cloudflareWorker: z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9-]{0,62}$/)
+        .optional()
+        .describe("Cloudflare Worker name (cloudflare-workers target, when the project has no wrangler config). Defaults to cloudflareProject."),
     })
     .default({ target: "github-pages" }),
   security: z
     .strictObject({
-      headers: z.boolean().default(true).describe("Write a _headers file with security headers (Cloudflare Pages target)."),
+      headers: z.boolean().default(true).describe("Write a _headers file with security headers (Cloudflare targets)."),
       csp: z
         .enum(["enforce", "report-only", "off"])
         .default("enforce")

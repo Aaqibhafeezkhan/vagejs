@@ -118,8 +118,10 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
   }
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);
-  if (site.deploy.target === "cloudflare-pages" && model.redirects.length) generate("_redirects", () => cloudflareRedirects(model.redirects));
-  if (site.deploy.target === "cloudflare-pages" && site.security.headers) {
+  // Cloudflare Pages and Workers static assets both read _redirects and _headers.
+  const cloudflare = site.deploy.target === "cloudflare-pages" || site.deploy.target === "cloudflare-workers";
+  if (cloudflare && model.redirects.length) generate("_redirects", () => cloudflareRedirects(model.redirects));
+  if (cloudflare && site.security.headers) {
     const html = [...model.pages, ...(model.notFound ? [model.notFound] : []), ...model.redirects].map((p) => p.html);
     generate("_headers", () => headersFile(html, site));
   }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 import { cac } from "cac";
 import { check, type Finding } from "../checks/check.js";
@@ -190,10 +191,10 @@ cli
   );
 
 cli
-  .command("deploy", "Deploy: GitHub Pages (workflow + push, waits for GitHub) or Cloudflare Pages (wrangler upload, preview URL per branch)")
+  .command("deploy", "Deploy: GitHub Pages (workflow + push, waits for GitHub), Cloudflare Workers (new version, no downtime) or Cloudflare Pages")
   .option("--root <dir>", "Project root", { default: "." })
-  .option("--target <host>", "github-pages or cloudflare-pages (default: deploy.target in config)")
-  .option("--project <name>", "Cloudflare Pages project (default: deploy.cloudflareProject)")
+  .option("--target <host>", "github-pages, cloudflare-workers or cloudflare-pages (default: deploy.target in config)")
+  .option("--project <name>", "Cloudflare Pages project or Worker name (default: deploy.cloudflareProject / cloudflareWorker)")
   .option("--remote <url>", "Git URL to add as origin if there is none")
   .option("--branch <name>", "Branch for a new repository (default: main)")
   .option("-m, --message <msg>", "Commit message")
@@ -207,7 +208,8 @@ cli
       const config = await loadProjectConfig(path.resolve(opts.root));
       const target = opts.target ?? config.deploy.target;
       if (target === "cloudflare-pages") return deployToCloudflare(opts, config.deploy.cloudflareProject);
-      if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages or cloudflare-pages.`);
+      if (target === "cloudflare-workers") return deployToWorkers(opts, config.deploy.cloudflareWorker ?? config.deploy.cloudflareProject, config.site);
+      if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages, cloudflare-workers or cloudflare-pages.`);
       const { publish } = await import("../deploy/publish.js");
       const pages = await import("../deploy/github-pages.js");
       const result = await publish(opts.root, {
@@ -481,6 +483,37 @@ async function deployToCloudflare(opts: PublishFlags & { project?: string }, con
   const deployment = await deployCloudflarePages(root, { project, branch, commit });
   if (opts.json) print({ ok: deployment.status !== "failure", target: "cloudflare-pages", project, deployment });
   else if (deployment.status === "success") console.log(`Deployed and verified: ${deployment.deploymentUrl} (branch ${branch})`);
+  else console.log(`Deployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}`);
+  if (deployment.status === "failure") process.exit(1);
+}
+
+async function deployToWorkers(opts: PublishFlags & { project?: string }, configuredWorker: string | undefined, siteUrl: string | undefined) {
+  const root = path.resolve(opts.root);
+  const { deployCloudflareWorkers, WRANGLER_CONFIGS } = await import("../deploy/cloudflare-workers.js");
+  const { WRANGLER } = await import("../deploy/cloudflare-pages.js");
+  const own = WRANGLER_CONFIGS.find((f) => fs.existsSync(path.join(root, f)));
+  const worker = opts.project ?? configuredWorker;
+  if (!own && !worker) throw new VageError("No Worker name. Pass --project <name>, set deploy.cloudflareWorker, or add a wrangler.jsonc.");
+  if (worker) assertCloudflareProject(worker);
+  const { check } = await import("../checks/check.js");
+  const checked = await check(root);
+  if (checked.errors) throw new VageError(`vage check found ${checked.errors} error(s). Fix them before deploying.`);
+  const result = await build(root);
+  const name = worker ?? `(name from ${own})`;
+
+  const lines = [
+    `Deploy plan (Cloudflare Workers)`,
+    `  • upload ${result.outDir} (${result.pages.length} page(s), ${result.files.length} generated file(s)) to Worker ${name}`,
+    own ? `  • uses ${own} (routes and custom domains stay as they are)` : "  • no wrangler config: a temporary one points the Worker at dist/",
+    `  • runs: npx ${WRANGLER} versions upload, then versions deploy <version>@100% (a brand-new Worker gets wrangler deploy once)`,
+  ];
+  if (!(await askConfirm(lines, opts))) {
+    if (opts.dryRun) return opts.json ? print({ ok: true, dryRun: true, target: "cloudflare-workers", worker: name }) : console.log("Dry run: nothing deployed.");
+    return opts.json ? print({ ok: false, status: "aborted" }) : console.log("Nothing deployed.");
+  }
+  const deployment = await deployCloudflareWorkers(root, { worker: name, siteUrl });
+  if (opts.json) print({ ok: deployment.status !== "failure", target: "cloudflare-workers", deployment });
+  else if (deployment.status === "success") console.log(`Deployed and verified: ${deployment.pageUrl} (${deployment.mode === "first-deploy" ? "first deploy" : `version ${deployment.versionId}`})`);
   else console.log(`Deployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}`);
   if (deployment.status === "failure") process.exit(1);
 }

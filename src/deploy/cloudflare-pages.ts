@@ -26,7 +26,9 @@ export async function deployCloudflarePages(
   if (res.code !== 0) {
     const auth = /auth|login|token|unauthori[sz]ed|10000/i.test(output)
       ? " Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, or run `npx wrangler login`."
-      : "";
+      : /pages_build_output_dir|project not found|delegat|Workers/i.test(output)
+        ? ' Cloudflare now creates new sites as Workers rather than Pages projects. Set deploy.target to "cloudflare-workers" in vage.config.ts and run vage deploy again.'
+        : "";
     return { status: "failure", branch: options.branch, reason: `wrangler failed (exit ${res.code}).${auth}\n${tail(output)}` };
   }
   const deploymentUrl = output.match(/https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.pages\.dev/gi)?.at(-1);
