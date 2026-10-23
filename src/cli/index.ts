@@ -7,6 +7,7 @@ import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
 import { startDevServer } from "../dev/server.js";
 import { startPreviewServer } from "../dev/preview.js";
+import { createInterface } from "node:readline/promises";
 import { createProject } from "./create.js";
 import { frameworkInfo } from "./info.js";
 
@@ -152,6 +153,74 @@ cli
     }),
   );
 
+interface PublishFlags extends CommonOptions {
+  remote?: string;
+  branch?: string;
+  message?: string;
+  yes?: boolean;
+  dryRun?: boolean;
+}
+
+cli
+  .command("deploy:github", "Check, build, then safely commit and push the project to GitHub (asks first)")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--remote <url>", "Git URL to add as origin if there is none")
+  .option("--branch <name>", "Branch for a new repository (default: main); must match the current branch otherwise")
+  .option("-m, --message <msg>", "Commit message")
+  .option("--dry-run", "Run check + build and show the plan; no git changes")
+  .option("--yes", "Skip the confirmation prompt")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: PublishFlags) =>
+    run(opts, async () => {
+      const { publish } = await import("../deploy/publish.js");
+      const result = await publish(opts.root, { ...opts, confirm: (plan) => confirmPlan(plan, opts) });
+      if (opts.dryRun) return opts.json ? print({ ok: true, dryRun: true, plan: result.plan }) : console.log("Dry run: nothing changed.");
+      if (opts.json) return print({ ok: result.status !== "aborted", ...result });
+      reportPublish(result);
+    }),
+  );
+
+cli
+  .command("deploy", "Deploy to GitHub Pages: adds the deploy workflow, publishes, and waits for GitHub to confirm")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--remote <url>", "Git URL to add as origin if there is none")
+  .option("--branch <name>", "Branch for a new repository (default: main)")
+  .option("-m, --message <msg>", "Commit message")
+  .option("--no-wait", "Don't wait for the GitHub Actions deploy run")
+  .option("--dry-run", "Run check + build and show the plan; no git changes")
+  .option("--yes", "Skip the confirmation prompt")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: PublishFlags & { wait: boolean }) =>
+    run(opts, async () => {
+      const { publish } = await import("../deploy/publish.js");
+      const pages = await import("../deploy/github-pages.js");
+      const result = await publish(opts.root, {
+        ...opts,
+        extraFiles: (branch) => ({ [pages.PAGES_WORKFLOW]: pages.pagesWorkflow(branch) }),
+        confirm: (plan) => confirmPlan(plan, opts, "Then enable GitHub Pages (source: GitHub Actions) via gh if needed, and wait for the deploy run."),
+      });
+      if (opts.dryRun) return opts.json ? print({ ok: true, dryRun: true, plan: result.plan }) : console.log("Dry run: nothing changed.");
+      if (result.status !== "published") {
+        if (opts.json) return print({ ok: result.status !== "aborted", ...result, deployment: { status: "unconfirmed", reason: `Nothing was pushed (${result.status}).` } });
+        reportPublish(result);
+        if (result.status === "committed") console.log("Not deployed: there is no remote. Pass --remote <git-url>.");
+        return;
+      }
+      if (!opts.json) reportPublish(result);
+      const enabled = await pages.ensurePagesEnabled(result.plan.root);
+      const deployment =
+        typeof enabled === "object"
+          ? { status: "unconfirmed" as const, reason: enabled.manual }
+          : opts.wait
+            ? await pages.confirmPagesDeployment(result.plan.root, result.commit!)
+            : { status: "unconfirmed" as const, reason: "Not waiting (--no-wait); the deploy runs in GitHub Actions." };
+      if (opts.json) return print({ ok: deployment.status !== "failure", ...result, deployment });
+      if (deployment.status === "success") console.log(`\nDeployed: ${deployment.pageUrl ?? "(Pages URL unavailable)"}\nRun: ${deployment.runUrl}`);
+      else console.log(`\nDeployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}${deployment.runUrl ? `\nRun: ${deployment.runUrl}` : ""}`);
+      if (deployment.status === "failure") process.exit(1);
+    }),
+  );
+
 cli.help();
 cli.version(version);
 
@@ -189,6 +258,39 @@ function printFindings(findings: Finding[]) {
     const where = f.page ? `${f.page}${f.source ? ` (${f.source})` : ""}` : (f.source ?? "site");
     console.log(`${f.severity === "error" ? "error  " : "warning"} ${f.rule.padEnd(22)} ${where}\n        ${f.message}${f.docs ? `\n        see ${f.docs}` : ""}`);
   }
+}
+
+type Plan = import("../deploy/publish.js").PublishPlan;
+
+async function confirmPlan(plan: Plan, opts: PublishFlags, extra?: string): Promise<boolean> {
+  if (!opts.json || opts.dryRun) {
+    const out = opts.json ? console.error : console.log;
+    out(`Publish plan for ${plan.root}`);
+    if (plan.initRepo) out(`  • git init (branch ${plan.branch})`);
+    if (plan.addRemote) out(`  • add origin ${plan.remote}`);
+    out(`  • commit ${plan.files.length} file(s) on ${plan.branch}: "${plan.message}"`);
+    for (const f of plan.files) out(`      ${f.status} ${f.path}`);
+    out(plan.remote ? `  • push to ${plan.remote} (${plan.branch}); never forced` : "  • no push (no remote)");
+    if (extra) out(`  • ${extra}`);
+    for (const w of plan.warnings) out(`  ! ${w}`);
+  }
+  if (opts.dryRun) return false;
+  if (opts.yes) return true;
+  if (!process.stdin.isTTY) throw new VageError("Confirmation required. Review the plan with --dry-run, then re-run with --yes.");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return /^y(es)?$/i.test((await rl.question("Proceed? [y/N] ")).trim());
+  } finally {
+    rl.close();
+  }
+}
+
+function reportPublish(result: import("../deploy/publish.js").PublishResult) {
+  if (result.status === "aborted") return console.log("Nothing changed.");
+  if (result.status === "up-to-date") return console.log("Nothing to publish: no changes and the remote is up to date.");
+  if (result.status === "committed") return console.log(`Committed ${result.commit!.slice(0, 7)} locally (no remote).`);
+  const r = result.confirmedRemote!;
+  console.log(`Pushed ${r.sha.slice(0, 7)} to ${r.url} (${r.branch}); confirmed on the remote.`);
 }
 
 function print(value: unknown) {

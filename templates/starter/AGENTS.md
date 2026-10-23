@@ -97,9 +97,20 @@ Budget misses and lab scores are warnings (`--strict` fails on them). axe violat
 Lab results (Lighthouse, PageSpeed) are simulated and vary between runs; field data (CrUX, real users at p75) is what Google's Core Web Vitals assessment uses, and is missing for low-traffic sites.
 Never put API keys in `vage.config.ts`; use environment variables (`PAGESPEED_API_KEY`, `CRUX_API_KEY`).
 
+## Publishing and deployment
+
+Always ask the site owner before publishing or deploying. Show them the plan first:
+
+- `npx vage deploy:github --dry-run`: runs check + build and lists exactly what would be committed and pushed.
+- `npx vage deploy:github --remote <git-url>`: commits and pushes after confirmation (`--yes` skips the prompt; use only with the owner's approval). Refuses secrets (`.env`, keys, token-like strings), `dist/`, `node_modules/`, and never force-pushes. If the push is rejected, pull/rebase manually.
+- `npx vage deploy`: GitHub Pages. Adds `.github/workflows/deploy.yml` (if missing), publishes, enables Pages via `gh` if needed, then waits for the Actions run. It says "deployed" only when GitHub reports success.
+
+GitHub Pages needs a custom domain or a `<user>.github.io` repository, because VAGE JS does not support base paths yet.
+`.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
+
 ## Not implemented yet
 
-Analytics, Search Console, GitHub publishing, deployment. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Analytics, Search Console, other hosting providers (Cloudflare, Netlify, Vercel), per-PR preview deployments. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Safety
 

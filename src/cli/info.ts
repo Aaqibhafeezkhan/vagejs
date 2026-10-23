@@ -43,7 +43,8 @@ export function frameworkInfo(cli: CAC, version: string) {
     },
     notImplemented: [
       "analytics and Search Console integrations",
-      "GitHub publishing and deployment",
+      "hosting providers other than GitHub Pages",
+      "per-PR preview deployments",
       "MCP server",
     ],
   };

@@ -43,6 +43,7 @@ describe("vage CLI (packed package)", () => {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }
     expect(fs.readFileSync(path.join(site, "dist", "index.html"), "utf8")).toContain("<title>Home | My Website</title>");
+    expect(fs.existsSync(path.join(site, ".github/workflows/ci.yml")), "starter CI survives npm pack").toBe(true);
     for (const file of ["robots.txt", "sitemap.xml", "llms.txt"]) {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }
@@ -91,6 +92,25 @@ describe("vage CLI (packed package)", () => {
     expect(fs.readFileSync(path.join(site, "dist/llms.txt"), "utf8")).toContain("- [Services](https://example.com/services/): What we offer.");
   }, 120_000);
 
+  it("never publishes without confirmation", () => {
+    const site = path.join(work, "site");
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: os.devNull, GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.invalid" };
+    const npx = (args: string[]) => spawnSync("npx", ["vage", ...args], { cwd: site, encoding: "utf8", env, stdio: ["ignore", "pipe", "pipe"] });
+
+    const dry = npx(["deploy:github", "--dry-run", "--json"]);
+    expect(dry.status).toBe(0);
+    const out = JSON.parse(dry.stdout);
+    expect(out).toMatchObject({ ok: true, dryRun: true });
+    expect(out.plan.files.map((f: { path: string }) => f.path)).toContain("package-lock.json");
+    expect(out.plan.files.some((f: { path: string }) => /^(dist|node_modules)\//.test(f.path))).toBe(false);
+
+    // stdin is not a TTY here, so without --yes it must refuse.
+    const refused = npx(["deploy:github"]);
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toMatch(/Confirmation required/);
+    expect(fs.existsSync(path.join(site, ".git"))).toBe(false);
+  }, 120_000);
+
   it("returns non-zero with a JSON error for failures", () => {
     const res = vage(["build", "--root", path.join(work, "missing"), "--json"], work);
     expect(res.status).toBe(1);
@@ -104,14 +124,14 @@ describe("vage CLI (packed package)", () => {
   });
 
   it("rejects unknown commands and invalid ports", () => {
-    expect(vage(["deploy"], work).stderr).toMatch(/Unknown command "deploy"/);
+    expect(vage(["frobnicate"], work).stderr).toMatch(/Unknown command "frobnicate"/);
     expect(vage(["dev", "--port", "abc"], work).stderr).toMatch(/Invalid port "abc"/);
   });
 
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
-    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info"]) expect(help.stdout).toContain(cmd);
+    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy"]) expect(help.stdout).toContain(cmd);
     expect(vage(["--version"], work).stdout).toContain("0.1.0");
   });
 });

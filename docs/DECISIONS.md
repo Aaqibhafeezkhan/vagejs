@@ -73,6 +73,20 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 - PageSpeed Insights live: the keyless call hit Google's shared daily quota (HTTP 429), which verified the error path only. The success path, the CrUX API and header-based key auth are tested against mocks of the documented response shapes, not live. Verify with a real key before relying on them.
 - CrUX "no data" is assumed to be HTTP 404 (not specified in the docs).
 
+## Phase 5: GitHub and deployment
+
+- **First hosting adapter: GitHub Pages via Actions.** It needs no extra hosting account or credentials, deploys from CI only after `vage check` + `vage build` pass, and uses the `github-pages` environment for protection rules. Constraint: VAGE JS has no base-path support, so it needs a custom domain or a `<user>.github.io` repo. Per GitHub's docs, Actions-based deploys ignore and don't need a `CNAME` file.
+- **Action versions** are pinned to the latest majors as of 2026-10-23 (checkout v7, setup-node v7, configure-pages v6, upload-pages-artifact v5, deploy-pages v5, upload-artifact v7). GitHub's docs page still shows older majors; release notes showed no breaking input changes for our usage.
+- **`vage deploy:github`** (Git CLI, no API tokens): check + build, plan (files honoring .gitignore, computed with a throwaway git dir for new repos so nothing is touched), confirmation (TTY prompt, `--yes`, or `--dry-run`; non-TTY without `--yes` refuses), commit, push without force, then `git ls-remote` to confirm the remote head equals our commit.
+- **Guards**: refuses files that look like secrets (by name and well-known token formats; values are never printed), `dist/` and `node_modules/`; re-verifies the staged set against the shown plan; won't change an existing origin or switch branches; rejected pushes keep the local commit and explain `git pull --rebase`.
+- **`vage deploy`** adds `.github/workflows/deploy.yml` if missing (never overwrites), publishes, enables Pages (`build_type=workflow`) through `gh` when needed, and waits for the run with `gh run watch`. It reports success only when GitHub reports the run succeeded; without `gh`, or with `--no-wait`, the result is "unconfirmed".
+- **Previews**: GitHub Pages has no per-PR preview deployments. The starter CI uploads `dist/` as a downloadable artifact instead. Real preview URLs need another adapter (Cloudflare Pages / Netlify), planned for Phase 8.
+
+### Phase 5 verification status
+
+- Git flow: tested end to end against local bare repos (new repo, declined plan, no remote, rejected push, secrets, ignored output, origin/branch guards).
+- GitHub Pages: workflow generation is unit-tested, and the `gh` interactions are tested with a fake runner. **Not run against GitHub**: that requires pushing to a real repository, which needs the owner's explicit approval.
+
 ## Not implemented (planned in later phases)
 
-Analytics, Search Console, GitHub publishing, deployment, MCP server.
+Analytics, Search Console, hosting adapters beyond GitHub Pages, MCP server.
