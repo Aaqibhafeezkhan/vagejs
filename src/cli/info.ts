@@ -40,9 +40,12 @@ export function frameworkInfo(cli: CAC, version: string) {
     environment: {
       PAGESPEED_API_KEY: "optional; PageSpeed Insights quota for `vage audit --url`",
       CRUX_API_KEY: "optional; CrUX field data for `vage audit --url` (falls back to PAGESPEED_API_KEY)",
+      GOOGLE_OAUTH_CLIENT_ID: "required for `vage connect`; Google Cloud OAuth client of type Desktop app",
+      GOOGLE_OAUTH_CLIENT_SECRET: "optional; the Desktop client's secret",
+      VAGE_CONFIG_DIR: "optional; where the Google token is stored (default: OS user config dir)",
     },
     notImplemented: [
-      "analytics and Search Console integrations",
+      "Bing Webmaster Tools, IndexNow, Clarity, Plausible",
       "hosting providers other than GitHub Pages",
       "per-PR preview deployments",
       "MCP server",

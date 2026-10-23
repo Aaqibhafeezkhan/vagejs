@@ -86,6 +86,64 @@ const performanceSchema = z.strictObject({
     .default({ enabled: false, pages: ["/"] }),
 });
 
+// GA4 naming rules: https://support.google.com/analytics/answer/13316687
+// Length limits (40 chars): https://support.google.com/analytics/answer/9267744
+const ga4Name = z
+  .string()
+  .max(40)
+  .regex(/^[A-Za-z][A-Za-z0-9_]*$/, "must start with a letter and use only letters, numbers and underscores");
+const ga4Param = ga4Name.refine((p) => !/^(_|firebase_|ga_|google_|gtag\.)/.test(p), "uses a reserved prefix");
+
+/** Event map whose keys are validated with GA4 naming rules (record keys alone give unhelpful errors). */
+const ga4Events = z.record(z.string(), z.strictObject({ params: z.array(ga4Param).default([]) })).superRefine((events, ctx) => {
+  for (const name of Object.keys(events)) {
+    const result = ga4Name.safeParse(name);
+    if (!result.success) ctx.addIssue({ code: "custom", path: [name], message: `event name "${name}" ${result.error.issues[0]!.message}` });
+  }
+});
+
+const consentDefault = z
+  .enum(["denied", "granted"])
+  .default("denied")
+  .describe("Consent mode default for analytics/ads storage before the visitor chooses. Your site provides the consent UI.");
+
+const integrationsSchema = z
+  .strictObject({
+    ga4: z
+      .strictObject({
+        measurementId: z
+          .string()
+          .regex(/^G-[A-Z0-9]+$/, 'must look like "G-XXXXXXX"')
+          .optional()
+          .describe("GA4 web stream measurement ID (public). Tags are added only when set, e.g. process.env.GA4_MEASUREMENT_ID."),
+        propertyId: z.string().regex(/^\d+$/, "must be the numeric GA4 property ID").optional().describe("Numeric property ID for `vage report analytics`."),
+        consentDefault,
+        events: ga4Events
+          .default({})
+          .describe('Allowed custom events for data-vage-event attributes, e.g. { signup_click: { params: ["plan"] } }.'),
+      })
+      .optional(),
+    gtm: z
+      .strictObject({
+        containerId: z.string().regex(/^GTM-[A-Z0-9]+$/, 'must look like "GTM-XXXXXX"').optional().describe("Google Tag Manager container ID."),
+        consentDefault,
+        events: ga4Events.default({}),
+      })
+      .optional(),
+    searchConsole: z
+      .strictObject({
+        property: z
+          .string()
+          .regex(/^(sc-domain:[^/\s]+|https?:\/\/\S+\/)$/, 'must be "sc-domain:example.com" or a URL prefix ending in "/"')
+          .optional()
+          .describe("Search Console property for `vage report search`."),
+      })
+      .optional(),
+  })
+  .refine((i) => !(i.ga4?.measurementId && i.gtm?.containerId), {
+    message: "Configure GA4 directly (ga4.measurementId) or through Tag Manager (gtm.containerId), not both: loading both double-counts.",
+  });
+
 export const configSchema = z.strictObject({
   site: z
     .url({ protocol: /^https?$/ })
@@ -98,6 +156,7 @@ export const configSchema = z.strictObject({
   lang: z.string().min(1).default("en").describe("<html lang> value."),
   seo: seoSchema.default(() => seoSchema.parse({})),
   performance: performanceSchema.default(() => performanceSchema.parse({})),
+  integrations: integrationsSchema.default({}).describe("Optional analytics and search integrations. All off unless configured."),
   redirects: z
     .record(urlPath, z.string().min(1))
     .default({})

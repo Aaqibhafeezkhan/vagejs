@@ -128,10 +128,18 @@ describe("vage CLI (packed package)", () => {
     expect(vage(["dev", "--port", "abc"], work).stderr).toMatch(/Invalid port "abc"/);
   });
 
+  it("explains missing Google setup without network calls", () => {
+    const env = { ...process.env, GOOGLE_OAUTH_CLIENT_ID: "", VAGE_CONFIG_DIR: path.join(work, "cfg") };
+    const run = (args: string[]) => spawnSync(process.execPath, [CLI, ...args], { cwd: work, encoding: "utf8", env });
+    expect(run(["connect", "gsc"]).stderr).toMatch(/GOOGLE_OAUTH_CLIENT_ID is not set[\s\S]*Desktop app/);
+    expect(run(["report", "search", "--property", "sc-domain:x.example"]).stderr).toMatch(/Not connected to Google. Run "vage connect gsc"/);
+    expect(run(["disconnect", "google"]).stdout).toMatch(/No Google connection was stored/);
+  });
+
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
-    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy"]) expect(help.stdout).toContain(cmd);
+    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy", "connect", "disconnect", "report"]) expect(help.stdout).toContain(cmd);
     expect(vage(["--version"], work).stdout).toContain("0.1.0");
   });
 });

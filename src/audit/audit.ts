@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Finding } from "../checks/check.js";
 import { buildSite } from "../core/build.js";
-import { findConfigFile, loadConfig, parseConfig, type SiteConfig } from "../core/config.js";
-import { createBuildLoader } from "../core/loader.js";
+import type { SiteConfig } from "../core/config.js";
+import { loadProjectConfig } from "../core/project-config.js";
 import { VageError } from "../core/errors.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { auditAccessibility } from "./a11y.js";
@@ -96,7 +96,7 @@ async function auditLocal(root: string, strategies: Strategy[], options: AuditOp
 async function auditUrl(root: string, url: string, strategies: Strategy[], options: AuditOptions): Promise<AuditParts> {
   if (!/^https?:\/\//.test(url)) throw new VageError(`--url must be an absolute http(s) URL, got "${url}".`);
   const env = options.env ?? process.env;
-  const site = await projectConfig(root);
+  const site = await loadProjectConfig(path.resolve(root));
   const findings: Finding[] = [];
   const notes: string[] = [];
   const lab: LabReport[] = [];
@@ -164,15 +164,4 @@ function scoreFindings(lab: LabReport[], site: SiteConfig): Finding[] {
     }
   }
   return findings;
-}
-
-/** Budgets for --url audits come from the project config when there is one. */
-async function projectConfig(root: string): Promise<SiteConfig> {
-  if (!findConfigFile(root)) return parseConfig({});
-  const loader = await createBuildLoader(root);
-  try {
-    return await loadConfig(root, loader.load);
-  } finally {
-    await loader.close();
-  }
 }

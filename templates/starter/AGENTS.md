@@ -108,9 +108,19 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 GitHub Pages needs a custom domain or a `<user>.github.io` repository, because VAGE JS does not support base paths yet.
 `.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
 
+## Analytics and search reports
+
+Off unless configured in `vage.config.ts` under `integrations`. Ask the site owner before adding analytics; it has privacy and consent implications.
+
+- **GA4** (`integrations.ga4.measurementId`) or **Tag Manager** (`integrations.gtm.containerId`): never both. Tags are added to production builds only (not `npm run dev`) and skip localhost.
+- **Consent**: `consentDefault` is `"denied"` unless changed. The site must provide its own consent UI that calls `window.vageConsent.update({ analytics_storage: "granted" })`.
+- **Events**: declare them, then mark elements: `<a href="/pricing/" data-vage-event="signup_click" data-vage-param-plan="pro">`. `vage check` fails on undeclared events/params and on duplicate Google tags.
+- **Reports**: `npx vage connect gsc|ga4` (browser OAuth, read-only scopes; token stored outside the repo), then `npx vage report search` / `npx vage report analytics`. `npx vage disconnect google` revokes access. Needs `GOOGLE_OAUTH_CLIENT_ID` (see `.env.example`).
+- Secrets go in `.env` (git-ignored) or the shell, never in `vage.config.ts` or committed files.
+
 ## Not implemented yet
 
-Analytics, Search Console, other hosting providers (Cloudflare, Netlify, Vercel), per-PR preview deployments. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools, IndexNow, Clarity, Plausible, other hosting providers (Cloudflare, Netlify, Vercel), per-PR preview deployments. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Safety
 

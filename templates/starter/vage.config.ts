@@ -21,4 +21,14 @@ export default defineConfig({
   },
 
   // redirects: { "/old-page/": "/about/" },
+
+  // Analytics is off until you configure it. Tags are added to production builds only.
+  // integrations: {
+  //   ga4: {
+  //     measurementId: process.env.GA4_MEASUREMENT_ID, // e.g. "G-XXXXXXX"
+  //     consentDefault: "denied", // your consent UI calls window.vageConsent.update({ analytics_storage: "granted" })
+  //     events: { signup_click: { params: ["plan"] } },
+  //   },
+  //   searchConsole: { property: "sc-domain:example.com" },
+  // },
 });

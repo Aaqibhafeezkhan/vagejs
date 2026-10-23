@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { cac } from "cac";
@@ -221,6 +222,111 @@ cli
     }),
   );
 
+const OAUTH_SETUP = `Set GOOGLE_OAUTH_CLIENT_ID (and GOOGLE_OAUTH_CLIENT_SECRET) from a Google Cloud OAuth client of type "Desktop app":
+  console.cloud.google.com → APIs & Services → Credentials → Create credentials → OAuth client ID → Desktop app.
+  Enable the "Google Search Console API" and/or "Google Analytics Data API" for that project.
+Keep these in your shell or a git-ignored .env, never in vage.config.ts.`;
+
+cli
+  .command("connect <service>", "Connect Google Search Console (gsc) or Analytics (ga4) with read-only OAuth")
+  .option("--no-open", "Print the consent URL instead of opening a browser")
+  .option("--json", "Print machine-readable JSON")
+  .action((service: string, opts: { open: boolean; json?: boolean }) =>
+    run(opts, async () => {
+      if (service !== "gsc" && service !== "ga4") throw new VageError(`Unknown service "${service}". Use "gsc" or "ga4".`);
+      const google = await import("../integrations/google-auth.js");
+      const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+      if (!clientId) throw new VageError(`GOOGLE_OAUTH_CLIENT_ID is not set.\n${OAUTH_SETUP}`);
+      const log = opts.json ? console.error : console.log;
+      log(`Requesting read-only access: ${google.SCOPES[service]}`);
+      log(`The refresh token will be stored outside this project at ${google.credentialsPath()} (mode 600).`);
+      const creds = await google.connectGoogle({
+        scopes: [google.SCOPES[service]],
+        clientId,
+        clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+        open: (url) => {
+          log(`\nOpen this URL to approve access:\n${url}\n`);
+          if (opts.open) openBrowser(url);
+        },
+      });
+      let properties: { siteUrl: string; permissionLevel: string }[] | undefined;
+      if (service === "gsc") {
+        const { listSites } = await import("../integrations/search-console.js");
+        properties = await listSites(await google.getAccessToken(google.SCOPES.gsc, "gsc"));
+      }
+      if (opts.json) return print({ ok: true, service, scopes: creds.scopes, properties });
+      log(`Connected (${creds.scopes.length} scope(s)).`);
+      if (properties) {
+        log(properties.length ? "Search Console properties you can access:" : "No Search Console properties found for this account.");
+        for (const p of properties) log(`  ${p.siteUrl} (${p.permissionLevel})`);
+        if (properties[0]) log(`\nSet one in vage.config.ts: integrations: { searchConsole: { property: "${properties[0].siteUrl}" } }`);
+      } else {
+        log('Set the numeric property ID in vage.config.ts: integrations: { ga4: { propertyId: "123456789" } }');
+      }
+    }),
+  );
+
+cli
+  .command("disconnect <provider>", "Revoke and delete the stored Google connection (provider: google)")
+  .option("--json", "Print machine-readable JSON")
+  .action((provider: string, opts: { json?: boolean }) =>
+    run(opts, async () => {
+      if (provider !== "google") throw new VageError(`Unknown provider "${provider}". Use "google".`);
+      const { disconnectGoogle } = await import("../integrations/google-auth.js");
+      const result = await disconnectGoogle();
+      if (opts.json) return print({ ok: true, ...result });
+      if (!result.hadConnection) return console.log("No Google connection was stored.");
+      console.log(
+        result.revoked
+          ? "Revoked access at Google and deleted the local token."
+          : "Deleted the local token, but revocation at Google failed. Remove access at https://myaccount.google.com/permissions.",
+      );
+    }),
+  );
+
+cli
+  .command("report <kind>", "Report from Search Console (search) or GA4 (analytics); needs vage connect")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--property <property>", "Search Console property (default: integrations.searchConsole.property)")
+  .option("--property-id <id>", "GA4 property ID (default: integrations.ga4.propertyId)")
+  .option("--days <n>", "Days to include", { default: 28 })
+  .option("--json", "Print machine-readable JSON")
+  .action((kind: string, opts: CommonOptions & { property?: string; propertyId?: string; days: number }) =>
+    run(opts, async () => {
+      if (kind !== "search" && kind !== "analytics") throw new VageError(`Unknown report "${kind}". Use "search" or "analytics".`);
+      const days = Number(opts.days);
+      if (!Number.isInteger(days) || days < 1 || days > 480) throw new VageError("--days must be a whole number from 1 to 480.");
+      const google = await import("../integrations/google-auth.js");
+      const { loadProjectConfig } = await import("../core/project-config.js");
+      const site = await loadProjectConfig(opts.root);
+
+      if (kind === "search") {
+        const property = opts.property ?? site.integrations.searchConsole?.property;
+        if (!property) throw new VageError('No Search Console property. Pass --property or set integrations.searchConsole.property (list them with "vage connect gsc").');
+        const { searchReport } = await import("../integrations/search-console.js");
+        const report = await searchReport(await google.getAccessToken(google.SCOPES.gsc, "gsc"), property, days);
+        if (opts.json) return print({ ok: true, ...report });
+        console.log(`Search Console: ${report.property}, ${report.startDate} to ${report.endDate} (Pacific Time; finalized data only)\n`);
+        for (const [title, rows] of [["Top queries", report.queries], ["Top pages", report.pages]] as const) {
+          console.log(`${title}:`);
+          if (!rows.length) console.log("  (no data)");
+          for (const r of rows) console.log(`  ${r.key.slice(0, 60).padEnd(60)} ${String(r.clicks).padStart(6)} clicks ${String(r.impressions).padStart(8)} impr  ctr ${(r.ctr * 100).toFixed(1)}%  pos ${r.position.toFixed(1)}`);
+          console.log("");
+        }
+        console.log("The API returns top rows only and does not cover every Search Console report (e.g. page indexing).");
+      } else {
+        const propertyId = opts.propertyId ?? site.integrations.ga4?.propertyId;
+        if (!propertyId) throw new VageError("No GA4 property. Pass --property-id or set integrations.ga4.propertyId.");
+        const { analyticsReport } = await import("../integrations/ga4-data.js");
+        const report = await analyticsReport(await google.getAccessToken(google.SCOPES.ga4, "ga4"), propertyId, days);
+        if (opts.json) return print({ ok: true, ...report });
+        console.log(`GA4 property ${report.propertyId}, last ${report.days} days: top pages by views\n`);
+        if (!report.rows.length) console.log("  (no data)");
+        for (const r of report.rows) console.log(`  ${r.pagePath.slice(0, 60).padEnd(60)} ${String(r.screenPageViews).padStart(7)} views ${String(r.activeUsers).padStart(6)} users ${String(r.sessions).padStart(6)} sessions`);
+      }
+    }),
+  );
+
 cli.help();
 cli.version(version);
 
@@ -295,6 +401,13 @@ function reportPublish(result: import("../deploy/publish.js").PublishResult) {
 
 function print(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
+}
+
+function openBrowser(url: string) {
+  const [cmd, args] =
+    process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : ["xdg-open", [url]];
+  // Best effort; the URL is printed too.
+  spawn(cmd as string, args as string[], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
 }
 
 function parsePort(value: unknown): number | undefined {

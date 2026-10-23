@@ -1,6 +1,6 @@
 # VAGE JS
 
-An AI-native, static-first web framework. **Pre-release (Phase 5)**: not published to npm.
+An AI-native, static-first web framework. **Pre-release (Phase 6)**: not published to npm.
 
 ## What works today
 
@@ -14,6 +14,8 @@ vage audit    [--root .] [--lighthouse] [--url U] [--strategy mobile|desktop|bot
 vage preview  [--root .] [--port N] [--host]      # serve dist/ locally
 vage deploy:github [--remote URL] [--dry-run] [--yes] [--json]   # check, build, safe commit + push (asks first)
 vage deploy        [--remote URL] [--no-wait] [--dry-run] [--yes] # GitHub Pages via Actions; confirms with GitHub
+vage connect gsc|ga4 / vage disconnect google      # read-only Google OAuth (PKCE, loopback); token outside the repo
+vage report search|analytics [--days N] [--json]  # Search Console top queries/pages; GA4 top pages
 vage info     [--json]                            # commands + config/frontmatter JSON Schemas for agents
 ```
 
@@ -43,7 +45,7 @@ npm run test:e2e    # pack -> create -> npm install/ci -> build (needs npm regis
 
 ## Planned, not implemented
 
-Analytics and Search Console integrations, hosting adapters other than GitHub Pages. See `VAGE_JS_BUILD_SPEC.md`.
+Bing Webmaster Tools, IndexNow, Clarity, Plausible, hosting adapters other than GitHub Pages. See `VAGE_JS_BUILD_SPEC.md`.
 
 ## License
 

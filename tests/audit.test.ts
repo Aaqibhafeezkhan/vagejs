@@ -145,7 +145,7 @@ describe("PageSpeed Insights client", () => {
     };
     const err = await pageSpeed("https://site.example/", "mobile", KEY, { fetch, sleep: noSleep }).catch((e) => e);
     expect(err.message).toMatch(/failed after 3 attempts: connect failed for \[redacted\]/);
-    expect(redact(`a ${KEY} b ${KEY}`, KEY)).toBe("a [redacted] b [redacted]");
+    expect(redact(`a ${KEY} b ${KEY}`, [KEY])).toBe("a [redacted] b [redacted]");
   });
 
   it("rejects malformed responses", async () => {

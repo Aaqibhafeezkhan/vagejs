@@ -48,7 +48,7 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
   const model: SiteModel = { site, pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
 
   for (const entry of discoverRoutes(pagesDir)) {
-    const page = await renderPage({ root, file: entry.file, route: entry.route, site, load });
+    const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true });
     const source = path.relative(root, entry.file);
     if (page.frontmatter.draft) {
       model.skippedDrafts.push(source);
@@ -58,7 +58,7 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
   }
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) {
-    const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true });
+    const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true });
     model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
   }
 

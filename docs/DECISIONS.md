@@ -87,6 +87,20 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 - Git flow: tested end to end against local bare repos (new repo, declined plan, no remote, rejected push, secrets, ignored output, origin/branch guards).
 - GitHub Pages: workflow generation is unit-tested, and the `gh` interactions are tested with a fake runner. **Not run against GitHub**: that requires pushing to a real repository, which needs the owner's explicit approval.
 
+## Phase 6: GA4, Tag Manager and Search Console
+
+- **Tags only in production output** (build, check, preview), never in the dev server. The inline loader also skips `localhost`/`127.0.0.1`/`[::1]`, so `vage preview` sends no hits.
+- **Consent mode**: `gtag("consent","default", …)` runs before `config`/`event`, as Google requires (docs checked 2026-10-23). The default is `denied` for all four types (ad_storage, ad_user_data, ad_personalization, analytics_storage). VAGE JS ships no consent banner; sites call `window.vageConsent.update(...)` from their own UI. Whether denied-by-default with tags loaded meets a site's legal obligations is the owner's call; it is not legal advice.
+- **No duplicates**: GA4 direct + GTM together is a config error; `check` errors when a page loads Google tag scripts more than once.
+- **Typed events without client bundling**: events and their params are declared in config, validated with GA4 naming rules (start with a letter; letters/digits/underscores; 40 chars; reserved param prefixes; sources in `config.ts`), used via `data-vage-event` / `data-vage-param-*`, and enforced by `vage check`.
+- **OAuth**: Desktop-app flow with loopback redirect on 127.0.0.1, PKCE S256 and a `state` check, per Google's native-app guide. Read-only scopes (`webmasters.readonly`, `analytics.readonly`), requested incrementally (connecting GA4 keeps GSC). The refresh token and client credentials are stored in the OS user config dir (`$VAGE_CONFIG_DIR` overrides) with mode 0600, never in the project. `disconnect` revokes at Google, then deletes locally even if revocation fails, and says so.
+- **Reports**: Search Console Search Analytics (top 25 queries and pages, Pacific Time dates, finalized data) and GA4 Data API `runReport` (top 25 pages by views). The CLI states that the APIs don't expose every UI report.
+- **Errors** never include tokens or secrets (central redaction in `src/integrations/http.ts`, shared with audits).
+
+### Phase 6 verification status
+
+- Tag output, consent ordering, event checks, and the OAuth flow (a real loopback server with a simulated browser redirect) are tested; Google's token, revoke, Search Console and GA4 endpoints are mocked using their documented shapes. **Not run against real Google accounts**: that needs your OAuth client and consent.
+
 ## Not implemented (planned in later phases)
 
-Analytics, Search Console, hosting adapters beyond GitHub Pages, MCP server.
+Guideline monitoring (Phase 7); Bing Webmaster Tools, IndexNow, Clarity, Plausible, more hosting adapters (Phase 8); MCP server.

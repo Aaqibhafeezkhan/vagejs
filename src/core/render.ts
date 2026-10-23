@@ -5,6 +5,7 @@ import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
 import { escapeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
+import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -38,6 +39,8 @@ export async function renderPage(options: {
   load: ModuleLoader;
   /** Renders the 404 page: always noindex, no canonical. */
   notFound?: boolean;
+  /** Add configured analytics tags. Off in the dev server so development traffic is never measured. */
+  analytics?: boolean;
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
   const { frontmatter, body, html: content } = parseMarkdown(fs.readFileSync(file, "utf8"), file);
@@ -51,7 +54,10 @@ export async function renderPage(options: {
   if (typeof html !== "string") {
     throw new VageError(`Layout "${frontmatter.layout ?? "default"}" must return an HTML string.`, file);
   }
-  return { html: injectHead(html, headTags(site, meta), file), frontmatter, body, meta };
+  let out = injectHead(html, headTags(site, meta), file);
+  const tags = options.analytics ? analyticsTags(site) : undefined;
+  if (tags) out = injectAnalytics(out, tags, file);
+  return { html: out, frontmatter, body, meta };
 }
 
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs"];

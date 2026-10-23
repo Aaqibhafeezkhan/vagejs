@@ -1,66 +1,25 @@
 import { z } from "zod";
 import { VageError } from "../core/errors.js";
+import { apiError, redact, requestWithRetry, type HttpOptions } from "../integrations/http.js";
 import { rate, type Rating, type VitalName } from "./vitals.js";
 
 export type Strategy = "mobile" | "desktop";
-type Fetch = typeof fetch;
-
-export interface RemoteOptions {
-  fetch?: Fetch;
-  /** Waits between retries; injectable for tests. */
-  sleep?: (ms: number) => Promise<void>;
-  attempts?: number;
-}
+export type RemoteOptions = HttpOptions;
 
 const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
 const CRUX_ENDPOINT = "https://chromeuxreport.googleapis.com/v1/records:queryRecord";
-const RETRY_STATUS = new Set([429, 500, 502, 503, 504]);
+const KEY_HINTS = {
+  400: "Check the URL is public and the API key has this API enabled.",
+  403: "Check the URL is public and the API key has this API enabled.",
+  429: "Rate limited: wait and retry, or use an API key with quota.",
+};
 
-/**
- * Fetch with retries for rate limits and transient errors. The API key is sent
- * as a header (x-goog-api-key) so it never appears in URLs, and any error text
- * is scrubbed of it before being shown.
- */
-async function request(service: string, url: string, init: RequestInit, key: string | undefined, opts: RemoteOptions): Promise<Response | undefined> {
-  const doFetch = opts.fetch ?? fetch;
-  const sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
-  const attempts = opts.attempts ?? 3;
-  const headers = { ...(init.headers as Record<string, string>), ...(key ? { "x-goog-api-key": key } : {}) };
-  let lastError = "";
-
-  for (let i = 1; i <= attempts; i++) {
-    try {
-      const res = await doFetch(url, { ...init, headers, signal: AbortSignal.timeout(120_000) });
-      if (res.ok || !RETRY_STATUS.has(res.status) || i === attempts) return res;
-      lastError = `HTTP ${res.status}`;
-    } catch (err) {
-      lastError = (err as Error).message;
-      if (i === attempts) throw new VageError(redact(`${service} request failed after ${attempts} attempts: ${lastError}`, key));
-    }
-    await sleep(1000 * 2 ** (i - 1));
-  }
-  return undefined;
+/** The API key goes in the x-goog-api-key header, never in the URL. */
+function withKey(init: RequestInit, key: string | undefined): RequestInit {
+  return { ...init, headers: { ...(init.headers as Record<string, string>), ...(key ? { "x-goog-api-key": key } : {}) } };
 }
 
-async function apiError(service: string, res: Response, key: string | undefined): Promise<VageError> {
-  let detail = "";
-  try {
-    detail = ((await res.json()) as { error?: { message?: string } }).error?.message ?? "";
-  } catch {
-    // Non-JSON error body; the status is enough.
-  }
-  const hint =
-    res.status === 429
-      ? " Rate limited: wait and retry, or use an API key with quota."
-      : res.status === 400 || res.status === 403
-        ? " Check the URL is public and the API key has this API enabled."
-        : "";
-  return new VageError(redact(`${service} returned HTTP ${res.status}${detail ? `: ${detail.replace(/\.+$/, "")}` : ""}.${hint}`, key));
-}
-
-export function redact(text: string, key: string | undefined): string {
-  return key ? text.split(key).join("[redacted]") : text;
-}
+export { redact };
 
 // ---------------------------------------------------------------- PageSpeed Insights (lab)
 
@@ -130,8 +89,8 @@ export function labReport(lhr: z.infer<typeof psiSchema>["lighthouseResult"], so
 export async function pageSpeed(url: string, strategy: Strategy, key: string | undefined, opts: RemoteOptions = {}): Promise<LabReport> {
   const params = new URLSearchParams({ url, strategy: strategy.toUpperCase() });
   for (const c of CATEGORY_IDS) params.append("category", c.toUpperCase().replace("-", "_"));
-  const res = await request("PageSpeed Insights", `${PSI_ENDPOINT}?${params}`, { method: "GET" }, key, opts);
-  if (!res?.ok) throw await apiError("PageSpeed Insights", res!, key);
+  const res = await requestWithRetry("PageSpeed Insights", `${PSI_ENDPOINT}?${params}`, withKey({ method: "GET" }, key), [key], opts);
+  if (!res.ok) throw await apiError("PageSpeed Insights", res, [key], KEY_HINTS);
   const parsed = psiSchema.safeParse(await res.json().catch(() => undefined));
   if (!parsed.success) throw new VageError("PageSpeed Insights returned an unexpected response (no lighthouseResult).");
   return labReport(parsed.data.lighthouseResult, "pagespeed-insights", url, strategy);
@@ -175,9 +134,10 @@ export async function cruxField(url: string, strategy: Strategy, key: string, op
   const formFactor = strategy === "mobile" ? "PHONE" : "DESKTOP";
   for (const scope of ["url", "origin"] as const) {
     const body = { [scope]: scope === "url" ? url : new URL(url).origin, formFactor, metrics: Object.keys(CRUX_METRICS) };
-    const res = await request("CrUX API", CRUX_ENDPOINT, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, key, opts);
-    if (res?.status === 404) continue;
-    if (!res?.ok) throw await apiError("CrUX API", res!, key);
+    const init = withKey({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, key);
+    const res = await requestWithRetry("CrUX API", CRUX_ENDPOINT, init, [key], opts);
+    if (res.status === 404) continue;
+    if (!res.ok) throw await apiError("CrUX API", res, [key], KEY_HINTS);
     const parsed = cruxSchema.safeParse(await res.json().catch(() => undefined));
     if (!parsed.success) throw new VageError("CrUX API returned an unexpected response (no record.metrics).");
     const metrics: FieldReport["metrics"] = {};

@@ -170,6 +170,42 @@ function checkPage(
   for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
     checkJsonLd(script.rawText, add);
   }
+  checkAnalytics(page.html, doc, model, add);
+}
+
+function checkAnalytics(html: string, doc: HTMLElement, model: SiteModel, add: (f: Omit<Finding, "page" | "source">) => void) {
+  const loaders = html.match(/googletagmanager\.com\/(gtag\/js|gtm\.js)/g) ?? [];
+  if (loaders.length > 1) {
+    add({
+      rule: "analytics-duplicate",
+      severity: "error",
+      message: `Page loads Google tags ${loaders.length} times (${loaders.join(", ")}); this double-counts. Remove the layout's tag or the integrations config.`,
+    });
+  }
+  const { ga4, gtm } = model.site.integrations;
+  const active = ga4?.measurementId ? ga4 : gtm?.containerId ? gtm : undefined;
+  for (const el of doc.querySelectorAll("[data-vage-event]")) {
+    const name = el.getAttribute("data-vage-event")!;
+    if (!active) {
+      add({ rule: "analytics-event", severity: "warning", message: `data-vage-event="${name}" is used but no analytics integration is configured.` });
+      continue;
+    }
+    const declared = active.events[name];
+    if (!declared) {
+      add({
+        rule: "analytics-event",
+        severity: "error",
+        message: `Event "${name}" is not declared. Add it to integrations.${active === ga4 ? "ga4" : "gtm"}.events in vage.config.ts.`,
+      });
+      continue;
+    }
+    const params = Object.keys(el.attributes)
+      .filter((a) => a.startsWith("data-vage-param-"))
+      .map((a) => a.slice("data-vage-param-".length).replace(/-/g, "_"));
+    for (const param of params.filter((p) => !declared.params.includes(p))) {
+      add({ rule: "analytics-event", severity: "error", message: `Event "${name}" has undeclared parameter "${param}". Declare it in its params list.` });
+    }
+  }
 }
 
 function checkJsonLd(raw: string, add: (f: Omit<Finding, "page" | "source">) => void) {
