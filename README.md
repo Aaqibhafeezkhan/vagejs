@@ -1,0 +1,42 @@
+# VAGE JS
+
+An AI-native, static-first web framework. **Pre-release (Phase 1)**: not published to npm.
+
+## What works today
+
+```bash
+vage create <dir> [--vage-spec <spec>] [--json]   # scaffold a Markdown site
+vage dev      [--root .] [--port N] [--host]      # dev server with live reload
+vage build    [--root .] [--json]                 # static build into dist/
+vage preview  [--root .] [--port N] [--host]      # serve dist/ locally
+```
+
+Failures exit with code 1. With `--json`, output is `{ "ok": true, ... }` or `{ "ok": false, "error": "..." }`.
+
+See [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md) for routing, frontmatter, layouts and config, and [`docs/DECISIONS.md`](docs/DECISIONS.md) for design decisions.
+
+## Trying it locally (before any npm release)
+
+```bash
+npm install
+npm run build
+npm pack                                   # -> vagejs-0.1.0.tgz
+node dist/cli/index.js create ../my-site --vage-spec "file:$PWD/vagejs-0.1.0.tgz"
+cd ../my-site && npm install && npm run dev
+```
+
+## Development
+
+```bash
+npm run typecheck
+npm test            # unit + integration (dev server, preview, build)
+npm run test:e2e    # pack -> create -> npm install/ci -> build (needs npm registry or cache)
+```
+
+## Planned, not implemented
+
+robots.txt, sitemap.xml, llms.txt, metadata/canonical URLs, JSON-LD, `vage check`, performance/accessibility audits, analytics and Search Console integrations, GitHub publishing, deployment adapters. See `VAGE_JS_BUILD_SPEC.md`.
+
+## License
+
+MIT

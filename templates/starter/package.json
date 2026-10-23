@@ -1,0 +1,14 @@
+{
+  "name": "my-website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vage dev",
+    "build": "vage build",
+    "preview": "vage preview"
+  },
+  "devDependencies": {
+    "vagejs": "^0.1.0"
+  }
+}
