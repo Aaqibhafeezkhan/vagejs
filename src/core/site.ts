@@ -3,6 +3,7 @@ import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
+import { headersFile } from "../deploy/headers.js";
 import { cloudflareRedirects } from "../deploy/redirects.js";
 import { findSecrets } from "../deploy/secrets.js";
 import { rulePack } from "../guidelines/pack.js";
@@ -116,6 +117,10 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);
   if (site.deploy.target === "cloudflare-pages" && model.redirects.length) generate("_redirects", () => cloudflareRedirects(model.redirects));
+  if (site.deploy.target === "cloudflare-pages" && site.security.headers) {
+    const html = [...model.pages, ...(model.notFound ? [model.notFound] : []), ...model.redirects].map((p) => p.html);
+    generate("_headers", () => headersFile(html, site));
+  }
   if (site.seo.llmsTxt) {
     if (!site.title) {
       warnings.push('"title" is not set in vage.config.ts: llms.txt needs a site title and was skipped.');

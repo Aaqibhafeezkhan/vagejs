@@ -207,6 +207,22 @@ export const configSchema = z.strictObject({
       cloudflareProject: z.string().regex(/^[a-z0-9][a-z0-9-]{0,57}$/).optional().describe("Cloudflare Pages project name."),
     })
     .default({ target: "github-pages" }),
+  security: z
+    .strictObject({
+      headers: z.boolean().default(true).describe("Write a _headers file with security headers (Cloudflare Pages target)."),
+      csp: z
+        .enum(["enforce", "report-only", "off"])
+        .default("enforce")
+        .describe("Content Security Policy generated from the built pages: hashes of inline scripts/styles plus the origins your layouts and analytics load."),
+      cspSources: z
+        .partialRecord(
+          z.enum(["script-src", "style-src", "img-src", "font-src", "connect-src", "frame-src", "media-src"]),
+          z.array(z.string().regex(/^('[a-z0-9-]+'|https?:\/\/[^\s;,']+|[a-z]+:)$/, "must be a source like https://cdn.example.com or 'self'")),
+        )
+        .default({})
+        .describe("Extra sources per directive, e.g. { \"connect-src\": [\"https://api.example.com\"] }."),
+    })
+    .default({ headers: true, csp: "enforce", cspSources: {} }),
   guidelines: z
     .strictObject({
       rulePack: z

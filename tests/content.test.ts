@@ -41,6 +41,7 @@ describe("loadConfig", () => {
         lighthouse: { enabled: false, pages: ["/"] },
       },
       deploy: { target: "github-pages" },
+      security: { headers: true, csp: "enforce", cspSources: {} },
       guidelines: {},
       integrations: {},
     });

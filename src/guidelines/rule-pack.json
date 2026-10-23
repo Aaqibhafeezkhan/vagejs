@@ -242,6 +242,30 @@
       "url": "https://developers.cloudflare.com/pages/configuration/redirects/",
       "category": "hosting",
       "cadence": "weekly"
+    },
+    {
+      "id": "google-csp",
+      "provider": "Google",
+      "title": "Use a Content Security Policy with Google tags",
+      "url": "https://developers.google.com/tag-platform/security/guides/csp",
+      "category": "security",
+      "cadence": "weekly"
+    },
+    {
+      "id": "clarity-csp",
+      "provider": "Microsoft",
+      "title": "Clarity Content Security Policy",
+      "url": "https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-csp",
+      "category": "security",
+      "cadence": "weekly"
+    },
+    {
+      "id": "cloudflare-headers",
+      "provider": "Cloudflare",
+      "title": "Pages: headers (_headers)",
+      "url": "https://developers.cloudflare.com/pages/configuration/headers/",
+      "category": "hosting",
+      "cadence": "weekly"
     }
   ],
   "rules": [
@@ -514,15 +538,74 @@
       "data": {
         "maxStaticRules": 2000
       }
+    },
+    {
+      "id": "csp.providers",
+      "summary": "CSP sources required by analytics providers (GA4 without Ads features, Tag Manager, Clarity).",
+      "behaviorChanging": true,
+      "sources": [
+        "google-csp",
+        "clarity-csp"
+      ],
+      "implementedIn": [
+        "src/deploy/headers.ts"
+      ],
+      "data": {
+        "google": {
+          "script-src": [
+            "https://www.googletagmanager.com"
+          ],
+          "connect-src": [
+            "https://www.googletagmanager.com",
+            "https://*.google-analytics.com",
+            "https://*.google.com"
+          ],
+          "img-src": [
+            "https://www.googletagmanager.com",
+            "https://*.google-analytics.com"
+          ],
+          "frame-src": [
+            "https://www.googletagmanager.com"
+          ]
+        },
+        "clarity": {
+          "script-src": [
+            "https://*.clarity.ms",
+            "https://c.bing.com"
+          ],
+          "connect-src": [
+            "https://*.clarity.ms",
+            "https://c.bing.com"
+          ],
+          "img-src": [
+            "https://*.clarity.ms",
+            "https://c.bing.com"
+          ]
+        }
+      }
+    },
+    {
+      "id": "cloudflare.headers",
+      "summary": "_headers format; up to 100 rules, 2,000 characters per line.",
+      "behaviorChanging": true,
+      "sources": [
+        "cloudflare-headers"
+      ],
+      "implementedIn": [
+        "src/deploy/headers.ts"
+      ],
+      "data": {
+        "maxLineLength": 2000
+      }
     }
   ],
   "changelog": [
     {
       "version": "2026.10.0",
       "date": "2026-10-23",
-      "summary": "Initial rule pack (unreleased; extended during Phase 8 with IndexNow, Clarity, Plausible and Cloudflare Pages rules). Facts checked against the cited sources on 2026-10-23 during implementation.",
+      "summary": "Initial rule pack (unreleased; extended during Phase 8 and the security review with IndexNow, Clarity, Plausible, Cloudflare Pages and CSP provider rules). Facts checked against the cited sources on 2026-10-23 during implementation.",
       "reviewedBy": "pending",
-      "contentHash": "01d1da754769588e9a1f8a1842c7da1fa89037c8c7688cbfb6906737ed06ca22"
+      "contentHash": "8c7272511f733c01984ce1d962b39e2d521a88b31a5c958a95307a04b82bb3dd"
     }
   ]
 }

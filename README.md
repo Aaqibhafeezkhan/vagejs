@@ -53,6 +53,10 @@ npm run test:e2e    # pack -> create -> npm install/ci -> build (needs npm regis
 
 Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, MCP server. See `VAGE_JS_BUILD_SPEC.md`.
 
+## Security
+
+Page content is sanitized, dev/preview servers serve only what a site needs, and Cloudflare deploys get security headers with a computed Content-Security-Policy. Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
+
 ## License
 
 MIT © 2026 vagejs.com

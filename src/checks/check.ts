@@ -126,6 +126,20 @@ function checkPage(
     }
   }
 
+  const site = model.site;
+  if (site.deploy.target === "cloudflare-pages" && site.security.headers && site.security.csp === "enforce") {
+    for (const el of doc.querySelectorAll("*")) {
+      const handler = Object.keys(el.attributes).find((a) => /^on[a-z]+$/i.test(a));
+      if (handler) {
+        add({
+          rule: "csp-inline-handler",
+          severity: "warning",
+          message: `<${el.tagName.toLowerCase()} ${handler}="…"> is an inline event handler; the Content Security Policy blocks it. Use addEventListener in a script file.`,
+        });
+      }
+    }
+  }
+
   for (const a of doc.querySelectorAll("a[href]")) {
     const href = a.getAttribute("href")!;
     if (!a.text.trim() && !a.getAttribute("aria-label") && !a.querySelector("img[alt]:not([alt=''])")) {

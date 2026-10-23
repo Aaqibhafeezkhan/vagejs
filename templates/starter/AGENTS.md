@@ -68,6 +68,8 @@ Do not invent titles, descriptions, dates, authors or facts. Ask the site owner.
 
 HTML inside Markdown is sanitized: scripts, event handlers, `javascript:` links, iframes and forms are removed. Embeds (e.g. video) belong in a layout, which is trusted code. The owner can trust all authors with `markdown: { html: "allow" }`; don't set that yourself. Never put secrets in `public/` (it is published, and the build refuses secret-looking files and symlinks there). `npm run dev -- --host` exposes the dev server to your network; it serves only pages and `public/`, but use it only on trusted networks.
 
+With `deploy.target: "cloudflare-pages"`, the build writes `_headers` with security headers and a Content-Security-Policy computed from the pages (inline scripts are allowed by hash). Don't use inline event handlers (`onclick=`); add sources the site really needs to `security.cspSources`.
+
 ## Layouts
 
 `src/layouts/<name>.ts` default-exports a function `({ content, page, site }) => string`.

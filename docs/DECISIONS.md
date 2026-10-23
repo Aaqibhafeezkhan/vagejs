@@ -154,6 +154,14 @@ Trust model: the owner's config and layouts are trusted code. Page content (Mark
 | Windows browser opening via `cmd /c start` (`&` splits commands) | `rundll32 url.dll,FileProtocolHandler`, no shell |
 | Unvalidated `--project`, `--branch`, `--remote`, `--vage-spec` reaching wrangler/git/npm | Validators refuse leading `-`, `ext::`/`fd::` remotes and non-version specs; `--` separators for git |
 
+### Security headers and reporting
+
+- **`_headers` for Cloudflare Pages** (also read by Netlify): `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: SAMEORIGIN`, a restrictive `Permissions-Policy`, and a **Content-Security-Policy computed from the built pages**. It includes sha256 hashes of every inline script and `<style>` (JSON-LD excluded, since it isn't executed), the external origins that layouts load (scripts, stylesheets, iframes), the documented domains of configured analytics (rule pack `csp.providers`: Google's CSP guide for GA4/GTM without Ads features, Clarity's CSP doc; Plausible's origin from its snippet), plus `security.cspSources`. Scripts are strict; images, fonts and media may load from any https origin to avoid breaking ordinary sites. `object-src 'none'`, `base-uri`/`form-action`/`frame-ancestors 'self'`, `upgrade-insecure-requests`.
+- **Verified in real Chrome** (Lighthouse 13.5 harness, 2026-10-23) on a starter site with GA4 and the generated header: 0 console/CSP errors on clean pages; an injected inline `<script>` and an `onerror` handler were both blocked.
+- Modes: `security.csp: "enforce" | "report-only" | "off"`; `security.headers: false` writes no file. GitHub Pages can't set headers, so nothing is emitted there (a `<meta>` CSP could be a follow-up). Tag Manager containers that inject custom scripts need those origins in `security.cspSources` or `report-only`.
+- `check` warns about inline event handlers (`onclick=` etc.) that an enforced CSP would block.
+- **`SECURITY.md`**: private reporting through GitHub's "Report a vulnerability" (enable private vulnerability reporting in the repository settings). No email address yet; add one at vagejs.com when it exists.
+
 Still by design (documented): `vage.config.ts`, layouts and the optional Lighthouse package run as code. Only run `vage` commands on projects you trust, as with any build tool.
 
 ## Not implemented
