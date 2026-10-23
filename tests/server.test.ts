@@ -82,8 +82,15 @@ describe("dev server", () => {
     const root = copyFixture();
     const { server } = await start(root);
     const send = vi.spyOn(server.ws, "send");
-    write(root, "src/pages/about.md", "---\ntitle: About\n---\n# Reload me\n");
-    await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ type: "full-reload", path: "*" }));
+    // The file watcher can need a moment to become ready (notably on Linux), so keep editing until it reports.
+    let edit = 0;
+    await vi.waitFor(
+      () => {
+        write(root, "src/pages/about.md", `---\ntitle: About\n---\n# Reload me ${edit++}\n`);
+        expect(send).toHaveBeenCalledWith({ type: "full-reload", path: "*" });
+      },
+      { timeout: 10_000, interval: 250 },
+    );
   });
 
   it("shows render errors as a 500 page instead of crashing", async () => {
