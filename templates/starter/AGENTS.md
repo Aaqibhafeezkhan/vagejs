@@ -26,7 +26,9 @@ Run `npm run check` after every change and fix all errors before finishing.
 - **Add a layout:** `src/layouts/<name>.ts`, then `layout: <name>` in frontmatter. Keep `<html lang>`, one `<title>` and `</head>`.
 - **List pages (blog index, "latest posts", a sidebar):** in a layout, `collection(pages, { under: "/blog/", sort: "date" })` from `vagejs`. Never keep a hand-written list of pages.
 - **Give a layout its own frontmatter fields:** `export const frontmatter = z.object({ ... })` in the layout (`import { z } from "vagejs"`). Pages using it are then checked strictly: unknown or mistyped fields fail the build.
-- **Add an image:** put it in `public/images/` and write `![Describe the image](/images/name.jpg)`. Width and height are filled in from the file; write real alt text.
+- **Add an image:** put it in `public/images/` and write `![Describe the image](/images/name.jpg)`. Width and height are filled in from the file; write real alt text. For resized WebP copies, the owner can turn on `images: { optimize: true }` (needs `npm install --save-dev sharp`).
+- **Order a menu or sidebar:** set `order:` (lower first) and optionally a short `navTitle:` in each page's frontmatter, then build the menu in a layout with `tree(pages, "/docs/")` or `collection(pages, { under: "/docs/", sort: "order" })`. `breadcrumbs(pages, page.route)` and `neighbors(list, page.route)` give breadcrumbs and previous/next links.
+- **Add an RSS feed for the blog:** `seo: { feeds: [{ under: "/blog/" }] }` in `vage.config.ts` writes `/blog/feed.xml` from the posts' `datePublished`.
 - **Rename a page:** move the file, then add `redirects: { "/old-slug/": "/new-slug/" }` to `vage.config.ts`.
 - **Hide a page from search:** `noindex: true` (it stays published). To unpublish, use `draft: true` or delete it.
 - **AI crawler policy:** set `seo.robots.aiTraining` / `aiSearch` only on the owner's instruction.
@@ -75,7 +77,7 @@ Hacked sites are usually abused for hidden spam links and doorway pages. vagejs 
 - **`links.lock.json` lists the external domains the site may link to.** A link to any other domain fails `npm run check` (`link-unapproved`). Only the owner approves domains: show them `npx vage links` and let them run `npx vage links approve <domain>`. Never run `approve` with `--yes` or `--all` yourself unless the owner told you to in this conversation.
 - Inline `style="..."` is removed from page content (`markdown.inlineStyles` is off), and `vage check` fails on links hidden with CSS (`link-hidden`). Style pages in layouts.
 - `vage check` warns about common spam words (`spam-pattern`). Report them to the owner; don't delete or reword content you didn't write without asking.
-- `npx vage verify` compares the live site with these files and fails on links, scripts or pages that aren't in the repository. `.github/workflows/verify.yml` runs it daily once the owner sets the `VAGE_VERIFY_URL` repository variable.
+- `npx vage verify` compares the live site with these files and fails on links, scripts or pages that aren't in the repository. It also checks that search and AI crawlers can reach the site, that `http` and `www` addresses redirect, and warns about scripts the host or CDN injects. `.github/workflows/verify.yml` runs it daily once the owner sets the `VAGE_VERIFY_URL` repository variable.
 - CI runs `npm audit`, and `.github/dependabot.yml` proposes dependency updates. Review them like any other change.
 
 ## Content safety
@@ -155,7 +157,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Not implemented yet
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, image resizing and WebP/AVIF conversion. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, AVIF images. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Favicon
 

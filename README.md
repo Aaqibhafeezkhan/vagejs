@@ -68,7 +68,13 @@ Our plans start at …
 
 Save it as `src/pages/pricing.md` and it's served at `/pricing/`. `title` is required. `description`, `draft`, `noindex`, `canonical`, `image`, `type: article`, `author`, `datePublished` and `dateModified` are optional; see [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md).
 
-Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading.
+Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading. With `images: { optimize: true }` (and `npm install --save-dev sharp`), vagejs also makes resized WebP copies and offers them with `srcset`.
+
+### Navigation, feeds and AI extras
+
+- `order:` and `navTitle:` in frontmatter, with `tree()`, `breadcrumbs()` and `neighbors()` in layouts, build sidebars, breadcrumbs and previous/next links.
+- `seo: { feeds: [{ under: "/blog/" }] }` writes an RSS feed at `/blog/feed.xml`.
+- `seo: { markdownCopies: true }` publishes a Markdown copy of every page (`/docs/cli.md`) for AI tools; `seo: { lastmod: "git" }` dates the sitemap from git history.
 
 ### Write a layout
 
@@ -149,7 +155,7 @@ vagejs follows semver. While it's 0.x, a minor version (0.1 → 0.2) may include
 
 ```bash
 npm outdated vagejs           # see what's available
-npm update vagejs             # latest patch in your range (with ^0.2.0: any 0.2.x)
+npm update vagejs             # latest patch in your range (with ^0.3.0: any 0.3.x)
 npm install vagejs@latest     # move to the newest version, including a new minor
 npx vage --version            # confirm
 npx vage check && npx vage build
@@ -190,7 +196,7 @@ vage info     [--json]                            # commands + config/frontmatte
 
 ## Planned, not implemented
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, MCP server, image resizing and WebP/AVIF conversion.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, MCP server, AVIF images.
 
 ## Security
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+### Added
+- **Image pipeline (opt-in).** `images: { optimize: true }` with `sharp` installed makes resized WebP copies of images in page content (default widths 480, 960, 1600; never upscaled), caches them in `node_modules/.cache/vagejs`, publishes them under `/_vage/img/` and offers them with `srcset`/`sizes`. Set inside the sanitizer, like the width/height hints.
+- **Crawlability check in `vage verify`.** Fetches the site as Googlebot, Bingbot, OAI-SearchBot, GPTBot, ChatGPT-User, Claude-SearchBot, ClaudeBot, Claude-User, PerplexityBot and Perplexity-User (rule pack `crawlers.probes`) and reports blocks and challenges, robots.txt rules, `X-Robots-Tag: noindex`, and missing http→https and www redirects. `--no-crawlers` skips it. A user-agent probe can't detect blocks based on the real crawlers' IP addresses.
+- **CDN-injected scripts.** `vage verify` warns about scripts your host or CDN adds to pages (such as Cloudflare Web Analytics), which your security policy may block.
+- **Navigation from frontmatter.** `order` and `navTitle` fields; `PageSummary.label`; `collection(…, { sort: "order" })`; `tree()`, `breadcrumbs()` and `neighbors()` helpers.
+- **RSS feeds.** `seo.feeds: [{ under: "/blog/" }]` writes `/blog/feed.xml` and links it from the section's pages.
+- **Markdown copies.** `seo.markdownCopies: true` publishes `/<path>.md` copies of listed pages, linked with `rel="alternate" type="text/markdown"`.
+- **Sitemap dates from git.** `seo.lastmod: "git"` takes `<lastmod>` from each page's last commit (`dateModified` still wins). Skipped with a warning in shallow clones, where every page would get the latest commit's date.
+
+### Changed
+- Rule pack 2026.10.1 adds `crawlers.probes` and the Perplexity source; no existing rule changed. Projects that pin `guidelines.rulePack: "2026.10.0"` need to review and update the pin.
+- `vage verify` fetches pages with browser-like headers, so it sees what visitors get.
+
+### Not yet
+- AVIF images and `<picture>`.
+
 ## 0.2.0 (2026-10-23)
 
 Fixes found by building [vagejs.com](https://vagejs.com) with vagejs.
