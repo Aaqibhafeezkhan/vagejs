@@ -353,14 +353,15 @@ cli
   );
 
 cli
-  .command("verify", "Compare the live site with your files: extra links, scripts, text or sitemap pages mean it was changed outside your repository")
+  .command("verify", "Compare the live site with your files (extra links, scripts, text or sitemap pages mean it was changed outside your repository), and check search and AI crawlers can reach it")
   .option("--root <dir>", "Project root", { default: "." })
   .option("--url <url>", "Live site origin (default: site in vage.config.ts)")
+  .option("--no-crawlers", "Skip the crawlability check (search and AI crawlers, redirects, noindex headers)")
   .option("--json", "Print machine-readable JSON")
-  .action((opts: CommonOptions & { url?: string }) =>
+  .action((opts: CommonOptions & { url?: string; crawlers: boolean }) =>
     run(opts, async () => {
       const { verifySite } = await import("../checks/verify.js");
-      const result = await verifySite(opts.root, { url: opts.url });
+      const result = await verifySite(opts.root, { url: opts.url, crawlers: opts.crawlers });
       if (opts.json) print(result);
       else {
         for (const d of result.differences) console.log(`${d.severity === "error" ? "error  " : "warning"} ${d.kind.padEnd(15)} ${d.route}\n        ${d.detail}`);

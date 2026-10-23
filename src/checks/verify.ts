@@ -18,6 +18,8 @@ export interface PageFingerprint {
   links: string[];
   /** Scripts (src or hash), inline event handlers (hash) and JSON-LD blocks (hash). */
   scripts: string[];
+  /** Scripts a CDN injected (Cloudflare email protection, Web Analytics): not content, but they can break your security policy. */
+  cdnScripts: string[];
   text: string;
   /** Spam vocabulary in the visible text (read with spaces intact). */
   spam: string[];
@@ -26,7 +28,20 @@ export interface PageFingerprint {
 export interface Difference {
   route: string;
   severity: "error" | "warning";
-  kind: "unreachable" | "links-added" | "links-removed" | "scripts-added" | "text-changed" | "sitemap-extra" | "robots-changed";
+  kind:
+    | "unreachable"
+    | "links-added"
+    | "links-removed"
+    | "scripts-added"
+    | "text-changed"
+    | "sitemap-extra"
+    | "robots-changed"
+    | "cdn-script"
+    | "crawler-blocked"
+    | "robots-blocked"
+    | "noindex-header"
+    | "redirect-missing"
+    | "duplicate-host";
   detail: string;
 }
 
@@ -76,11 +91,13 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
     }
   }
   const scripts = new Set<string>();
+  const cdnScripts = new Set<string>();
   for (const el of doc.querySelectorAll("script")) {
     const src = el.getAttribute("src");
     if (src) {
       const url = abs(src);
-      if (!CDN_SCRIPT.test(url)) scripts.add(`src:${url}`);
+      if (CDN_SCRIPT.test(url)) cdnScripts.add(url.replace(/\?.*$/, ""));
+      else scripts.add(`src:${url}`);
     } else if (el.getAttribute("type") === "application/ld+json") scripts.add(`json-ld:${sha(el.text.replace(/\s+/g, ""))}`);
     else scripts.add(`inline:${sha(el.text.trim())}`);
   }
@@ -92,7 +109,7 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
   for (const el of doc.querySelectorAll("script, style, noscript, template")) el.remove();
   // Whitespace between elements depends on formatting, not content, so it's ignored entirely.
   const visible = (doc.querySelector("body") ?? doc).text;
-  return { links: [...links].sort(), scripts: [...scripts].sort(), text: visible.replace(/\s+/g, ""), spam: spamHits(visible.replace(/\s+/g, " ")) };
+  return { links: [...links].sort(), scripts: [...scripts].sort(), cdnScripts: [...cdnScripts].sort(), text: visible.replace(/\s+/g, ""), spam: spamHits(visible.replace(/\s+/g, " ")) };
 }
 
 export function compare(route: string, local: PageFingerprint, live: PageFingerprint): Difference[] {
@@ -118,9 +135,12 @@ function sitemapUrls(xml: string): string[] {
   return [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => m[1]!.replace(/&amp;/g, "&"));
 }
 
+/** Browser-like request headers: some CDNs only inject scripts for browsers, and those are what visitors get. */
+const BROWSER = "Mozilla/5.0 (compatible; vagejs-verify) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
 export async function verifySite(
   root: string,
-  options: { url?: string; fetch?: typeof fetch; concurrency?: number } = {},
+  options: { url?: string; fetch?: typeof fetch; concurrency?: number; crawlers?: boolean } = {},
 ): Promise<VerifyResult> {
   root = path.resolve(root);
   const doFetch = options.fetch ?? fetch;
@@ -129,9 +149,9 @@ export async function verifySite(
     const model = await renderSite(root, loader.load);
     const origin = (options.url ?? model.site.site)?.replace(/\/+$/, "");
     if (!origin || !/^https?:\/\/[^/]+$/.test(origin)) throw new VageError('Pass the live site\'s origin with --url https://example.com, or set "site" in vage.config.ts.');
-    const get = async (url: string, userAgent = "vagejs-verify") => {
+    const get = async (url: string, userAgent = BROWSER) => {
       try {
-        const res = await doFetch(url, { redirect: "follow", headers: { "user-agent": userAgent }, signal: AbortSignal.timeout(20_000) });
+        const res = await doFetch(url, { redirect: "follow", headers: { "user-agent": userAgent, accept: "text/html,application/xhtml+xml,*/*;q=0.8" }, signal: AbortSignal.timeout(20_000) });
         return { status: res.status, body: res.ok ? await res.text() : "" };
       } catch (err) {
         return { status: 0, body: "", error: (err as Error).message };
@@ -139,6 +159,7 @@ export async function verifySite(
     };
 
     const differences: Difference[] = [];
+    const cdnSeen = new Set<string>();
     const queue = [...model.pages];
     const worker = async () => {
       for (let page = queue.shift(); page; page = queue.shift()) {
@@ -149,8 +170,10 @@ export async function verifySite(
           continue;
         }
         const local = fingerprint(page.html, url);
-        const seen = compare(page.route, local, fingerprint(live.body, url));
+        const livePrint = fingerprint(live.body, url);
+        const seen = compare(page.route, local, livePrint);
         differences.push(...seen);
+        for (const src of livePrint.cdnScripts) cdnSeen.add(src);
         // Hacked sites often show spam only to search engines ("cloaking"): look again as Googlebot.
         const bot = await get(url, GOOGLEBOT);
         if (bot.status === 200) {
@@ -187,6 +210,19 @@ export async function verifySite(
         });
         if (extra.length) differences.push({ route: "/sitemap.xml", severity: "error", kind: "sitemap-extra", detail: `The live sitemap lists pages that aren't in your files: ${extra.slice(0, 5).join(", ")}${extra.length > 5 ? ` (+${extra.length - 5})` : ""}` });
       }
+    }
+
+    for (const src of cdnSeen) {
+      differences.push({
+        route: "/",
+        severity: "warning",
+        kind: "cdn-script",
+        detail: `Your host or CDN adds ${src} to pages. It isn't in your files, and your security policy may block it (browser console errors). Turn the feature off at your host, or allow it in security.cspSources.`,
+      });
+    }
+    if (options.crawlers !== false) {
+      const { checkCrawlability } = await import("./crawlability.js");
+      differences.push(...(await checkCrawlability(origin, { fetch: doFetch })));
     }
 
     differences.sort((a, b) => (a.severity === b.severity ? a.route.localeCompare(b.route) : a.severity === "error" ? -1 : 1));

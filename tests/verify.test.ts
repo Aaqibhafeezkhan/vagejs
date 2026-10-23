@@ -59,7 +59,7 @@ describe("vage verify", () => {
   it("reports unreachable pages and needs an origin", async () => {
     const { root } = await liveSite();
     const down = (async () => new Response("", { status: 503 })) as typeof fetch;
-    const result = await verifySite(root, { fetch: down });
+    const result = await verifySite(root, { fetch: down, crawlers: false });
     expect(result.differences.every((d) => d.kind === "unreachable")).toBe(true);
     await expect(verifySite(root, { fetch: down, url: "not a url" })).rejects.toThrow(/--url/);
   });
@@ -93,7 +93,11 @@ describe("vage verify (final review)", () => {
     const spam = await liveSite(inject("<p>buy cheap viagra here</p>"));
     expect((await verifySite(spam.root, { fetch: spam.fake })).differences.find((d) => d.kind === "text-changed")?.severity).toBe("error");
     const cdn = await liveSite((_, html) => html.replace("</body>", '<script src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script></body>'));
-    expect((await verifySite(cdn.root, { fetch: cdn.fake })).ok).toBe(true);
+    const cdnResult = await verifySite(cdn.root, { fetch: cdn.fake, crawlers: false });
+    expect(cdnResult.ok).toBe(true);
+    const cdnWarnings = cdnResult.differences.filter((d) => d.kind === "cdn-script").map((d) => d.detail).join("\n");
+    expect(cdnWarnings).toContain("static.cloudflareinsights.com/beacon.min.js");
+    expect(cdnWarnings).toContain("/cdn-cgi/scripts/");
   });
 
   it("catches spam shown only to Googlebot, and changes to robots.txt", async () => {

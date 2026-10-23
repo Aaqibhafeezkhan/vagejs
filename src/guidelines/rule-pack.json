@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.0",
+  "version": "2026.10.1",
   "released": "2026-10-23",
   "sources": [
     {
@@ -265,6 +265,14 @@
       "title": "Pages: headers (_headers)",
       "url": "https://developers.cloudflare.com/pages/configuration/headers/",
       "category": "hosting",
+      "cadence": "weekly"
+    },
+    {
+      "id": "perplexity-bots",
+      "provider": "Perplexity",
+      "title": "Perplexity Crawlers",
+      "url": "https://docs.perplexity.ai/guides/bots",
+      "category": "ai-crawlers",
       "cadence": "weekly"
     }
   ],
@@ -597,6 +605,90 @@
       "data": {
         "maxLineLength": 2000
       }
+    },
+    {
+      "id": "crawlers.probes",
+      "summary": "Crawlers `vage verify` impersonates to test that a live site lets search and AI crawlers in. Full user-agent strings only where the provider documents them (W.X.Y.Z = current Chrome version); otherwise the documented token, which is what CDN bot rules match. A user-agent probe can't detect blocks based on the real crawlers' IP addresses.",
+      "behaviorChanging": true,
+      "sources": [
+        "google-crawlers",
+        "bing-guidelines",
+        "openai-bots",
+        "anthropic-crawlers",
+        "perplexity-bots"
+      ],
+      "implementedIn": [
+        "src/checks/crawlability.ts"
+      ],
+      "data": {
+        "crawlers": [
+          {
+            "token": "Googlebot",
+            "provider": "Google",
+            "purpose": "search",
+            "userAgent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "source": "google-crawlers"
+          },
+          {
+            "token": "bingbot",
+            "provider": "Microsoft",
+            "purpose": "search",
+            "source": "bing-guidelines"
+          },
+          {
+            "token": "OAI-SearchBot",
+            "provider": "OpenAI",
+            "purpose": "ai-search",
+            "source": "openai-bots"
+          },
+          {
+            "token": "GPTBot",
+            "provider": "OpenAI",
+            "purpose": "ai-training",
+            "userAgent": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.4; +https://openai.com/gptbot",
+            "source": "openai-bots"
+          },
+          {
+            "token": "ChatGPT-User",
+            "provider": "OpenAI",
+            "purpose": "ai-user",
+            "userAgent": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot",
+            "source": "openai-bots"
+          },
+          {
+            "token": "Claude-SearchBot",
+            "provider": "Anthropic",
+            "purpose": "ai-search",
+            "source": "anthropic-crawlers"
+          },
+          {
+            "token": "ClaudeBot",
+            "provider": "Anthropic",
+            "purpose": "ai-training",
+            "source": "anthropic-crawlers"
+          },
+          {
+            "token": "Claude-User",
+            "provider": "Anthropic",
+            "purpose": "ai-user",
+            "source": "anthropic-crawlers"
+          },
+          {
+            "token": "PerplexityBot",
+            "provider": "Perplexity",
+            "purpose": "ai-search",
+            "userAgent": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)",
+            "source": "perplexity-bots"
+          },
+          {
+            "token": "Perplexity-User",
+            "provider": "Perplexity",
+            "purpose": "ai-user",
+            "userAgent": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Perplexity-User/1.0; +https://perplexity.ai/perplexity-user)",
+            "source": "perplexity-bots"
+          }
+        ]
+      }
     }
   ],
   "changelog": [
@@ -606,6 +698,13 @@
       "summary": "Initial rule pack (unreleased; extended during Phase 8 and the security review with IndexNow, Clarity, Plausible, Cloudflare Pages and CSP provider rules). Facts checked against the cited sources on 2026-10-23 during implementation.",
       "reviewedBy": "Venkatesh A G E",
       "contentHash": "8c7272511f733c01984ce1d962b39e2d521a88b31a5c958a95307a04b82bb3dd"
+    },
+    {
+      "version": "2026.10.1",
+      "date": "2026-10-23",
+      "summary": "Add crawlers.probes (search and AI crawler user agents and tokens for vage verify's crawlability check) and the Perplexity crawler source. User-agent strings copied from each provider's page on 2026-10-23; Anthropic and Bing are recorded by token only because their pages don't list full strings (Bing's page couldn't be read). No existing rule changed.",
+      "reviewedBy": "Venkatesh A G E",
+      "contentHash": "116311eb2fce8f523fd8247ef183f74ef8619d0466a33765c8a0538f4ace8e89"
     }
   ]
 }
