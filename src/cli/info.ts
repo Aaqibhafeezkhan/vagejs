@@ -18,7 +18,8 @@ export function frameworkInfo(cli: CAC, version: string) {
       description: c.description,
       options: c.options
         .filter((o) => o.name !== "help")
-        .map((o) => ({ flags: o.rawName, description: o.description, default: o.config.default })),
+        // cac reports "--no-x" flags with default true (meaning: x is on); leave that out so it isn't misread.
+        .map((o) => ({ flags: o.rawName, description: o.description, default: o.rawName.startsWith("--no-") ? undefined : o.config.default })),
     })),
     exitCodes: { 0: "success", 1: "failure (build error, check errors, or check warnings with --strict)" },
     config: { files: CONFIG_FILES, schema: schema(configSchema) },

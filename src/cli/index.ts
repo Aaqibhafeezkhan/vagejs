@@ -365,8 +365,9 @@ cli
       if (opts.json) print(result);
       else {
         for (const d of result.differences) console.log(`${d.severity === "error" ? "error  " : "warning"} ${d.kind.padEnd(15)} ${d.route}\n        ${d.detail}`);
-        console.log(`\nVerified ${result.pagesChecked} page(s) on ${result.url}: ${result.differences.filter((d) => d.severity === "error").length} error(s), ${result.differences.filter((d) => d.severity === "warning").length} warning(s).`);
-        if (!result.ok) console.log("The live site has content that isn't in your files. If you didn't deploy it, rotate your host and Git credentials, then redeploy from the repository.");
+        console.log(`\nVerified ${result.pagesChecked} page(s) on ${result.url}${result.crawlersChecked ? ` and probed ${result.crawlersChecked} search and AI crawlers` : ""}: ${result.differences.filter((d) => d.severity === "error").length} error(s), ${result.differences.filter((d) => d.severity === "warning").length} warning(s).`);
+        const tampered = result.differences.some((d) => d.severity === "error" && ["links-added", "scripts-added", "text-changed", "sitemap-extra", "robots-changed"].includes(d.kind));
+        if (tampered) console.log("The live site has content that isn't in your files. If you didn't deploy it, rotate your host and Git credentials, then redeploy from the repository.");
       }
       if (!result.ok) process.exitCode = 1;
     }),

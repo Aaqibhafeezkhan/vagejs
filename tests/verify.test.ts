@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
 import { fingerprint, verifySite } from "../src/checks/verify.js";
-import { copyFixture } from "./helpers.js";
+import { copyFixture, write } from "./helpers.js";
 
 /** A fake live site that serves the real build output, with optional tampering. */
 async function liveSite(tamper: (route: string, html: string, ua: string) => string = (_, h) => h, extraSitemap = "", robots?: (t: string) => string) {
@@ -106,5 +106,28 @@ describe("vage verify (final review)", () => {
     expect(result.differences.find((d) => d.kind === "links-added")!.detail).toMatch(/Only when visited as Googlebot/);
     const robots = await liveSite(undefined, "", (t) => `${t}\nSitemap: https://spam.example/sitemap.xml\n`);
     expect((await verifySite(robots.root, { fetch: robots.fake })).differences.map((d) => d.kind)).toContain("robots-changed");
+  });
+});
+
+describe("vage verify covers generated files (review)", () => {
+  it("checks the live feed and Markdown copies, and counts probed crawlers", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true, feeds: [{ under: "/blog/" }] } };');
+    await build(root);
+    const dist = path.join(root, "dist");
+    const fakeLive = (async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.hostname !== "fixture.example" || url.protocol !== "https:") return new Response("", { status: 301, headers: { location: "https://fixture.example/" } });
+      const file = url.pathname.endsWith("/") ? path.join(dist, url.pathname, "index.html") : path.join(dist, url.pathname);
+      if (!fs.existsSync(file)) return new Response("", { status: 404 });
+      let body = fs.readFileSync(file, "utf8");
+      if (url.pathname === "/about.md") body += "\nBuy cheap viagra here.\n";
+      if (url.pathname === "/blog/feed.xml") body = body.replace("</channel>", "<item><title>Casino bonus</title></item></channel>");
+      return new Response(body);
+    }) as typeof fetch;
+    const result = await verifySite(root, { fetch: fakeLive });
+    expect(result.differences.find((d) => d.route === "/about.md")).toMatchObject({ severity: "error", kind: "text-changed" });
+    expect(result.differences.find((d) => d.route === "/blog/feed.xml")).toMatchObject({ severity: "error" });
+    expect(result.crawlersChecked).toBeGreaterThan(5);
   });
 });

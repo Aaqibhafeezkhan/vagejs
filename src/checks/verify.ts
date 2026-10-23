@@ -49,6 +49,8 @@ export interface VerifyResult {
   ok: boolean;
   url: string;
   pagesChecked: number;
+  /** Crawlers probed by the crawlability check (0 when skipped or when the site blocks everyone). */
+  crawlersChecked: number;
   differences: Difference[];
 }
 
@@ -99,6 +101,7 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
       if (CDN_SCRIPT.test(url)) cdnScripts.add(url.replace(/\?.*$/, ""));
       else scripts.add(`src:${url}`);
     } else if (el.getAttribute("type") === "application/ld+json") scripts.add(`json-ld:${sha(el.text.replace(/\s+/g, ""))}`);
+    else if (/__CF\$cv\$params|\/cdn-cgi\//.test(el.text)) cdnScripts.add("inline Cloudflare script (/cdn-cgi/)");
     else scripts.add(`inline:${sha(el.text.trim())}`);
   }
   for (const el of doc.querySelectorAll("*")) {
@@ -175,8 +178,9 @@ export async function verifySite(
         differences.push(...seen);
         for (const src of livePrint.cdnScripts) cdnSeen.add(src);
         // Hacked sites often show spam only to search engines ("cloaking"): look again as Googlebot.
+        // Skipped when Googlebot gets a challenge page (the crawlability check reports that once).
         const bot = await get(url, GOOGLEBOT);
-        if (bot.status === 200) {
+        if (bot.status === 200 && !/<title>\s*(Just a moment|Attention Required|Access denied|Checking your browser)/i.test(bot.body)) {
           for (const d of compare(page.route, local, fingerprint(bot.body, url))) {
             if (!seen.some((x) => x.kind === d.kind && x.detail === d.detail)) differences.push({ ...d, detail: `Only when visited as Googlebot: ${d.detail}` });
           }
@@ -220,13 +224,34 @@ export async function verifySite(
         detail: `Your host or CDN adds ${src} to pages. It isn't in your files, and your security policy may block it (browser console errors). Turn the feature off at your host, or allow it in security.cspSources.`,
       });
     }
+    // Generated files must match too: the feed, Markdown copies and optimized images.
+    const generated = [...model.files.keys()].filter((name) => name.endsWith("feed.xml") || (name.endsWith(".md") && !name.includes("/_")));
+    for (const name of generated) {
+      const live = await get(`${origin}/${name}`);
+      const local = model.files.get(name)!;
+      const norm = (t: string) => t.replace(/\s+/g, "");
+      if (live.status !== 200) differences.push({ route: `/${name}`, severity: "error", kind: "unreachable", detail: live.status ? `HTTP ${live.status}` : "no response" });
+      else if (norm(live.body) !== norm(local)) {
+        const spam = spamHits(live.body).filter((h) => !spamHits(local).includes(h));
+        differences.push({ route: `/${name}`, severity: spam.length ? "error" : "warning", kind: "text-changed", detail: `The live file differs from your build${spam.length ? ` and contains spam words (${spam.join(", ")})` : ""}.` });
+      }
+    }
+    const images = new Set(model.pages.flatMap((p) => [...p.assets.keys()]));
+    for (const image of images) {
+      const live = await get(`${origin}/${image}`);
+      if (live.status !== 200) differences.push({ route: `/${image}`, severity: "error", kind: "unreachable", detail: `Optimized image missing on the live site (HTTP ${live.status || "no response"}); browsers using srcset would show a broken image.` });
+    }
+
+    let crawlersChecked = 0;
     if (options.crawlers !== false) {
       const { checkCrawlability } = await import("./crawlability.js");
-      differences.push(...(await checkCrawlability(origin, { fetch: doFetch })));
+      const crawl = await checkCrawlability(origin, { fetch: doFetch });
+      differences.push(...crawl.differences);
+      crawlersChecked = crawl.crawlersChecked;
     }
 
     differences.sort((a, b) => (a.severity === b.severity ? a.route.localeCompare(b.route) : a.severity === "error" ? -1 : 1));
-    return { ok: !differences.some((d) => d.severity === "error"), url: origin, pagesChecked: model.pages.length, differences };
+    return { ok: !differences.some((d) => d.severity === "error"), url: origin, pagesChecked: model.pages.length, crawlersChecked, differences };
   } finally {
     await loader.close();
   }
