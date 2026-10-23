@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-10-23)
 
 ### Added
 - **Image pipeline (opt-in).** `images: { optimize: true }` with `sharp` installed makes resized WebP copies of images in page content (default widths 480, 960, 1600; never upscaled), caches them in `node_modules/.cache/vagejs`, publishes them under `/_vage/img/` and offers them with `srcset`/`sizes`. Set inside the sanitizer, like the width/height hints.
