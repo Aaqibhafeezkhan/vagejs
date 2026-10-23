@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/vagejs-logo.svg" alt="VAGE JS" width="320">
+</p>
+
 # VAGE JS
 
 An AI-native, static-first web framework. **Pre-release (Phase 8)**: not published to npm.
@@ -56,6 +60,10 @@ Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-la
 ## Security
 
 Page content is sanitized, dev/preview servers serve only what a site needs, and Cloudflare deploys get security headers with a computed Content-Security-Policy. Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
+
+## Brand assets
+
+`assets/brand/vagejs-logo.svg` (wordmark) and `assets/brand/vagejs-icon.svg` (icon) are the official VAGE JS marks, kept as received with their C2PA content credentials. New sites get the icon as `public/favicon.svg` (same artwork, metadata removed to keep it small); replace it with your own.
 
 ## License
 

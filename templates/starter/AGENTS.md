@@ -136,6 +136,10 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
+## Favicon
+
+`public/favicon.svg` is the VAGE JS icon as a placeholder. Replace it with the site owner's icon (keep the file name, or update the `<link rel="icon">` in `src/layouts/default.ts`).
+
 ## Safety
 
 Never commit `.env` files or credentials. Static files in `public/` are copied to `dist/` as-is.
