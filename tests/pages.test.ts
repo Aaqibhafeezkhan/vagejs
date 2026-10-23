@@ -43,6 +43,7 @@ describe("collection()", () => {
     expect(() => collection(pages, { under: "blog" })).toThrow(/starting with "\/"/);
     expect(() => collection(pages, { sort: "datePublished" as "date" })).toThrow(/"sort" must be/);
     expect(() => collection(pages, { limit: -1 })).toThrow(/limit/);
+    expect(() => collection(pages, { includeIndex: "yes" as unknown as boolean })).toThrow(/includeIndex/);
     expect(() => collection(undefined as unknown as [], {})).toThrow(/pages/);
   });
 

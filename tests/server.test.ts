@@ -108,6 +108,16 @@ describe("dev server", () => {
     const port = Number(new URL(url).port);
     await expect(startDevServer(copyFixture(), { port })).rejects.toThrow(`Port ${port} is already in use`);
   });
+
+  it("keeps other pages working when one page's layout doesn't compile", async () => {
+    const root = copyFixture();
+    const { url } = await start(root);
+    write(root, "src/layouts/broken.ts", "export default ( => {");
+    write(root, "src/pages/b.md", "---\ntitle: B\ndescription: B.\nlayout: broken\n---\n# B\n");
+    expect((await get(`${url}/about/`)).status).toBe(200);
+    expect((await get(`${url}/b/`)).status).toBe(500);
+  });
+
 });
 
 describe("preview server", () => {

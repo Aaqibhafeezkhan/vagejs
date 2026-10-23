@@ -99,7 +99,7 @@ async function resolveLayout(
     throw new VageError("Layout files must default-export a function that returns an HTML string.", file);
   }
   const schema = mod.frontmatter as FieldSchema | undefined;
-  if (schema !== undefined && typeof schema?.safeParse !== "function") {
+  if (schema !== undefined && (typeof schema?.safeParse !== "function" || typeof (schema as { shape?: unknown }).shape !== "object")) {
     throw new VageError('`export const frontmatter` in a layout must be a Zod object schema: z.object({ ... }) (import { z } from "vagejs").', file);
   }
   return { layout: layout as Layout, schema };
@@ -122,17 +122,21 @@ export async function applyLayoutFields(root: string, frontmatter: Frontmatter, 
  * Checks the fields a page adds for its layout against the layout's schema. Unknown
  * fields are errors (a typo would otherwise do nothing); defaults are filled in. A
  * schema may also declare built-in fields (e.g. make `author` required); those are
- * validated too.
+ * validated too. Built-in defaults (type "website", draft/noindex false) are applied
+ * first, so a layout can restrict them but not change their defaults.
  */
 function validateLayoutFields(frontmatter: Frontmatter, schema: FieldSchema, layoutName: string, file: string): Record<string, unknown> {
   const declared = new Set(Object.keys((schema as { shape?: Record<string, unknown> }).shape ?? {}));
   const own = Object.fromEntries(Object.entries(frontmatter).filter(([k]) => !BUILT_IN_FIELDS.has(k) || declared.has(k)));
-  const result = (schema.strict ? schema.strict() : schema).safeParse(own);
+  // Strict unless the layout chose otherwise (.passthrough() / z.looseObject set a catchall).
+  const loose = (schema as { _zod?: { def?: { catchall?: unknown } } })._zod?.def?.catchall !== undefined;
+  const result = (loose || !schema.strict ? schema : schema.strict()).safeParse(own);
   if (!result.success) {
     const detail = result.error instanceof z.ZodError ? z.prettifyError(result.error) : String(result.error);
     throw new VageError(`Frontmatter doesn't match the "${layoutName}" layout's fields:\n${detail}`, file);
   }
-  return result.data as Record<string, unknown>;
+  // Zod reuses a default's nested objects across parses; give each page its own copy.
+  return structuredClone(result.data) as Record<string, unknown>;
 }
 
 /** Used when a project has no src/layouts/default.ts. */

@@ -79,6 +79,8 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   const findings: Finding[] = model.warnings.map((message) => ({ rule: "config", severity: "warning", message }));
   for (const e of model.pageErrors) findings.push({ rule: "page-error", severity: "error", message: e.message, source: e.source });
   const outputs = outputPaths(root, model);
+  // Pages that failed to render are already reported; links to them aren't broken links on top of that.
+  for (const e of model.pageErrors) if (e.route) outputs.add(`${e.route}index.html`);
   const drafts = new Set(model.draftRoutes);
   const pages = model.notFound ? [...model.pages, model.notFound] : model.pages;
 

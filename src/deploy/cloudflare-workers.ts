@@ -7,7 +7,8 @@ import { WRANGLER } from "./cloudflare-pages.js";
 import type { DeployStatus, Runner } from "./github-pages.js";
 import { runCommand } from "./github-pages.js";
 
-export const WRANGLER_CONFIGS = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
+/** In wrangler's own lookup order. */
+export const WRANGLER_CONFIGS = ["wrangler.json", "wrangler.jsonc", "wrangler.toml"];
 
 /** Compatibility date for the generated config; Workers static assets need nothing newer. Checked 2026-10-23. */
 export const COMPATIBILITY_DATE = "2026-10-01";
@@ -21,17 +22,45 @@ export interface WranglerConfig {
   notFoundHandling?: string;
 }
 
-/** Reads name and assets settings from wrangler.jsonc/.json (comments allowed) or wrangler.toml. */
-export function readWranglerConfig(root: string): WranglerConfig | undefined {
-  const file = WRANGLER_CONFIGS.find((f) => fs.existsSync(path.join(root, f)));
+/**
+ * Reads name and assets settings from the project's wrangler config. Refuses setups where
+ * wrangler could pick a different file or Worker than the one shown: several config files,
+ * a CLOUDFLARE_ENV environment, or a .wrangler/deploy redirect.
+ */
+export function readWranglerConfig(root: string, env: Record<string, string | undefined> = process.env): WranglerConfig | undefined {
+  const present = WRANGLER_CONFIGS.filter((f) => fs.existsSync(path.join(root, f)));
+  if (present.length > 1) throw new VageError(`Found ${present.join(" and ")}. Keep one wrangler config so it's clear which Worker gets deployed.`);
+  if (fs.existsSync(path.join(root, ".wrangler", "deploy", "config.json"))) {
+    throw new VageError(".wrangler/deploy/config.json redirects wrangler to another config. Remove it, or deploy with wrangler directly.");
+  }
+  const file = present[0];
   if (!file) return undefined;
-  const text = fs.readFileSync(path.join(root, file), "utf8");
+  if (env.CLOUDFLARE_ENV) throw new VageError(`CLOUDFLARE_ENV="${env.CLOUDFLARE_ENV}" makes wrangler deploy that environment's Worker. Unset it to deploy with vagejs.`);
+  const text = fs.readFileSync(path.join(root, file), "utf8").replace(/^\uFEFF/, "");
   let name: unknown, dir: unknown, nf: unknown;
   if (file.endsWith(".toml")) {
-    name = /^\s*name\s*=\s*"([^"]*)"/m.exec(text)?.[1];
-    const assets = /^\s*\[assets\]([\s\S]*?)(?=^\s*\[|$(?![\s\S]))/m.exec(text)?.[1] ?? "";
-    dir = /^\s*directory\s*=\s*"([^"]*)"/m.exec(assets)?.[1] ?? /^\s*assets\s*=\s*\{[^}]*directory\s*=\s*"([^"]*)"/m.exec(text)?.[1];
-    nf = /not_found_handling\s*=\s*"([^"]*)"/.exec(text)?.[1];
+    const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+#.*$|^\s*#.*$/, ""));
+    const header = (l: string) => /^\s*\[/.test(l);
+    const firstHeader = lines.findIndex(header);
+    const top = firstHeader === -1 ? lines : lines.slice(0, firstHeader);
+    const assetsStart = lines.findIndex((l) => /^\s*\[assets\]\s*$/.test(l));
+    const assetsEnd = assetsStart === -1 ? -1 : lines.findIndex((l, i) => i > assetsStart && header(l));
+    const assets = assetsStart === -1 ? [] : lines.slice(assetsStart + 1, assetsEnd === -1 ? undefined : assetsEnd);
+    const value = (block: string[], key: string) => {
+      for (const l of block) {
+        const m = new RegExp(`^\\s*${key}\\s*=\\s*(?:"([^"]*)"|'([^']*)')\\s*$`).exec(l);
+        if (m) return m[1] ?? m[2];
+      }
+      return undefined;
+    };
+    name = value(top, "name");
+    dir = value(assets, "directory");
+    nf = value(assets, "not_found_handling");
+    const inline = top.map((l) => /^\s*assets\s*=\s*\{(.*)\}\s*$/.exec(l)?.[1]).find(Boolean);
+    if (inline) {
+      dir ??= /directory\s*=\s*"([^"]*)"/.exec(inline)?.[1];
+      nf ??= /not_found_handling\s*=\s*"([^"]*)"/.exec(inline)?.[1];
+    }
   } else {
     let data: { name?: unknown; assets?: { directory?: unknown; not_found_handling?: unknown } };
     try {
@@ -51,7 +80,7 @@ export function readWranglerConfig(root: string): WranglerConfig | undefined {
   };
 }
 
-/** JSONC to JSON: drops // and /* *\/ comments and trailing commas, leaving strings alone. */
+/** JSONC to JSON: drops // and /* *\/ comments and trailing commas outside strings. */
 function stripJsonComments(text: string): string {
   let out = "";
   for (let i = 0; i < text.length; i++) {
@@ -70,9 +99,11 @@ function stripJsonComments(text: string): string {
       i = text.indexOf("*/", i + 2);
       if (i === -1) break;
       i++;
+    } else if (c === "," && /^\s*(\/\/[^\n]*\n\s*|\/\*[\s\S]*?\*\/\s*)*[}\]]/.test(text.slice(i + 1))) {
+      // trailing comma: drop it
     } else out += c;
   }
-  return out.replace(/,(\s*[}\]])/g, "$1");
+  return out;
 }
 
 export interface WorkersPlan {
@@ -153,7 +184,8 @@ export async function deployCloudflareWorkers(
   const { worker } = options.plan;
 
   let tempDir: string | undefined;
-  const configArgs: string[] = [];
+  // Always name the config file, so wrangler can't pick another one (e.g. in a parent folder).
+  const configArgs: string[] = options.plan.config ? ["--config", path.join(root, options.plan.config.file)] : [];
   if (!options.plan.config) {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vage-wrangler-"));
     const config = {
@@ -194,14 +226,13 @@ export async function deployCloudflareWorkers(
       output += `\n${out(switched)}`;
     }
 
-    // Version preview URLs (https://<8 hex>-<worker>.<sub>.workers.dev) show the new version even when the live site doesn't.
+    // Lines mentioning "preview" carry version preview URLs, which show the new version even when the live site doesn't.
     const workersDev = output
       .split("\n")
       .filter((line) => !/preview/i.test(line))
       .join("\n")
       .match(/https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.workers\.dev/gi)
-      ?.filter((u) => !/^https:\/\/[0-9a-f]{8}-/i.test(u))
-      .at(-1);
+      ?.at(-1);
     const pageUrl = options.siteUrl ?? workersDev;
     if (!pageUrl) return { status: "unconfirmed", worker, mode, versionId, reason: "Deployed, but there is no URL to check: set `site` in vage.config.ts." };
     for (let i = 0; i < 5; i++) {

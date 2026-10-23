@@ -33,6 +33,8 @@ export interface SiteRedirect {
 export interface PageError {
   /** Source path relative to the project root. */
   source: string;
+  /** The route the page would have had (links to it aren't reported again as broken). */
+  route?: string;
   message: string;
 }
 
@@ -68,19 +70,21 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   }
   const model: SiteModel = { site, pageErrors: [], pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
   const collect = options.collectErrors === true;
-  const attempt = async (file: string, work: () => Promise<void>) => {
+  const attempt = async (file: string, route: string | undefined, work: () => Promise<void>) => {
     try {
       await work();
     } catch (err) {
-      if (!collect || !(err instanceof VageError)) throw err;
-      model.pageErrors.push({ source: path.relative(root, file), message: err.detail });
+      if (!collect) throw err;
+      // Layout code can throw anything (or fail to compile); report it as this page's error.
+      const message = err instanceof VageError ? err.detail : `Layout or render error: ${(err as Error)?.message ?? String(err)}`;
+      model.pageErrors.push({ source: path.relative(root, file), route, message });
     }
   };
 
   const pages = await collectPages(root, site, load, { skipInvalid: collect });
   for (const entry of discoverRoutes(pagesDir)) {
     const source = path.relative(root, entry.file);
-    await attempt(entry.file, async () => {
+    await attempt(entry.file, entry.route, async () => {
       // Drafts are skipped before rendering, so their fields can't fail a build.
       if (parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file).frontmatter.draft) {
         model.skippedDrafts.push(source);
@@ -93,7 +97,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   }
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) {
-    await attempt(notFound, async () => {
+    await attempt(notFound, undefined, async () => {
       const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true, pages });
       model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
     });

@@ -59,6 +59,48 @@ describe("Workers deploy plan", () => {
     expect(planWorkersDeploy(root, undefined).warnings.join()).toMatch(/not_found_handling/);
   });
 
+  it("refuses setups where wrangler could pick another config or Worker (re-review)", () => {
+    const two = copyFixture();
+    write(two, "wrangler.json", '{ "name": "a", "assets": { "directory": "dist" } }');
+    write(two, "wrangler.toml", 'name = "b"\n[assets]\ndirectory = "dist"\n');
+    expect(() => planWorkersDeploy(two, undefined)).toThrow(/Keep one wrangler config/);
+
+    const redirected = copyFixture();
+    write(redirected, "wrangler.jsonc", '{ "name": "a", "assets": { "directory": "dist" } }');
+    write(redirected, ".wrangler/deploy/config.json", '{ "configPath": "../other.json" }');
+    expect(() => planWorkersDeploy(redirected, undefined)).toThrow(/redirects wrangler/);
+
+    const envRoot = copyFixture();
+    write(envRoot, "wrangler.jsonc", '{ "name": "a", "assets": { "directory": "dist" } }');
+    expect(() => readWranglerConfig(envRoot, { CLOUDFLARE_ENV: "staging" })).toThrow(/CLOUDFLARE_ENV/);
+  });
+
+  it("reads only top-level name and the [assets] table from TOML, ignoring comments and other tables (re-review)", () => {
+    const root = copyFixture();
+    write(
+      root,
+      "wrangler.toml",
+      [
+        "# name = \"fake\"",
+        "name = 'site'",
+        "",
+        "[assets]",
+        "directory = \"dist\" # built output",
+        "# not_found_handling = \"404-page\"",
+        "",
+        "[env.staging]",
+        'name = "staging"',
+      ].join("\n"),
+    );
+    expect(readWranglerConfig(root, {})).toMatchObject({ name: "site", assetsDir: path.join(root, "dist"), notFoundHandling: undefined });
+  });
+
+  it("handles a BOM and commas inside strings in JSONC (re-review)", () => {
+    const root = copyFixture();
+    write(root, "wrangler.jsonc", '\uFEFF{ "name": "site", "assets": { "directory": "dist", "not_found_handling": "404-page" }, "note": "a,}" , }');
+    expect(readWranglerConfig(root, {})).toMatchObject({ name: "site", notFoundHandling: "404-page" });
+  });
+
   it("needs a name when there is no config", () => {
     expect(() => planWorkersDeploy(copyFixture(), undefined)).toThrow(/No Worker name/);
   });
@@ -71,9 +113,10 @@ describe("Cloudflare Workers deploy", () => {
     const r = runner([{ code: 0, stdout: `Worker Version ID: ${VERSION}` }, { code: 0, stdout: "SUCCESS Deployed" }]);
     const result = await deployCloudflareWorkers(root, { plan: planWorkersDeploy(root, undefined), tag: "t1", siteUrl: "https://fixture.example", run: r.run, fetch: ok, ...quiet });
     expect(result).toEqual({ status: "success", worker: "site", mode: "version", versionId: VERSION, pageUrl: "https://fixture.example" });
+    const config = path.join(root, "wrangler.jsonc");
     expect(r.calls).toEqual([
-      ["npx", "--yes", "wrangler@4.152.0", "versions", "upload", "--tag", "t1"],
-      ["npx", "--yes", "wrangler@4.152.0", "versions", "deploy", `${VERSION}@100%`, "--yes"],
+      ["npx", "--yes", "wrangler@4.152.0", "versions", "upload", "--tag", "t1", "--config", config],
+      ["npx", "--yes", "wrangler@4.152.0", "versions", "deploy", `${VERSION}@100%`, "--yes", "--config", config],
     ]);
   });
 
@@ -93,6 +136,10 @@ describe("Cloudflare Workers deploy", () => {
     const fetched: string[] = [];
     const track = async (url: string | URL | Request) => (fetched.push(String(url)), new Response("ok"));
     const upload = `Worker Version ID: ${VERSION}\nVersion Preview URL: https://317282a4-site.acct.workers.dev`;
+    // A Worker whose name starts like a hash is still its own live URL (re-review).
+    const named = await deployCloudflareWorkers(root, { plan: plan("cafebabe-site"), run: runner([{ code: 1, stderr: "[code: 10007] Worker does not exist" }, { code: 0, stdout: "Deployed https://cafebabe-site.acct.workers.dev" }]).run, fetch: track as typeof fetch, ...quiet });
+    expect(named.pageUrl).toBe("https://cafebabe-site.acct.workers.dev");
+    fetched.length = 0;
     await deployCloudflareWorkers(root, { plan: plan("site"), siteUrl: "https://example.org", run: runner([{ code: 0, stdout: upload }, { code: 0 }]).run, fetch: track as typeof fetch, ...quiet });
     expect(fetched).toEqual(["https://example.org"]);
     fetched.length = 0;

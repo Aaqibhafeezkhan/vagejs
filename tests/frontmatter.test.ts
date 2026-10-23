@@ -116,3 +116,43 @@ export default ({ content, page, pages }) => \`<!doctype html><html lang="en"><h
     await expect(build(root)).rejects.toThrow(/read only|frozen|Cannot assign/i);
   });
 });
+
+describe("re-review regressions", () => {
+  it("keeps checking other pages when a layout throws or doesn't compile, without cascading link errors", async () => {
+    const root = copyFixture();
+    write(root, "src/layouts/boom.ts", 'export default () => { throw new Error("boom"); };');
+    write(root, "src/layouts/broken.ts", "export default ( => {");
+    write(root, "src/pages/v.md", "---\ntitle: V\ndescription: V.\nlayout: boom\n---\n# V\n");
+    write(root, "src/pages/w.md", "---\ntitle: W\ndescription: W.\nlayout: broken\n---\n# W\n");
+    write(root, "src/pages/links-to-them.md", "---\ntitle: L\ndescription: L.\n---\n# L\n\n[v](/v/) [w](/w/)\n");
+    const result = await check(root);
+    const pageErrors = result.findings.filter((f) => f.rule === "page-error");
+    expect(pageErrors.map((f) => path.basename(f.source!)).sort()).toEqual(["v.md", "w.md"]);
+    expect(pageErrors.find((f) => f.source?.endsWith("v.md"))!.message).toContain("boom");
+    expect(result.findings.filter((f) => f.rule === "link-broken")).toEqual([]);
+  });
+
+  it("lets a layout mutate its own nested default without touching the shared page list", async () => {
+    const root = copyFixture();
+    write(
+      root,
+      "src/layouts/bag.ts",
+      `import { z } from ${ZOD};
+export const frontmatter = z.object({ v: z.object({ list: z.array(z.string()) }).default({ list: [] }) });
+export default ({ page }) => { page.frontmatter.v.list.push("x"); return \`<html lang="en"><head><title>\${page.title}</title></head><body>\${page.frontmatter.v.list.length}</body></html>\`; };`,
+    );
+    write(root, "src/pages/a.md", "---\ntitle: A\ndescription: A.\nlayout: bag\n---\n# A\n");
+    write(root, "src/pages/b.md", "---\ntitle: B\ndescription: B.\nlayout: bag\n---\n# B\n");
+    await build(root);
+    expect(fs.readFileSync(path.join(root, "dist/b/index.html"), "utf8")).toContain("<body>1</body>");
+  });
+
+  it("respects .passthrough() and rejects schemas that aren't objects", async () => {
+    const root = copyFixture();
+    write(root, "src/layouts/loose.ts", `import { z } from ${ZOD};\nexport const frontmatter = z.object({ a: z.string().optional() }).passthrough();\nexport default ({ page }) => \`<html lang="en"><head><title>\${page.title}</title></head><body></body></html>\`;`);
+    write(root, "src/pages/l.md", "---\ntitle: L\ndescription: L.\nlayout: loose\nextra: 1\n---\n# L\n");
+    await expect(build(root)).resolves.toBeDefined();
+    write(root, "src/layouts/loose.ts", `import { z } from ${ZOD};\nexport const frontmatter = z.string();\nexport default () => "<html></html>";`);
+    await expect(build(root)).rejects.toThrow(/Zod object schema/);
+  });
+});

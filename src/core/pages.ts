@@ -37,7 +37,8 @@ export async function collectPages(root: string, site: SiteConfig, load: ModuleL
       if (frontmatter.draft) continue;
       await applyLayoutFields(root, frontmatter, load, entry.file);
     } catch (err) {
-      if (options.skipInvalid && err instanceof VageError) continue;
+      // Any failure (bad frontmatter, a layout that throws or doesn't compile) is that page's own error.
+      if (options.skipInvalid) continue;
       throw err;
     }
     out.push({
@@ -49,7 +50,8 @@ export async function collectPages(root: string, site: SiteConfig, load: ModuleL
       frontmatter,
     });
   }
-  return deepFreeze(out);
+  // A frozen deep copy: shared by every layout, and never the objects a page renders with.
+  return deepFreeze(structuredClone(out));
 }
 
 function deepFreeze<T>(value: T): T {
@@ -87,6 +89,7 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
   if (typeof sort !== "function" && !SORTS.includes(sort)) {
     throw new VageError(`collection(): "sort" must be "date", "title", "route" or a compare function (got ${JSON.stringify(sort)}).`);
   }
+  if (typeof includeIndex !== "boolean") throw new VageError(`collection(): "includeIndex" must be true or false (got ${JSON.stringify(includeIndex)}).`);
   if (limit !== undefined && !(Number.isInteger(limit) && limit >= 0)) {
     throw new VageError(`collection(): "limit" must be a whole number of 0 or more (got ${JSON.stringify(limit)}).`);
   }
