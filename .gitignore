@@ -8,3 +8,6 @@ dist/
 .envrc
 .DS_Store
 coverage/
+
+# Private build spec, kept locally only
+VAGE_JS_BUILD_SPEC.md
