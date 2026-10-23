@@ -7,6 +7,7 @@ import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
 import { baseViteConfig, viteLoader } from "../core/loader.js";
 import { renderPage } from "../core/render.js";
+import { collectPages } from "../core/pages.js";
 import { renderSite } from "../core/site.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "../core/routes.js";
 import { devAccessGuard } from "./guard.js";
@@ -74,7 +75,8 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
         return send(res, 404, await server.transformIndexHtml(urlPath, plainPage("404 — Not found", `No page for ${route}`)));
       }
       const file = entry?.file ?? notFound!;
-      const page = await renderPage({ root, file, route: entry ? route : "/404/", site, load, notFound: !entry });
+      const pages = collectPages(root, site, { skipInvalid: true });
+      const page = await renderPage({ root, file, route: entry ? route : "/404/", site, load, notFound: !entry, pages });
       send(res, entry ? 200 : 404, await server.transformIndexHtml(urlPath, page.html));
     } catch (err) {
       const message = (err as Error).message;

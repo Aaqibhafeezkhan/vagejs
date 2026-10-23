@@ -12,6 +12,7 @@ import { loadConfig, type ModuleLoader, type SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
 import { escapeHtml } from "./html.js";
 import { renderPage, type RenderedPage } from "./render.js";
+import { collectPages } from "./pages.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "./routes.js";
 
 export interface SitePage extends RenderedPage {
@@ -58,8 +59,9 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
   }
   const model: SiteModel = { site, pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
 
+  const pages = collectPages(root, site);
   for (const entry of discoverRoutes(pagesDir)) {
-    const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true });
+    const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true, pages });
     const source = path.relative(root, entry.file);
     if (page.frontmatter.draft) {
       model.skippedDrafts.push(source);
@@ -69,7 +71,7 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
   }
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) {
-    const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true });
+    const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true, pages });
     model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
   }
 

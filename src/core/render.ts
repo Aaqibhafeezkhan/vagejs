@@ -1,12 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseMarkdown, type Frontmatter } from "../content/markdown.js";
+import { z } from "zod";
+import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/markdown.js";
 import { sanitizeHtml } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
 import { escapeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
+import type { PageSummary } from "./pages.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -20,6 +22,11 @@ export interface LayoutProps {
     frontmatter: Frontmatter;
   };
   site: SiteConfig;
+  /**
+   * Every published page (drafts excluded), sorted by route. Use `collection()` to
+   * pick a section and order it, e.g. a blog index or a sidebar.
+   */
+  pages: PageSummary[];
 }
 
 export type Layout = (props: LayoutProps) => string | Promise<string>;
@@ -42,17 +49,21 @@ export async function renderPage(options: {
   notFound?: boolean;
   /** Add configured analytics tags. Off in the dev server so development traffic is never measured. */
   analytics?: boolean;
+  /** Published pages for `props.pages`. */
+  pages?: PageSummary[];
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
   const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
   const { frontmatter, body } = parsed;
   const content = site.markdown.html === "allow" ? parsed.html : await sanitizeHtml(parsed.html);
+  const { layout, schema } = await resolveLayout(root, frontmatter.layout, load, file);
+  if (schema) Object.assign(frontmatter, validateLayoutFields(frontmatter, schema, frontmatter.layout ?? "default", file));
   const meta = pageMeta(site, route, frontmatter, options.notFound);
-  const layout = await resolveLayout(root, frontmatter.layout, load, file);
   const html = await layout({
     content,
     page: { route, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
     site,
+    pages: options.pages ?? [],
   });
   if (typeof html !== "string") {
     throw new VageError(`Layout "${frontmatter.layout ?? "default"}" must return an HTML string.`, file);
@@ -65,23 +76,47 @@ export async function renderPage(options: {
 
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs"];
 
+/** A Zod schema a layout can export as `frontmatter` to declare its own fields. */
+type FieldSchema = { safeParse: (data: unknown) => { success: boolean; data?: unknown; error?: unknown }; strict?: () => FieldSchema };
+
 async function resolveLayout(
   root: string,
   name: string | undefined,
   load: ModuleLoader,
   pageFile: string,
-): Promise<Layout> {
+): Promise<{ layout: Layout; schema?: FieldSchema }> {
   const base = path.join(root, "src", "layouts", name ?? "default");
   const file = LAYOUT_EXTENSIONS.map((ext) => base + ext).find((f) => fs.existsSync(f));
   if (!file) {
-    if (!name) return defaultLayout;
+    if (!name) return { layout: defaultLayout };
     throw new VageError(`Layout "${name}" not found. Expected src/layouts/${name}.ts`, pageFile);
   }
-  const layout = (await load(file)).default;
+  const mod = await load(file);
+  const layout = mod.default;
   if (typeof layout !== "function") {
     throw new VageError("Layout files must default-export a function that returns an HTML string.", file);
   }
-  return layout as Layout;
+  const schema = mod.frontmatter as FieldSchema | undefined;
+  if (schema !== undefined && typeof schema?.safeParse !== "function") {
+    throw new VageError('`export const frontmatter` in a layout must be a Zod object schema: z.object({ ... }) (import { z } from "vagejs").', file);
+  }
+  return { layout: layout as Layout, schema };
+}
+
+const BUILT_IN_FIELDS = new Set(Object.keys(frontmatterSchema.shape));
+
+/**
+ * Checks the fields a page adds for its layout against the layout's schema. Unknown
+ * fields are errors (a typo would otherwise do nothing); defaults are filled in.
+ */
+function validateLayoutFields(frontmatter: Frontmatter, schema: FieldSchema, layoutName: string, file: string): Record<string, unknown> {
+  const own = Object.fromEntries(Object.entries(frontmatter).filter(([k]) => !BUILT_IN_FIELDS.has(k)));
+  const result = (schema.strict ? schema.strict() : schema).safeParse(own);
+  if (!result.success) {
+    const detail = result.error instanceof z.ZodError ? z.prettifyError(result.error) : String(result.error);
+    throw new VageError(`Frontmatter doesn't match the "${layoutName}" layout's fields:\n${detail}`, file);
+  }
+  return result.data as Record<string, unknown>;
 }
 
 /** Used when a project has no src/layouts/default.ts. */

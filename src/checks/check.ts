@@ -36,7 +36,18 @@ const DOCS = {
   lang: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
   linkPurpose: "https://www.w3.org/WAI/WCAG22/Understanding/link-purpose-in-context.html",
   robots: "https://developers.google.com/search/docs/crawling-indexing/robots/intro",
+  yamlFlow: "https://yaml.org/spec/1.2.2/#74-flow-collection-styles",
 };
+
+/** Paths of frontmatter values that came out empty (null), e.g. "faq.items[3].Claude and other AI search?". */
+export function emptyValues(value: unknown, at = ""): string[] {
+  if (value === null) return [at || "(frontmatter)"];
+  if (Array.isArray(value)) return value.flatMap((v, i) => emptyValues(v, `${at}[${i}]`));
+  if (typeof value === "object" && value !== undefined) {
+    return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => emptyValues(v, at ? `${at}.${k}` : k));
+  }
+  return [];
+}
 
 /**
  * Static checks on the rendered site (nothing is written to disk).
@@ -87,6 +98,15 @@ function checkPage(
   add: (f: Omit<Finding, "page" | "source">) => void,
 ) {
   const indexable = !page.meta.noindex;
+
+  for (const key of emptyValues(page.frontmatter)) {
+    add({
+      rule: "frontmatter-empty",
+      severity: "warning",
+      message: `Frontmatter "${key}" has no value. If you meant to write text there, check for a missing value; inside { } a comma or colon splits the text, so wrap it in quotes.`,
+      docs: DOCS.yamlFlow,
+    });
+  }
 
   if (!doc.querySelector("html")?.getAttribute("lang")) {
     add({ rule: "html-lang", severity: "error", message: "<html> has no lang attribute.", docs: DOCS.lang });

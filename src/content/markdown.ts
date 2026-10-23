@@ -50,6 +50,12 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 const marked = new Marked({ gfm: true });
 
 export function parseMarkdown(source: string, file: string): MarkdownPage {
+  const { frontmatter, body } = parseFrontmatter(source, file);
+  return { frontmatter, body, html: marked.parse(body, { async: false }) };
+}
+
+/** Frontmatter and Markdown body, without rendering HTML (cheap enough to run on every page). */
+export function parseFrontmatter(source: string, file: string): Omit<MarkdownPage, "html"> {
   const match = FRONTMATTER_RE.exec(source);
   let data: unknown = {};
   if (match) {
@@ -64,5 +70,5 @@ export function parseMarkdown(source: string, file: string): MarkdownPage {
     throw new VageError(`Invalid frontmatter:\n${z.prettifyError(result.error)}`, file);
   }
   const body = match ? source.slice(match[0].length) : source;
-  return { frontmatter: result.data, body, html: marked.parse(body, { async: false }) };
+  return { frontmatter: result.data, body };
 }
