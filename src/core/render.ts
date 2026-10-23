@@ -26,7 +26,7 @@ export interface LayoutProps {
    * Every published page (drafts excluded), sorted by route. Use `collection()` to
    * pick a section and order it, e.g. a blog index or a sidebar.
    */
-  pages: PageSummary[];
+  pages: readonly PageSummary[];
 }
 
 /** Returns the page's HTML: a string, or `html\`...\`` (escapes values automatically). */
@@ -51,15 +51,14 @@ export async function renderPage(options: {
   /** Add configured analytics tags. Off in the dev server so development traffic is never measured. */
   analytics?: boolean;
   /** Published pages for `props.pages`. */
-  pages?: PageSummary[];
+  pages?: readonly PageSummary[];
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
   const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
   const { frontmatter, body } = parsed;
   const publicDir = path.join(root, "public");
   const content = site.markdown.html === "allow" ? await enhanceTrustedHtml(parsed.html, publicDir) : await sanitizeHtml(parsed.html, { publicDir });
-  const { layout, schema } = await resolveLayout(root, frontmatter.layout, load, file);
-  if (schema) Object.assign(frontmatter, validateLayoutFields(frontmatter, schema, frontmatter.layout ?? "default", file));
+  const layout = await applyLayoutFields(root, frontmatter, load, file);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const result = await layout({
     content,
@@ -109,11 +108,25 @@ async function resolveLayout(
 const BUILT_IN_FIELDS = new Set(Object.keys(frontmatterSchema.shape));
 
 /**
+ * Loads the page's layout and, if it exports a `frontmatter` schema, validates the page
+ * against it and fills in defaults (mutating `frontmatter`). Used for rendering and for
+ * `props.pages`, so both see the same values. Returns the layout function.
+ */
+export async function applyLayoutFields(root: string, frontmatter: Frontmatter, load: ModuleLoader, file: string): Promise<Layout> {
+  const { layout, schema } = await resolveLayout(root, frontmatter.layout, load, file);
+  if (schema) Object.assign(frontmatter, validateLayoutFields(frontmatter, schema, frontmatter.layout ?? "default", file));
+  return layout;
+}
+
+/**
  * Checks the fields a page adds for its layout against the layout's schema. Unknown
- * fields are errors (a typo would otherwise do nothing); defaults are filled in.
+ * fields are errors (a typo would otherwise do nothing); defaults are filled in. A
+ * schema may also declare built-in fields (e.g. make `author` required); those are
+ * validated too.
  */
 function validateLayoutFields(frontmatter: Frontmatter, schema: FieldSchema, layoutName: string, file: string): Record<string, unknown> {
-  const own = Object.fromEntries(Object.entries(frontmatter).filter(([k]) => !BUILT_IN_FIELDS.has(k)));
+  const declared = new Set(Object.keys((schema as { shape?: Record<string, unknown> }).shape ?? {}));
+  const own = Object.fromEntries(Object.entries(frontmatter).filter(([k]) => !BUILT_IN_FIELDS.has(k) || declared.has(k)));
   const result = (schema.strict ? schema.strict() : schema).safeParse(own);
   if (!result.success) {
     const detail = result.error instanceof z.ZodError ? z.prettifyError(result.error) : String(result.error);

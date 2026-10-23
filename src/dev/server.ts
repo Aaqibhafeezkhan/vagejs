@@ -75,7 +75,7 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
         return send(res, 404, await server.transformIndexHtml(urlPath, plainPage("404 — Not found", `No page for ${route}`)));
       }
       const file = entry?.file ?? notFound!;
-      const pages = collectPages(root, site, { skipInvalid: true });
+      const pages = await collectPages(root, site, load, { skipInvalid: true });
       const page = await renderPage({ root, file, route: entry ? route : "/404/", site, load, notFound: !entry, pages });
       send(res, entry ? 200 : 404, await server.transformIndexHtml(urlPath, page.html));
     } catch (err) {

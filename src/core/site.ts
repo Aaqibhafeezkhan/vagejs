@@ -12,6 +12,7 @@ import { loadConfig, type ModuleLoader, type SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
 import { escapeHtml } from "./html.js";
 import { renderPage, type RenderedPage } from "./render.js";
+import { parseFrontmatter } from "../content/markdown.js";
 import { collectPages } from "./pages.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "./routes.js";
 
@@ -29,8 +30,16 @@ export interface SiteRedirect {
   html: string;
 }
 
+export interface PageError {
+  /** Source path relative to the project root. */
+  source: string;
+  message: string;
+}
+
 export interface SiteModel {
   site: SiteConfig;
+  /** Pages that failed to render (only with `collectErrors`; otherwise the first failure throws). */
+  pageErrors: PageError[];
   /** Published pages (drafts excluded). */
   pages: SitePage[];
   skippedDrafts: string[];
@@ -44,7 +53,7 @@ export interface SiteModel {
 }
 
 /** Renders every page and derives discovery files from the same data, without writing anything. */
-export async function renderSite(root: string, load: ModuleLoader): Promise<SiteModel> {
+export async function renderSite(root: string, load: ModuleLoader, options: { collectErrors?: boolean } = {}): Promise<SiteModel> {
   const pagesDir = path.join(root, "src", "pages");
   if (!fs.existsSync(pagesDir)) {
     throw new VageError(`No src/pages directory found in ${root}. Is this a vagejs project?`);
@@ -57,22 +66,37 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
         `Review what changed with "vage guidelines", then update guidelines.rulePack in vage.config.ts.`,
     );
   }
-  const model: SiteModel = { site, pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
-
-  const pages = collectPages(root, site);
-  for (const entry of discoverRoutes(pagesDir)) {
-    const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true, pages });
-    const source = path.relative(root, entry.file);
-    if (page.frontmatter.draft) {
-      model.skippedDrafts.push(source);
-      model.draftRoutes.push(entry.route);
+  const model: SiteModel = { site, pageErrors: [], pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
+  const collect = options.collectErrors === true;
+  const attempt = async (file: string, work: () => Promise<void>) => {
+    try {
+      await work();
+    } catch (err) {
+      if (!collect || !(err instanceof VageError)) throw err;
+      model.pageErrors.push({ source: path.relative(root, file), message: err.detail });
     }
-    else model.pages.push({ ...page, route: entry.route, source, outFile: entry.outFile });
+  };
+
+  const pages = await collectPages(root, site, load, { skipInvalid: collect });
+  for (const entry of discoverRoutes(pagesDir)) {
+    const source = path.relative(root, entry.file);
+    await attempt(entry.file, async () => {
+      // Drafts are skipped before rendering, so their fields can't fail a build.
+      if (parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file).frontmatter.draft) {
+        model.skippedDrafts.push(source);
+        model.draftRoutes.push(entry.route);
+        return;
+      }
+      const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true, pages });
+      model.pages.push({ ...page, route: entry.route, source, outFile: entry.outFile });
+    });
   }
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) {
-    const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true, pages });
-    model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
+    await attempt(notFound, async () => {
+      const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true, pages });
+      model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
+    });
   }
 
   checkPublicDir(root, model.warnings);

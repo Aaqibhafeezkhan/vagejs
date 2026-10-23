@@ -58,7 +58,7 @@ export async function check(root: string, options: { strict?: boolean } = {}): P
   root = path.resolve(root);
   const loader = await createBuildLoader(root);
   try {
-    const model = await renderSite(root, loader.load);
+    const model = await renderSite(root, loader.load, { collectErrors: true });
     const findings = checkSite(root, model);
     const errors = findings.filter((f) => f.severity === "error").length;
     const warnings = findings.length - errors;
@@ -66,7 +66,7 @@ export async function check(root: string, options: { strict?: boolean } = {}): P
       ok: errors === 0 && (!options.strict || warnings === 0),
       errors,
       warnings,
-      pagesChecked: model.pages.length + (model.notFound ? 1 : 0),
+      pagesChecked: model.pages.length + (model.notFound ? 1 : 0) + model.pageErrors.length,
       findings,
     };
   } finally {
@@ -76,6 +76,7 @@ export async function check(root: string, options: { strict?: boolean } = {}): P
 
 export function checkSite(root: string, model: SiteModel): Finding[] {
   const findings: Finding[] = model.warnings.map((message) => ({ rule: "config", severity: "warning", message }));
+  for (const e of model.pageErrors) findings.push({ rule: "page-error", severity: "error", message: e.message, source: e.source });
   const outputs = outputPaths(root, model);
   const drafts = new Set(model.draftRoutes);
   const pages = model.notFound ? [...model.pages, model.notFound] : model.pages;

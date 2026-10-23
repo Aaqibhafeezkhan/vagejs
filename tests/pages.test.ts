@@ -39,6 +39,13 @@ describe("collection()", () => {
     expect(collection(pages, { sort: (a, b) => b.route.localeCompare(a.route), limit: 1 })[0]!.route).toBe("/blogroll/");
   });
 
+  it("rejects options that would silently return the wrong pages (review finding)", () => {
+    expect(() => collection(pages, { under: "blog" })).toThrow(/starting with "\/"/);
+    expect(() => collection(pages, { sort: "datePublished" as "date" })).toThrow(/"sort" must be/);
+    expect(() => collection(pages, { limit: -1 })).toThrow(/limit/);
+    expect(() => collection(undefined as unknown as [], {})).toThrow(/pages/);
+  });
+
   it("does not modify the list it is given", () => {
     const before = pages.map((p) => p.route);
     collection(pages, { sort: "title" });

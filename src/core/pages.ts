@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseFrontmatter, type Frontmatter } from "../content/markdown.js";
 import { pageMeta } from "../seo/head.js";
-import type { SiteConfig } from "./config.js";
+import type { ModuleLoader, SiteConfig } from "./config.js";
+import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
 import { discoverRoutes } from "./routes.js";
 
@@ -20,22 +21,25 @@ export interface PageSummary {
 }
 
 /**
- * Every published page (drafts and 404.md excluded), sorted by route. Reads frontmatter only.
- * `skipInvalid` (dev server) leaves out pages whose frontmatter doesn't parse, so one broken
- * page shows its own error instead of breaking every page that lists others.
+ * Every published page (drafts and 404.md excluded), sorted by route. Reads frontmatter
+ * and applies each page's layout schema, so list entries get the same defaults as the
+ * page itself. The result is frozen: layouts share it, so none may change it.
+ * `skipInvalid` (dev server, `vage check`) leaves out pages whose frontmatter is invalid;
+ * they report their own error instead of breaking every page that lists others.
  */
-export function collectPages(root: string, site: SiteConfig, options: { skipInvalid?: boolean } = {}): PageSummary[] {
+export async function collectPages(root: string, site: SiteConfig, load: ModuleLoader, options: { skipInvalid?: boolean } = {}): Promise<readonly PageSummary[]> {
   const pagesDir = path.join(root, "src", "pages");
   const out: PageSummary[] = [];
   for (const entry of discoverRoutes(pagesDir)) {
     let frontmatter: Frontmatter;
     try {
       ({ frontmatter } = parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file));
+      if (frontmatter.draft) continue;
+      await applyLayoutFields(root, frontmatter, load, entry.file);
     } catch (err) {
       if (options.skipInvalid && err instanceof VageError) continue;
       throw err;
     }
-    if (frontmatter.draft) continue;
     out.push({
       route: entry.route,
       url: pageMeta(site, entry.route, frontmatter).canonical,
@@ -45,8 +49,18 @@ export function collectPages(root: string, site: SiteConfig, options: { skipInva
       frontmatter,
     });
   }
-  return out;
+  return deepFreeze(out);
 }
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const v of Object.values(value)) deepFreeze(v);
+  }
+  return value;
+}
+
+const SORTS = ["date", "title", "route"];
 
 export interface CollectionOptions {
   /** Only pages below this route, e.g. "/blog/". The section's own index page is left out unless `includeIndex`. */
@@ -65,7 +79,17 @@ export interface CollectionOptions {
  *   collection(pages, { under: "/blog/", sort: "date", limit: 5 })
  */
 export function collection(pages: readonly PageSummary[], options: CollectionOptions = {}): PageSummary[] {
+  if (!Array.isArray(pages)) throw new VageError("collection(): pass the layout's `pages` as the first argument.");
   const { under, includeIndex = false, sort = "route", limit } = options;
+  if (under !== undefined && !/^\/(?!\/)/.test(under)) {
+    throw new VageError(`collection(): "under" must be a site path starting with "/", like "/blog/" (got ${JSON.stringify(under)}).`);
+  }
+  if (typeof sort !== "function" && !SORTS.includes(sort)) {
+    throw new VageError(`collection(): "sort" must be "date", "title", "route" or a compare function (got ${JSON.stringify(sort)}).`);
+  }
+  if (limit !== undefined && !(Number.isInteger(limit) && limit >= 0)) {
+    throw new VageError(`collection(): "limit" must be a whole number of 0 or more (got ${JSON.stringify(limit)}).`);
+  }
   const prefix = under ? (under.endsWith("/") ? under : `${under}/`) : undefined;
   const picked = pages.filter((p) => !prefix || (p.route.startsWith(prefix) && (includeIndex || p.route !== prefix)));
   const byTitle = (a: PageSummary, b: PageSummary) => a.title.localeCompare(b.title);

@@ -57,3 +57,62 @@ export default ({ content, page }) => \`<!doctype html><html lang="en"><head><ti
     await expect(build(root)).resolves.toBeDefined();
   });
 });
+
+describe("layout fields everywhere (review findings)", () => {
+  const COLLECTION = JSON.stringify(path.resolve("src/core/pages.ts"));
+  const postLayout = `import { z } from ${ZOD};
+export const frontmatter = z.object({ featured: z.boolean().default(false), author: z.string() });
+export default ({ content, page }) => \`<!doctype html><html lang="en"><head><title>\${page.title}</title></head><body>\${content}</body></html>\`;`;
+  const indexLayout = `import { collection } from ${COLLECTION};
+export default ({ content, page, pages }) => \`<!doctype html><html lang="en"><head><title>\${page.title}</title></head><body>\${content}<ul>\${collection(pages, { under: "/blog/" }).map((p) => \`<li>\${p.route}:\${p.frontmatter.featured}</li>\`).join("")}</ul></body></html>\`;`;
+
+  function site() {
+    const root = copyFixture();
+    write(root, "src/layouts/post.ts", postLayout);
+    write(root, "src/layouts/list.ts", indexLayout);
+    const index = path.join(root, "src/pages/blog/index.md");
+    fs.writeFileSync(index, fs.readFileSync(index, "utf8").replace("layout: plain", "layout: list"));
+    const post = path.join(root, "src/pages/blog/post.md");
+    fs.writeFileSync(post, fs.readFileSync(post, "utf8").replace("---\ntitle: Post", "---\nlayout: post\ntitle: Post"));
+    return root;
+  }
+
+  it("gives list entries the layout's defaults, and lets a schema require a built-in field", async () => {
+    const root = site();
+    await build(root);
+    expect(fs.readFileSync(path.join(root, "dist/blog/index.html"), "utf8")).toContain("<li>/blog/post/:false</li>");
+  });
+
+  it("fails when a schema-required built-in field is missing", async () => {
+    const root = site();
+    const post = path.join(root, "src/pages/blog/post.md");
+    fs.writeFileSync(post, fs.readFileSync(post, "utf8").replace(/^author: .*\n/m, ""));
+    await expect(build(root)).rejects.toThrow(/author/);
+  });
+
+  it("skips drafts entirely, even with fields their layout doesn't allow", async () => {
+    const root = site();
+    write(root, "src/pages/blog/later.md", "---\ntitle: Later\ndescription: Soon.\nlayout: post\ndraft: true\ntagz: oops\n---\n# Later\n");
+    const result = await build(root);
+    expect(result.skippedDrafts).toContain(path.join("src", "pages", "blog", "later.md"));
+  });
+
+  it("reports a page that fails to render as a check finding and keeps checking", async () => {
+    const root = site();
+    write(root, "src/pages/blog/typo.md", "---\ntitle: Typo\ndescription: Typo.\nlayout: post\nauthor: A\nfeaturd: true\n---\n# Typo\n");
+    const result = await check(root);
+    const hit = result.findings.find((f) => f.rule === "page-error");
+    expect(hit).toMatchObject({ severity: "error", source: path.join("src", "pages", "blog", "typo.md") });
+    expect(hit!.message).toMatch(/featurd/);
+    expect(hit!.message).not.toContain(root);
+    expect(result.pagesChecked).toBeGreaterThan(2);
+    await expect(build(root)).rejects.toThrow(/featurd/);
+  });
+
+  it("hands layouts a frozen list, so one layout can't change what others see", async () => {
+    const root = copyFixture();
+    write(root, "src/layouts/bad.ts", `export default ({ pages }) => { pages.reverse(); return "<html lang=en><head><title>x</title></head></html>"; };`);
+    write(root, "src/pages/bad.md", "---\ntitle: Bad\ndescription: Bad.\nlayout: bad\n---\n# Bad\n");
+    await expect(build(root)).rejects.toThrow(/read only|frozen|Cannot assign/i);
+  });
+});
