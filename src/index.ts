@@ -1,5 +1,5 @@
 export { defineConfig, type SiteConfig, type UserConfig } from "./core/config.js";
-export { escapeHtml } from "./core/html.js";
+export { escapeHtml, html, raw, type SafeHtml } from "./core/html.js";
 /** Zod, for layout field schemas: `export const frontmatter = z.object({ ... })`. Same instance vagejs validates with. */
 export { z } from "zod";
 export type { Layout, LayoutProps } from "./core/render.js";

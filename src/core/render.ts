@@ -5,7 +5,7 @@ import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/m
 import { sanitizeHtml } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
-import { escapeHtml } from "./html.js";
+import { escapeHtml, isSafeHtml, type SafeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
 import type { PageSummary } from "./pages.js";
@@ -29,7 +29,8 @@ export interface LayoutProps {
   pages: PageSummary[];
 }
 
-export type Layout = (props: LayoutProps) => string | Promise<string>;
+/** Returns the page's HTML: a string, or `html\`...\`` (escapes values automatically). */
+export type Layout = (props: LayoutProps) => string | SafeHtml | Promise<string | SafeHtml>;
 
 export interface RenderedPage {
   html: string;
@@ -59,14 +60,15 @@ export async function renderPage(options: {
   const { layout, schema } = await resolveLayout(root, frontmatter.layout, load, file);
   if (schema) Object.assign(frontmatter, validateLayoutFields(frontmatter, schema, frontmatter.layout ?? "default", file));
   const meta = pageMeta(site, route, frontmatter, options.notFound);
-  const html = await layout({
+  const result = await layout({
     content,
     page: { route, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
     site,
     pages: options.pages ?? [],
   });
+  const html = isSafeHtml(result) ? result.value : result;
   if (typeof html !== "string") {
-    throw new VageError(`Layout "${frontmatter.layout ?? "default"}" must return an HTML string.`, file);
+    throw new VageError(`Layout "${frontmatter.layout ?? "default"}" must return an HTML string or html\`...\`.`, file);
   }
   let out = injectHead(html, headTags(site, meta), file);
   const tags = options.analytics ? analyticsTags(site) : undefined;
