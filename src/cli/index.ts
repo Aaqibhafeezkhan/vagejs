@@ -7,7 +7,7 @@ import { cac } from "cac";
 import { check, type Finding } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
-import { assertBranchName, assertCloudflareProject, assertVageSpec } from "../core/validate.js";
+import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
 import { startDevServer } from "../dev/server.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { createInterface } from "node:readline/promises";
@@ -489,29 +489,32 @@ async function deployToCloudflare(opts: PublishFlags & { project?: string }, con
 
 async function deployToWorkers(opts: PublishFlags & { project?: string }, configuredWorker: string | undefined, siteUrl: string | undefined) {
   const root = path.resolve(opts.root);
-  const { deployCloudflareWorkers, WRANGLER_CONFIGS } = await import("../deploy/cloudflare-workers.js");
+  const { deployCloudflareWorkers, planWorkersDeploy } = await import("../deploy/cloudflare-workers.js");
   const { WRANGLER } = await import("../deploy/cloudflare-pages.js");
-  const own = WRANGLER_CONFIGS.find((f) => fs.existsSync(path.join(root, f)));
-  const worker = opts.project ?? configuredWorker;
-  if (!own && !worker) throw new VageError("No Worker name. Pass --project <name>, set deploy.cloudflareWorker, or add a wrangler.jsonc.");
-  if (worker) assertCloudflareProject(worker);
+  const requested = opts.project ?? configuredWorker;
+  if (requested) assertWorkerName(requested);
+  const plan = planWorkersDeploy(root, requested);
   const { check } = await import("../checks/check.js");
   const checked = await check(root);
   if (checked.errors) throw new VageError(`vage check found ${checked.errors} error(s). Fix them before deploying.`);
   const result = await build(root);
-  const name = worker ?? `(name from ${own})`;
 
-  const lines = [
-    `Deploy plan (Cloudflare Workers)`,
-    `  • upload ${result.outDir} (${result.pages.length} page(s), ${result.files.length} generated file(s)) to Worker ${name}`,
-    own ? `  • uses ${own} (routes and custom domains stay as they are)` : "  • no wrangler config: a temporary one points the Worker at dist/",
-    `  • runs: npx ${WRANGLER} versions upload, then versions deploy <version>@100% (a brand-new Worker gets wrangler deploy once)`,
+  const steps = [
+    `upload ${result.outDir} (${result.pages.length} page(s), ${result.files.length} generated file(s)) to Worker "${plan.worker}"`,
+    plan.config ? `uses ${plan.config.file} (routes and custom domains stay as they are)` : "no wrangler config: a temporary one serves dist/ (with your 404 page)",
+    `runs: npx ${WRANGLER} versions upload, then versions deploy <version>@100% (a brand-new Worker gets wrangler deploy once)`,
+    `verifies: ${siteUrl ?? "the Worker's workers.dev URL"} answers 200`,
   ];
+  const lines = ["Deploy plan (Cloudflare Workers)", ...steps.map((s) => `  • ${s}`), ...plan.warnings.map((w) => `  ! ${w}`)];
   if (!(await askConfirm(lines, opts))) {
-    if (opts.dryRun) return opts.json ? print({ ok: true, dryRun: true, target: "cloudflare-workers", worker: name }) : console.log("Dry run: nothing deployed.");
+    if (opts.dryRun) {
+      return opts.json
+        ? print({ ok: true, dryRun: true, target: "cloudflare-workers", worker: plan.worker, config: plan.config?.file, steps, warnings: plan.warnings })
+        : console.log("Dry run: nothing deployed.");
+    }
     return opts.json ? print({ ok: false, status: "aborted" }) : console.log("Nothing deployed.");
   }
-  const deployment = await deployCloudflareWorkers(root, { worker: name, siteUrl });
+  const deployment = await deployCloudflareWorkers(root, { plan, siteUrl });
   if (opts.json) print({ ok: deployment.status !== "failure", target: "cloudflare-workers", deployment });
   else if (deployment.status === "success") console.log(`Deployed and verified: ${deployment.pageUrl} (${deployment.mode === "first-deploy" ? "first deploy" : `version ${deployment.versionId}`})`);
   else console.log(`Deployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}`);

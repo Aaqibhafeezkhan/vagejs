@@ -16,6 +16,12 @@ export function assertCloudflareProject(value: string): string {
   return value;
 }
 
+/** Cloudflare Worker names: lowercase letters, digits and "-", up to 63 characters. */
+export function assertWorkerName(value: string): string {
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(value)) throw new VageError(`Invalid Worker name "${value}". Use lowercase letters, digits and "-" (up to 63).`);
+  return value;
+}
+
 /** https://, ssh://, git@host:path, or a local path. Refuses options and git's command-running transports. */
 export function assertGitRemote(value: string): string {
   if (value.startsWith("-") || /^(ext|fd)::/i.test(value) || /[\s\u0000-\u001f]/.test(value)) {

@@ -8,7 +8,7 @@ import type { PreviewServer, ViteDevServer } from "vite";
 import { check } from "../src/checks/check.js";
 import { build } from "../src/core/build.js";
 import { parseConfig } from "../src/core/config.js";
-import { assertBranchName, assertCloudflareProject, assertGitRemote, assertVageSpec } from "../src/core/validate.js";
+import { assertBranchName, assertCloudflareProject, assertGitRemote, assertVageSpec, assertWorkerName } from "../src/core/validate.js";
 import { parseMarkdown } from "../src/content/markdown.js";
 import { changedPageRoutes } from "../src/deploy/git.js";
 import { findSecrets } from "../src/deploy/secrets.js";
@@ -135,6 +135,9 @@ describe("argument injection into git, wrangler and npm", () => {
     expect(assertBranchName("feature/x-1")).toBe("feature/x-1");
     for (const bad of ["--upload-pack=x", "a..b", "a b", "x.lock"]) expect(() => assertBranchName(bad)).toThrow();
     expect(() => assertCloudflareProject("--x")).toThrow();
+    expect(assertWorkerName("a".repeat(63))).toHaveLength(63);
+    expect(() => assertWorkerName("a".repeat(64))).toThrow();
+    expect(() => assertWorkerName("-x")).toThrow();
     expect(() => assertGitRemote("ext::sh -c touch /tmp/pwn")).toThrow();
     expect(() => assertGitRemote("--upload-pack=touch /tmp/pwn")).toThrow();
     expect(assertGitRemote("git@github.com:o/r.git")).toBe("git@github.com:o/r.git");
