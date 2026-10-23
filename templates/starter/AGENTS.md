@@ -8,9 +8,11 @@ This website uses **VAGE JS** (pre-release). Only the features listed here exist
 | ----------------- | --------------------------------------------------------- |
 | `npm run dev`     | Dev server with live reload. Prints the local URL.        |
 | `npm run build`   | Static build into `dist/`. Exits non-zero on any error.   |
+| `npm run check`   | SEO, link, structured-data and basic a11y checks. Writes nothing. Exit 1 on errors (`--strict`: also on warnings). |
 | `npm run preview` | Serves `dist/` locally.                                   |
 
-`npx vage build --json` prints a machine-readable result: `{ ok, pages, skippedDrafts, outDir, durationMs }` or `{ ok: false, error }`.
+Add `--json` to `npx vage build` or `npx vage check` for machine-readable output (`{ ok: false, error }` on failure).
+Run `npm run check` after every change and fix all errors before finishing.
 
 ## Routing
 
@@ -29,9 +31,16 @@ Every `.md` file in `src/pages/` becomes a page:
 ```yaml
 ---
 title: Page title        # required
-description: One line    # optional; used for <meta name="description">
-draft: true              # optional; drafts are skipped in builds (still visible in dev)
-layout: default          # optional; loads src/layouts/<name>.ts
+description: One line    # meta description, og:description, llms.txt
+draft: true              # skipped in builds (still visible in dev); links to drafts fail `check`
+layout: default          # loads src/layouts/<name>.ts
+noindex: true            # robots noindex; excluded from sitemap.xml and llms.txt
+canonical: /other/       # canonical override (path or absolute URL); page then leaves the sitemap
+image: /images/og.png    # og:image (made absolute using `site`)
+type: article            # og:type + Article JSON-LD (default: website)
+author: Jane Doe         # Article author
+datePublished: 2026-01-31
+dateModified: 2026-02-15 # also used as sitemap <lastmod>
 ---
 ```
 
@@ -41,14 +50,31 @@ Do not invent titles, descriptions, dates, authors or facts. Ask the site owner.
 
 `src/layouts/<name>.ts` default-exports a function `({ content, page, site }) => string`.
 `content` is already-rendered HTML; escape every other interpolated value with `escapeHtml` from `vagejs`.
+`page.url` is the absolute canonical URL (when `site` is set and the page is indexable).
+
+The layout must contain `</head>`. VAGE JS inserts these before it, skipping any the layout already writes:
+meta description, robots noindex, canonical, Open Graph, `twitter:card`, and JSON-LD
+(WebSite + configured Organization on `/`, Article for `type: article`). If the layout writes its own
+`application/ld+json`, automatic JSON-LD is skipped. Helpers: `organization`, `website`, `article`,
+`breadcrumbList`, `jsonLdScript` from `vagejs`. Only mark up what is visible on the page.
+
+## Generated files
+
+From the published pages and config (never from `public/`; a hand-written `public/robots.txt` etc. is a build error):
+
+- `robots.txt`: `*` allowed unless you add `seo.robots.rules`. AI crawler groups only if you set `aiTraining` / `aiSearch`.
+- `sitemap.xml`: indexable, self-canonical, non-draft pages. Needs `site`.
+- `llms.txt` (+ `llms-full.txt` with `llmsTxt: { full: true }`): same pages. An emerging convention; not a guarantee that AI tools use it.
+- Redirects: `redirects: { "/old/": "/new/" }` become noindex meta-refresh pages (dev server answers 301).
 
 ## Config
 
-`vage.config.ts` accepts only: `site` (absolute URL), `title`, `description`, `lang`. Unknown keys are an error.
+`vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`,
+`seo: { robots, sitemap, llmsTxt, structuredData }`, `redirects`. Unknown keys are an error.
 
 ## Not implemented yet
 
-robots.txt, sitemap.xml, llms.txt, canonical/Open Graph tags, JSON-LD, `vage check`, audits, analytics, deployment. Do not use or document them as available.
+Lighthouse/PageSpeed audits, full automated accessibility testing, analytics, Search Console, GitHub publishing, deployment. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Safety
 

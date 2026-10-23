@@ -3,17 +3,36 @@ import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { VageError } from "../core/errors.js";
 
+// YAML may produce Date objects for unquoted timestamps; normalize to ISO strings.
+const isoDate = z.preprocess(
+  (v) => (v instanceof Date ? v.toISOString() : v),
+  z.union([z.iso.date(), z.iso.datetime({ offset: true })], { error: "must be an ISO date (2026-01-31) or datetime" }),
+);
+
 const frontmatterSchema = z.looseObject({
   title: z.string().min(1, "title is required"),
   description: z.string().min(1).optional(),
   draft: z.boolean().default(false),
   layout: z.string().regex(/^[\w-]+$/, "layout must be a file name without extension").optional(),
+  /** Adds <meta name="robots" content="noindex"> and excludes the page from sitemap.xml and llms.txt. */
+  noindex: z.boolean().default(false),
+  /** Canonical URL override: absolute URL or a path on this site. Defaults to the page's own URL. */
+  canonical: z.string().regex(/^(\/|https?:\/\/)/, 'must be a path starting with "/" or an http(s) URL').optional(),
+  /** Social preview image: a path on this site (e.g. /images/og.png) or an absolute URL. */
+  image: z.string().min(1).optional(),
+  /** "article" emits og:type=article and Article JSON-LD. */
+  type: z.enum(["website", "article"]).default("website"),
+  author: z.string().min(1).optional(),
+  datePublished: isoDate.optional(),
+  dateModified: isoDate.optional(),
 });
 
 export type Frontmatter = z.output<typeof frontmatterSchema>;
 
 export interface MarkdownPage {
   frontmatter: Frontmatter;
+  /** Markdown body without frontmatter. */
+  body: string;
   /** Rendered HTML of the Markdown body. */
   html: string;
 }
@@ -36,5 +55,5 @@ export function parseMarkdown(source: string, file: string): MarkdownPage {
     throw new VageError(`Invalid frontmatter:\n${z.prettifyError(result.error)}`, file);
   }
   const body = match ? source.slice(match[0].length) : source;
-  return { frontmatter: result.data, html: marked.parse(body, { async: false }) };
+  return { frontmatter: result.data, body, html: marked.parse(body, { async: false }) };
 }

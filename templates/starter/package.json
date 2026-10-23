@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vage dev",
     "build": "vage build",
+    "check": "vage check",
     "preview": "vage preview"
   },
   "devDependencies": {

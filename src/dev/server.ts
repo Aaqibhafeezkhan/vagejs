@@ -7,6 +7,7 @@ import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
 import { baseViteConfig, viteLoader } from "../core/loader.js";
 import { renderPage } from "../core/render.js";
+import { renderSite } from "../core/site.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "../core/routes.js";
 import { listenOrExplain, type ServeOptions } from "./listen.js";
 import { redirect } from "./preview.js";
@@ -39,12 +40,22 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   server.middlewares.use(async (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     const urlPath = req.url ?? "/";
-    // Leave asset requests (any extension other than .html) to Vite.
     const pathname = urlPath.split(/[?#]/)[0]!;
-    if (/\.[a-z0-9]+$/i.test(pathname) && !pathname.endsWith(".html")) return next();
     try {
+      if (DISCOVERY_FILES[pathname]) {
+        // Built from the whole site (drafts excluded), exactly as `vage build` would write it.
+        const content = (await renderSite(root, load)).files.get(pathname.slice(1));
+        if (content === undefined) return next();
+        res.setHeader("Content-Type", DISCOVERY_FILES[pathname]);
+        return res.end(content);
+      }
+      // Leave asset requests (any extension other than .html) to Vite.
+      if (/\.[a-z0-9]+$/i.test(pathname) && !pathname.endsWith(".html")) return next();
+
       const site = await loadConfig(root, load);
       const route = normalizeRequestPath(urlPath);
+      const target = Object.entries(site.redirects).find(([from]) => normalizeRequestPath(from) === route)?.[1];
+      if (target) return redirect(res, target);
       const entry = discoverRoutes(pagesDir).find((r) => r.route === route);
       // Match production preview: "/about" -> "/about/".
       if (entry && !pathname.endsWith("/") && !pathname.endsWith(".html")) {
@@ -55,7 +66,7 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
         return send(res, 404, await server.transformIndexHtml(urlPath, plainPage("404 — Not found", `No page for ${route}`)));
       }
       const file = entry?.file ?? notFound!;
-      const page = await renderPage({ root, file, route: entry ? route : "/404/", site, load });
+      const page = await renderPage({ root, file, route: entry ? route : "/404/", site, load, notFound: !entry });
       send(res, entry ? 200 : 404, await server.transformIndexHtml(urlPath, page.html));
     } catch (err) {
       const message = (err as Error).message;
@@ -67,6 +78,13 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   await listenOrExplain(() => server.listen(), options.port);
   return server;
 }
+
+const DISCOVERY_FILES: Record<string, string> = {
+  "/robots.txt": "text/plain; charset=utf-8",
+  "/sitemap.xml": "application/xml; charset=utf-8",
+  "/llms.txt": "text/markdown; charset=utf-8",
+  "/llms-full.txt": "text/markdown; charset=utf-8",
+};
 
 function send(res: ServerResponse, status: number, html: string) {
   res.statusCode = status;

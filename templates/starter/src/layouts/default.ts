@@ -2,14 +2,12 @@ import { escapeHtml, type Layout } from "vagejs";
 
 const layout: Layout = ({ content, page, site }) => {
   const title = site.title && site.title !== page.title ? `${page.title} | ${site.title}` : page.title;
-  const description = page.description ?? site.description;
   return `<!doctype html>
 <html lang="${escapeHtml(site.lang)}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
-    ${description ? `<meta name="description" content="${escapeHtml(description)}" />` : ""}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       body { font-family: system-ui, sans-serif; max-width: 42rem; margin: 0 auto; padding: 2rem 1rem; line-height: 1.6; }
@@ -32,4 +30,6 @@ ${content}
 `;
 };
 
+// VAGE JS adds description, canonical, Open Graph and JSON-LD tags before </head>
+// unless this layout already writes them.
 export default layout;

@@ -57,6 +57,18 @@ describe("dev server", () => {
     expect(await (await get(`${url}/fresh/`)).text()).toContain("<h1>Fresh page</h1>");
   });
 
+  it("serves discovery files and config redirects like the build", async () => {
+    const { url } = await start(copyFixture());
+    const robots = await get(`${url}/robots.txt`);
+    expect(robots.headers.get("content-type")).toMatch(/text\/plain/);
+    expect(await robots.text()).toContain("Sitemap: https://fixture.example/sitemap.xml");
+    expect(await (await get(`${url}/sitemap.xml`)).text()).not.toContain("/blog/wip/");
+    expect(await (await get(`${url}/llms.txt`)).text()).toContain("# Fixture Site");
+    const redirect = await get(`${url}/old`);
+    expect(redirect.status).toBe(301);
+    expect(redirect.headers.get("location")).toBe("/about/");
+  });
+
   it("re-imports edited layouts", async () => {
     const root = copyFixture();
     const { url } = await start(root);

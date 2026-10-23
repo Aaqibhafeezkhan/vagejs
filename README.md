@@ -1,13 +1,14 @@
 # VAGE JS
 
-An AI-native, static-first web framework. **Pre-release (Phase 1)**: not published to npm.
+An AI-native, static-first web framework. **Pre-release (Phase 2)**: not published to npm.
 
 ## What works today
 
 ```bash
 vage create <dir> [--vage-spec <spec>] [--json]   # scaffold a Markdown site
 vage dev      [--root .] [--port N] [--host]      # dev server with live reload
-vage build    [--root .] [--json]                 # static build into dist/
+vage build    [--root .] [--json]                 # static build into dist/ (+ robots.txt, sitemap.xml, llms.txt)
+vage check    [--root .] [--json] [--strict]      # SEO, links, JSON-LD, basic a11y; writes nothing
 vage preview  [--root .] [--port N] [--host]      # serve dist/ locally
 ```
 
@@ -35,7 +36,7 @@ npm run test:e2e    # pack -> create -> npm install/ci -> build (needs npm regis
 
 ## Planned, not implemented
 
-robots.txt, sitemap.xml, llms.txt, metadata/canonical URLs, JSON-LD, `vage check`, performance/accessibility audits, analytics and Search Console integrations, GitHub publishing, deployment adapters. See `VAGE_JS_BUILD_SPEC.md`.
+Lighthouse/PageSpeed audits, full accessibility testing, analytics and Search Console integrations, GitHub publishing, deployment adapters. See `VAGE_JS_BUILD_SPEC.md`.
 
 ## License
 

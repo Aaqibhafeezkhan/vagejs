@@ -2,6 +2,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { cac } from "cac";
+import { check, type Finding } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
 import { startDevServer } from "../dev/server.js";
@@ -55,8 +56,25 @@ cli
       const result = await build(opts.root);
       if (opts.json) return print({ ok: true, ...result });
       for (const page of result.pages) console.log(`  ${page.route.padEnd(30)} -> ${page.output}`);
+      for (const r of result.redirects) console.log(`  ${r.from.padEnd(30)} -> ${r.output} (redirect to ${r.to})`);
+      for (const file of result.files) console.log(`  ${"".padEnd(30)} -> ${file}`);
       for (const draft of result.skippedDrafts) console.log(`  (draft, skipped) ${draft}`);
+      for (const warning of result.warnings) console.log(`\nWarning: ${warning}`);
       console.log(`\nBuilt ${result.pages.length} page(s) into ${result.outDir} in ${result.durationMs}ms`);
+    }),
+  );
+
+cli
+  .command("check", "Check SEO, links, structured data and basic accessibility (writes nothing)")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--strict", "Fail on warnings too")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: CommonOptions & { strict?: boolean }) =>
+    run(opts, async () => {
+      const result = await check(opts.root, { strict: opts.strict });
+      if (opts.json) print(result);
+      else printFindings(result.findings, result.pagesChecked, result.errors, result.warnings);
+      if (!result.ok) process.exit(1);
     }),
   );
 
@@ -103,6 +121,15 @@ function fail(err: unknown, json: boolean): never {
   else if (err instanceof VageError) console.error(`Error: ${message}`);
   else console.error(err);
   process.exit(1);
+}
+
+function printFindings(findings: Finding[], pages: number, errors: number, warnings: number) {
+  for (const f of findings) {
+    const where = f.page ? `${f.page}${f.source ? ` (${f.source})` : ""}` : (f.source ?? "site");
+    console.log(`${f.severity === "error" ? "error  " : "warning"} ${f.rule.padEnd(22)} ${where}\n        ${f.message}${f.docs ? `\n        see ${f.docs}` : ""}`);
+  }
+  console.log(`\nChecked ${pages} page(s): ${errors} error(s), ${warnings} warning(s).`);
+  console.log("Passing checks do not guarantee indexing, rankings, rich results or AI citations.");
 }
 
 function print(value: unknown) {

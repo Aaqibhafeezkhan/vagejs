@@ -13,9 +13,11 @@ describe("build", () => {
 
     expect(result.pages.map((p) => p.output)).toEqual([
       "index.html",
+      "about-copy/index.html",
       "about/index.html",
       "blog/index.html",
       "blog/post/index.html",
+      "hidden/index.html",
     ]);
     expect(result.skippedDrafts).toEqual([path.join("src", "pages", "blog", "wip.md")]);
     expect(fs.existsSync(path.join(root, "dist", "blog", "wip"))).toBe(false);
@@ -30,7 +32,8 @@ describe("build", () => {
     expect(home).toContain('<html lang="en-GB">');
     expect(home).toContain("<title>Home | Fixture Site</title>");
     expect(home).toContain('content="Fixture home &lt;page&gt;"');
-    expect(home).not.toContain("<script");
+    // JSON-LD is data, not executable JavaScript.
+    expect(home).not.toMatch(/<script(?![^>]*application\/ld\+json)/);
   });
 
   it("uses a named TypeScript layout from src/layouts", async () => {

@@ -43,6 +43,15 @@ describe("vage CLI (packed package)", () => {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }
     expect(fs.readFileSync(path.join(site, "dist", "index.html"), "utf8")).toContain("<title>Home | My Website</title>");
+    for (const file of ["robots.txt", "sitemap.xml", "llms.txt"]) {
+      expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
+    }
+
+    // A fresh starter passes checks; the only warning is the placeholder site URL.
+    const checked = spawnSync("npx", ["vage", "check", "--json"], { cwd: site, encoding: "utf8" });
+    expect(checked.status, checked.stdout).toBe(0);
+    expect(JSON.parse(checked.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 1, findings: [{ rule: "config" }] });
+    expect(spawnSync("npx", ["vage", "check", "--strict"], { cwd: site, encoding: "utf8" }).status).toBe(1);
   }, 300_000);
 
   it("returns non-zero with a JSON error for failures", () => {
@@ -65,7 +74,7 @@ describe("vage CLI (packed package)", () => {
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
-    for (const cmd of ["create", "dev", "build", "preview"]) expect(help.stdout).toContain(cmd);
+    for (const cmd of ["create", "dev", "build", "check", "preview"]) expect(help.stdout).toContain(cmd);
     expect(vage(["--version"], work).stdout).toContain("0.1.0");
   });
 });

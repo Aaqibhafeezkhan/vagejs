@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseMarkdown } from "../src/content/markdown.js";
-import { loadConfig } from "../src/core/config.js";
+import { loadConfig, parseConfig } from "../src/core/config.js";
 import { escapeHtml } from "../src/core/html.js";
 import { defaultLayout } from "../src/core/render.js";
 import { FIXTURE } from "./helpers.js";
@@ -8,7 +8,8 @@ import { FIXTURE } from "./helpers.js";
 describe("parseMarkdown", () => {
   it("parses frontmatter and renders the body", () => {
     const page = parseMarkdown("---\ntitle: Hi\nauthor: Me\n---\n# Heading\n\n*em*\n", "x.md");
-    expect(page.frontmatter).toEqual({ title: "Hi", author: "Me", draft: false });
+    expect(page.frontmatter).toEqual({ title: "Hi", author: "Me", draft: false, noindex: false, type: "website" });
+    expect(page.body).toBe("# Heading\n\n*em*\n");
     expect(page.html).toContain("<h1>Heading</h1>");
     expect(page.html).toContain("<em>em</em>");
   });
@@ -30,12 +31,16 @@ describe("loadConfig", () => {
   const loaderFor = (value: unknown) => async () => ({ default: value });
 
   it("applies defaults when there is no config file", async () => {
-    expect(await loadConfig("/nonexistent", loaderFor(undefined))).toEqual({ lang: "en" });
+    expect(await loadConfig("/nonexistent", loaderFor(undefined))).toEqual({
+      lang: "en",
+      redirects: {},
+      seo: { robots: { rules: [] }, sitemap: true, llmsTxt: { full: false }, structuredData: {} },
+    });
   });
 
   it("rejects unknown keys and non-http URLs", async () => {
-    await expect(loadConfig(FIXTURE, loaderFor({ sitemap: true }))).rejects.toThrow(/Invalid config[\s\S]*sitemap/);
-    await expect(loadConfig(FIXTURE, loaderFor({ site: "ftp://x.com" }))).rejects.toThrow(/Invalid config[\s\S]*site/);
+    await expect(loadConfig(FIXTURE, loaderFor({ sitemap: true }))).rejects.toThrow(/Invalid config[\s\S]*sitemap[\s\S]*vage\.config\.ts/);
+    expect(() => parseConfig({ site: "ftp://x.com" })).toThrow(/Invalid config[\s\S]*site/);
   });
 });
 
@@ -47,12 +52,11 @@ describe("html", () => {
   it("default layout escapes metadata and keeps content as HTML", async () => {
     const html = await defaultLayout({
       content: "<p>body</p>",
-      page: { route: "/", title: "A <b>", description: 'say "hi"', frontmatter: { title: "A <b>", draft: false } },
-      site: { title: "Site", lang: "fr" },
+      page: { route: "/", title: "A <b>", frontmatter: { title: "A <b>", draft: false, noindex: false, type: "website" } },
+      site: { title: "Site", lang: "fr", redirects: {}, seo: { robots: false, sitemap: false, llmsTxt: false, structuredData: false } },
     });
     expect(html).toContain('<html lang="fr">');
     expect(html).toContain("<title>A &lt;b&gt; | Site</title>");
-    expect(html).toContain('content="say &quot;hi&quot;"');
     expect(html).toContain("<p>body</p>");
   });
 });

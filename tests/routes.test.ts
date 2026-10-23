@@ -8,10 +8,12 @@ describe("discoverRoutes", () => {
     const routes = discoverRoutes(path.join(FIXTURE, "src", "pages"));
     expect(routes.map((r) => [r.route, r.outFile])).toEqual([
       ["/", "index.html"],
+      ["/about-copy/", "about-copy/index.html"],
       ["/about/", "about/index.html"],
       ["/blog/", "blog/index.html"],
       ["/blog/post/", "blog/post/index.html"],
       ["/blog/wip/", "blog/wip/index.html"],
+      ["/hidden/", "hidden/index.html"],
     ]);
   });
 

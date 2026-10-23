@@ -6,3 +6,6 @@ export { build, type BuildResult } from "./core/build.js";
 export { startDevServer } from "./dev/server.js";
 export { startPreviewServer } from "./dev/preview.js";
 export { VageError } from "./core/errors.js";
+export { check, type CheckResult, type Finding } from "./checks/check.js";
+export { article, breadcrumbList, jsonLdScript, organization, website, type Thing } from "./seo/jsonld.js";
+export { AI_CRAWLERS, type CrawlerToken } from "./discovery/crawlers.js";

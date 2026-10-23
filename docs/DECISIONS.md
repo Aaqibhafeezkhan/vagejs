@@ -32,6 +32,24 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 - **Builds are atomic-ish**: all pages render before `dist/` is replaced, so a failing build leaves the last good output.
 - **Unpublished install path**: `vage create --vage-spec file:<tarball>` lets a generated project install the local package until a real release exists.
 
+## Phase 2: discovery and SEO
+
+- **One site model** (`src/core/site.ts`) renders all pages, then derives sitemap.xml, llms.txt and robots.txt from it. Build, dev server and `check` all use it, so the files cannot drift from the routes.
+- **Head tags are injected** before `</head>` rather than requiring layouts to call a helper. Any tag the layout already writes is left alone, so no duplicates and no silent overrides.
+- **Nothing invented**: tags and JSON-LD fields appear only when backed by config or frontmatter. No auto breadcrumbs (they would have to match visible UI). No `lastmod` from file mtimes.
+- **robots.txt** is neutral by default (`User-agent: *` / `Disallow:`). AI groups are opt-in and split into training vs search, using tokens from provider docs recorded in `src/discovery/crawlers.ts` (verified 2026-10-23). User-initiated fetchers (ChatGPT-User, Claude-User) are excluded because the providers say robots.txt may not apply to them.
+- **Hand-written `public/robots.txt` etc. is an error**, not silently overwritten.
+- **Redirects** are static meta-refresh pages (noindex, canonical to target). Static hosts need host-specific config for real 301s; that belongs to deploy adapters (Phase 5).
+- **`site` must be an origin.** Base paths are rejected until links and assets support them.
+- **`vage check`** renders in memory (no `dist/` writes). Errors exit 1; `--strict` also fails on warnings. Each rule links official docs where one exists.
+- **HTML inspection** uses `node-html-parser`, not regex.
+
+### Phase 2 limitations
+
+- No sitemap index; more than 50,000 URLs is an explicit error.
+- No hreflang/alternate-language links yet.
+- Accessibility checks are basic (lang, alt, link text, image dimensions); full automated testing is Phase 4.
+
 ## Not implemented (planned in later phases)
 
-robots.txt, sitemap.xml, llms.txt, canonical/OG metadata, JSON-LD, `vage check`, audits, analytics, GitHub publishing, deployment, MCP.
+Lighthouse/PageSpeed audits, full accessibility testing, analytics, Search Console, GitHub publishing, deployment, MCP.

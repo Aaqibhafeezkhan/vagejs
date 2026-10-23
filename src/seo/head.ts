@@ -1,0 +1,102 @@
+import type { Frontmatter } from "../content/markdown.js";
+import type { SiteConfig } from "../core/config.js";
+import { VageError } from "../core/errors.js";
+import { escapeHtml } from "../core/html.js";
+import { article, jsonLdScript, organization, website, type Thing } from "./jsonld.js";
+import { absoluteUrl } from "./urls.js";
+
+export interface PageMeta {
+  route: string;
+  frontmatter: Frontmatter;
+  /** Absolute canonical URL, when `site` is configured and the page is indexable. */
+  canonical?: string;
+  noindex: boolean;
+}
+
+export function pageMeta(site: SiteConfig, route: string, frontmatter: Frontmatter, notFound = false): PageMeta {
+  const noindex = notFound || frontmatter.noindex;
+  const canonical = noindex ? undefined : absoluteUrl(site.site, frontmatter.canonical ?? route);
+  return { route, frontmatter, canonical, noindex };
+}
+
+interface Tag {
+  /** Matches an equivalent tag the layout already wrote; if found, ours is skipped. */
+  exists: RegExp;
+  html: string;
+}
+
+const meta = (attr: "name" | "property", key: string, content: string): Tag => ({
+  exists: new RegExp(`<meta[^>]+${attr}=["']${key}["']`, "i"),
+  html: `<meta ${attr}="${key}" content="${escapeHtml(content)}" />`,
+});
+
+/** Builds the SEO tags for a page. Tags are omitted when their data is unknown; nothing is invented. */
+export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
+  const fm = m.frontmatter;
+  const description = fm.description ?? site.description;
+  const image = fm.image ? absoluteUrl(site.site, fm.image) : undefined;
+  const tags: Tag[] = [];
+
+  if (description) tags.push(meta("name", "description", description));
+  if (m.noindex) tags.push(meta("name", "robots", "noindex"));
+  if (m.canonical) {
+    tags.push({
+      exists: /<link[^>]+rel=["']canonical["']/i,
+      html: `<link rel="canonical" href="${escapeHtml(m.canonical)}" />`,
+    });
+  }
+
+  tags.push(meta("property", "og:title", fm.title));
+  tags.push(meta("property", "og:type", fm.type));
+  if (description) tags.push(meta("property", "og:description", description));
+  if (m.canonical) tags.push(meta("property", "og:url", m.canonical));
+  if (site.title) tags.push(meta("property", "og:site_name", site.title));
+  if (image) tags.push(meta("property", "og:image", image));
+  tags.push(meta("name", "twitter:card", image ? "summary_large_image" : "summary"));
+
+  const schemas = structuredData(site, m, description, image);
+  if (schemas.length) {
+    tags.push({ exists: /<script[^>]+application\/ld\+json/i, html: jsonLdScript(schemas.length === 1 ? schemas[0]! : schemas) });
+  }
+  return tags;
+}
+
+function structuredData(site: SiteConfig, m: PageMeta, description?: string, image?: string): Thing[] {
+  const options = site.seo.structuredData;
+  if (!options || m.noindex) return [];
+  const out: Thing[] = [];
+  if (m.route === "/") {
+    if (site.title && site.site) out.push(website({ name: site.title, url: `${site.site}/` }));
+    if (options.organization) {
+      const { logo, ...org } = options.organization;
+      out.push(organization({ ...org, logo: logo ? absoluteUrl(site.site, logo) : undefined }));
+    }
+  }
+  if (m.frontmatter.type === "article") {
+    const fm = m.frontmatter;
+    out.push(
+      article({
+        headline: fm.title,
+        description,
+        url: m.canonical,
+        image,
+        datePublished: fm.datePublished,
+        dateModified: fm.dateModified,
+        author: fm.author,
+      }),
+    );
+  }
+  return out;
+}
+
+/** Inserts tags before </head>, skipping any the layout already provides. */
+export function injectHead(html: string, tags: Tag[], file: string): string {
+  const index = html.search(/<\/head>/i);
+  if (index === -1) throw new VageError("Layout output has no </head>; VAGE JS needs it to add SEO tags.", file);
+  const head = html.slice(0, index);
+  const add = tags.filter((t) => !t.exists.test(head)).map((t) => `    ${t.html}\n`).join("");
+  // Insert at the start of the </head> line when it is only indented, to keep the output tidy.
+  const lineStart = head.lastIndexOf("\n") + 1;
+  const at = /^\s*$/.test(head.slice(lineStart)) ? lineStart : index;
+  return html.slice(0, at) + add + html.slice(at);
+}
