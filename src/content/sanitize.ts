@@ -23,13 +23,16 @@ async function load() {
  * With `publicDir`, images get their size and loading hints inside the sanitizer
  * (a DOMPurify hook), so DOMPurify's serialization is the final output.
  */
-export async function sanitizeHtml(html: string, options: { publicDir?: string; inlineStyles?: boolean } = {}): Promise<string> {
+export async function sanitizeHtml(
+  html: string,
+  options: { publicDir?: string; inlineStyles?: boolean; variants?: Map<string, { srcset: string; sizes: string }> } = {},
+): Promise<string> {
   const { purifier } = await load();
   let first = true;
   const publicDir = options.publicDir;
   const hook = (node: Element) => {
     if (publicDir && node.nodeName === "IMG") {
-      enhanceImage(node, publicDir, first);
+      enhanceImage(node, publicDir, first, options.variants?.get(node.getAttribute("src") ?? ""));
       first = false;
     }
   };
@@ -51,10 +54,10 @@ export async function sanitizeHtml(html: string, options: { publicDir?: string; 
 }
 
 /** For trusted content (`markdown.html: "allow"`): the same image hints, applied through the DOM. */
-export async function enhanceTrustedHtml(html: string, publicDir: string): Promise<string> {
+export async function enhanceTrustedHtml(html: string, publicDir: string, variants?: Map<string, { srcset: string; sizes: string }>): Promise<string> {
   const { jsdom } = await load();
   const template = new jsdom.JSDOM("").window.document.createElement("template");
   template.innerHTML = html;
-  template.content.querySelectorAll("img").forEach((img, i) => enhanceImage(img, publicDir, i === 0));
+  template.content.querySelectorAll("img").forEach((img, i) => enhanceImage(img, publicDir, i === 0, variants?.get(img.getAttribute("src") ?? "")));
   return template.innerHTML;
 }

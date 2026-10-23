@@ -1,0 +1,98 @@
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { VageError } from "../core/errors.js";
+import { imageSize } from "./images.js";
+
+/**
+ * Opt-in image pipeline (images.optimize): resized WebP copies of the images used in
+ * page content, offered to browsers with srcset. Needs the `sharp` package in the
+ * project. Results are cached in node_modules/.cache/vagejs/img, keyed by the file's
+ * content and the settings, so unchanged images are never processed twice.
+ */
+
+export interface ImageOptions {
+  optimize: boolean;
+  widths: number[];
+  quality: number;
+  sizes: string;
+}
+
+export interface Variants {
+  /** "url 480w, url 960w" */
+  srcset: string;
+  /** Published path (e.g. "_vage/img/photo-ab12cd34-480.webp") -> cached file on disk. */
+  files: Map<string, string>;
+}
+
+/** Turns an image into WebP at a given width. Injected in tests; sharp otherwise. */
+export type Resize = (input: Buffer, width: number, quality: number) => Promise<Buffer>;
+
+const RASTER = /\.(jpe?g|png|webp)$/i;
+export const IMAGE_DIR = "_vage/img";
+
+export function cacheDir(root: string): string {
+  return path.join(root, "node_modules", ".cache", "vagejs", "img");
+}
+
+/** Loads sharp from the project (not from vagejs), with a clear message if it's missing. */
+export async function sharpResize(root: string): Promise<Resize> {
+  let resolved: string;
+  try {
+    resolved = createRequire(path.join(root, "package.json")).resolve("sharp");
+  } catch {
+    throw new VageError('images.optimize needs the "sharp" package. Install it with: npm install --save-dev sharp');
+  }
+  const sharp = ((await import(pathToFileURL(resolved).href)) as { default: (input: Buffer) => { resize: (o: object) => { webp: (o: object) => { toBuffer: () => Promise<Buffer> } } } }).default;
+  return (input, width, quality) => sharp(input).resize({ width, withoutEnlargement: true }).webp({ quality }).toBuffer();
+}
+
+/**
+ * WebP variants for one site-path image in public/. Undefined for remote images,
+ * non-raster formats (SVG, GIF), paths outside public/ and unreadable files.
+ */
+export async function imageVariants(src: string, root: string, options: ImageOptions, resize: Resize): Promise<Variants | undefined> {
+  if (!/^\/(?!\/)/.test(src)) return undefined;
+  let rel: string;
+  try {
+    rel = decodeURIComponent(src.split(/[?#]/)[0]!);
+  } catch {
+    return undefined;
+  }
+  if (!RASTER.test(rel)) return undefined;
+  const publicDir = path.join(root, "public");
+  const file = path.join(publicDir, rel);
+  if (!file.startsWith(publicDir + path.sep) || !fs.existsSync(file)) return undefined;
+  const size = imageSize(file);
+  if (!size) return undefined;
+
+  const input = fs.readFileSync(file);
+  const hash = createHash("sha256").update(input).update(`q${options.quality}`).digest("hex").slice(0, 10);
+  const base = path.basename(rel).replace(RASTER, "").replace(/[^\w-]+/g, "-").slice(0, 60) || "image";
+  // Never upscale; include the original width when it's smaller than every configured width.
+  const widths = [...new Set(options.widths.filter((w) => w < size.width).concat(size.width <= Math.max(...options.widths) ? [size.width] : []))].sort((a, b) => a - b);
+  const dir = cacheDir(root);
+  fs.mkdirSync(dir, { recursive: true });
+
+  const files = new Map<string, string>();
+  const entries: string[] = [];
+  for (const w of widths) {
+    const name = `${base}-${hash}-${w}.webp`;
+    const cached = path.join(dir, name);
+    if (!fs.existsSync(cached)) {
+      const tmp = `${cached}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, await resize(input, w, options.quality));
+      fs.renameSync(tmp, cached);
+    }
+    files.set(`${IMAGE_DIR}/${name}`, cached);
+    entries.push(`/${IMAGE_DIR}/${name} ${w}w`);
+  }
+  return entries.length ? { srcset: entries.join(", "), files } : undefined;
+}
+
+/** Image sources used in rendered Markdown (read-only scan; the sanitizer applies the result). */
+export function contentImageSources(html: string): string[] {
+  return [...new Set([...html.matchAll(/<img\b[^>]*?\ssrc\s*=\s*"([^"]+)"/gi)].map((m) => m[1]!))];
+}

@@ -35,6 +35,8 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
     if (model.notFound) outputs.set(model.notFound.outFile, model.notFound.html);
     for (const r of model.redirects) outputs.set(r.outFile, r.html);
     for (const [name, content] of model.files) outputs.set(name, content);
+    const assets = new Map<string, string>();
+    for (const p of [...model.pages, ...(model.notFound ? [model.notFound] : [])]) for (const [k, f] of p.assets) assets.set(k, f);
 
     fs.rmSync(outDir, { recursive: true, force: true });
     const publicDir = path.join(root, "public");
@@ -45,6 +47,12 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
       if (!target.startsWith(outDir + path.sep)) throw new VageError(`Refusing to write outside ${OUT_DIR}/: ${output}`);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, content);
+    }
+    for (const [output, file] of assets) {
+      const target = path.resolve(outDir, output);
+      if (!target.startsWith(outDir + path.sep)) throw new VageError(`Refusing to write outside ${OUT_DIR}/: ${output}`);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(file, target);
     }
 
     const result: BuildResult = {

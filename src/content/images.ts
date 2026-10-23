@@ -74,8 +74,12 @@ export interface ImageElement {
  * remote images only get the loading hints. Works on DOM elements, never on HTML text,
  * so it can't change how the sanitized markup parses.
  */
-export function enhanceImage(img: ImageElement, publicDir: string, first: boolean): void {
+export function enhanceImage(img: ImageElement, publicDir: string, first: boolean, variants?: { srcset: string; sizes: string }): void {
   const src = img.getAttribute("src");
+  if (variants && !img.hasAttribute("srcset")) {
+    img.setAttribute("srcset", variants.srcset);
+    if (!img.hasAttribute("sizes")) img.setAttribute("sizes", variants.sizes);
+  }
   if (src && !img.hasAttribute("width") && !img.hasAttribute("height") && /^\/(?!\/)/.test(src)) {
     const size = localImageSize(src, publicDir);
     if (size) {

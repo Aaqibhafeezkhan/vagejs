@@ -207,6 +207,14 @@ export const configSchema = z.strictObject({
   title: z.string().min(1).optional().describe("Site name: page titles, og:site_name, llms.txt heading."),
   description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
   lang: z.string().min(1).default("en").describe("<html lang> value."),
+  images: z
+    .strictObject({
+      optimize: z.boolean().default(false).describe('Make resized WebP copies of images in page content and offer them with srcset. Needs "sharp" in the project (npm install --save-dev sharp).'),
+      widths: z.array(z.number().int().min(16).max(8000)).min(1).max(8).default([480, 960, 1600]).describe("Widths to generate (never larger than the original)."),
+      quality: z.number().int().min(1).max(100).default(75).describe("WebP quality."),
+      sizes: z.string().regex(/^[^<>"]+$/).default("(max-width: 48rem) 100vw, 48rem").describe('The sizes attribute: how wide images display, so browsers pick the right file.'),
+    })
+    .default({ optimize: false, widths: [480, 960, 1600], quality: 75, sizes: "(max-width: 48rem) 100vw, 48rem" }),
   markdown: z
     .strictObject({
       html: z

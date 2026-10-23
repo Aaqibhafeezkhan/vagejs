@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/markdown.js";
+import { contentImageSources, imageVariants, sharpResize, type Resize } from "../content/optimize.js";
 import { enhanceTrustedHtml, sanitizeHtml } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
@@ -35,6 +36,8 @@ export type Layout = (props: LayoutProps) => string | SafeHtml | Promise<string 
 
 export interface RenderedPage {
   html: string;
+  /** Generated image files this page uses: published path -> file on disk (images.optimize). */
+  assets: Map<string, string>;
   frontmatter: Frontmatter;
   /** Markdown body without frontmatter. */
   body: string;
@@ -53,12 +56,29 @@ export async function renderPage(options: {
   analytics?: boolean;
   /** Published pages for `props.pages`. */
   pages?: readonly PageSummary[];
+  /** Resizer for images.optimize (tests inject one; sharp otherwise). */
+  resize?: Resize;
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
   const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
   const { frontmatter, body } = parsed;
   const publicDir = path.join(root, "public");
-  const content = site.markdown.html === "allow" ? await enhanceTrustedHtml(parsed.html, publicDir) : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles });
+  const assets = new Map<string, string>();
+  let variants: Map<string, { srcset: string; sizes: string }> | undefined;
+  if (site.images.optimize) {
+    const resize = options.resize ?? (await sharpResize(root));
+    variants = new Map();
+    for (const src of contentImageSources(parsed.html)) {
+      const v = await imageVariants(src, root, site.images, resize);
+      if (!v) continue;
+      variants.set(src, { srcset: v.srcset, sizes: site.images.sizes });
+      for (const [k, f] of v.files) assets.set(k, f);
+    }
+  }
+  const content =
+    site.markdown.html === "allow"
+      ? await enhanceTrustedHtml(parsed.html, publicDir, variants)
+      : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles, variants });
   const layout = await applyLayoutFields(root, frontmatter, load, file);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const result = await layout({
@@ -74,7 +94,7 @@ export async function renderPage(options: {
   let out = injectHead(html, headTags(site, meta), file);
   const tags = options.analytics ? analyticsTags(site) : undefined;
   if (tags) out = injectAnalytics(out, tags, file);
-  return { html: out, frontmatter, body, meta };
+  return { html: out, frontmatter, body, meta, assets };
 }
 
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs"];
