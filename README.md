@@ -63,7 +63,16 @@ Page content is sanitized, dev/preview servers serve only what a site needs, and
 
 ## Brand assets
 
-`assets/brand/vagejs-logo.svg` (wordmark) and `assets/brand/vagejs-icon.svg` (icon) are the official VAGE JS marks, kept as received with their C2PA content credentials. New sites get the icon as `public/favicon.svg` (same artwork, metadata removed to keep it small); replace it with your own.
+- `assets/brand/vagejs-icon.svg`: the icon, as received (with C2PA content credentials).
+- `assets/brand/vagejs-logo.svg`: the wordmark with **Space Grotesk Bold embedded** (a 1.6 KB WOFF2 subset of the glyphs used), so it renders the same without the font installed. Space Grotesk is © 2020 The Space Grotesk Project Authors, under the SIL Open Font License 1.1 (`assets/brand/fonts/OFL.txt`). Editing the file invalidated its C2PA signature, so that block was removed.
+- New sites get `favicon.svg`, `favicon.ico` (16/32/48) and `apple-touch-icon.png` (180) in `public/`.
+
+Regenerate (maintainer tools; need Chrome, and Python with `fonttools` and `brotli`):
+
+```bash
+node scripts/brand/favicons.mjs templates/starter/public/favicon.svg templates/starter/public
+python -I scripts/brand/embed-logo-font.py "SpaceGrotesk[wght].ttf" <original-logo.svg> assets/brand/vagejs-logo.svg
+```
 
 ## License
 

@@ -138,7 +138,7 @@ Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-la
 
 ## Favicon
 
-`public/favicon.svg` is the VAGE JS icon as a placeholder. Replace it with the site owner's icon (keep the file name, or update the `<link rel="icon">` in `src/layouts/default.ts`).
+`public/favicon.svg`, `public/favicon.ico` (16/32/48 px) and `public/apple-touch-icon.png` (180 px) are the VAGE JS icon as placeholders. Replace all three with the site owner's icon (same file names), or update the `<link rel="icon">` / `apple-touch-icon` tags in `src/layouts/default.ts`.
 
 ## Safety
 

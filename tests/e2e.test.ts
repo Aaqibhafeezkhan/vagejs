@@ -39,7 +39,7 @@ describe("vage CLI (packed package)", () => {
     const result = JSON.parse(built.stdout);
     expect(result.ok).toBe(true);
     expect(result.pages.map((p: { route: string }) => p.route)).toEqual(["/", "/about/", "/blog/first-post/"]);
-    for (const file of ["index.html", "about/index.html", "blog/first-post/index.html", "404.html", "favicon.svg"]) {
+    for (const file of ["index.html", "about/index.html", "blog/first-post/index.html", "404.html", "favicon.svg", "favicon.ico", "apple-touch-icon.png"]) {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }
     expect(fs.readFileSync(path.join(site, "dist", "index.html"), "utf8")).toContain("<title>Home | My Website</title>");
