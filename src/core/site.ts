@@ -3,7 +3,7 @@ import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { feedPath, rssFeed } from "../discovery/feed.js";
 import { gitPageDates } from "../discovery/git-dates.js";
-import { markdownCopy, markdownCopyPath } from "../discovery/markdown-copy.js";
+import { markdownCopy, markdownCopyPath, publishableMarkdown } from "../discovery/markdown-copy.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
 import { headersFile } from "../deploy/headers.js";
@@ -121,6 +121,7 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
   const { site, files, warnings } = model;
   const listed = listedPages(model);
   const generate = (name: string, content: () => string) => {
+    if (files.has(name)) throw new VageError(`Two generated files would be written to ${name}. Rename one of the pages behind it.`);
     if (fs.existsSync(path.join(root, "public", name))) {
       throw new VageError(
         `public/${name} conflicts with the generated ${name}. Delete it, or turn generation off in vage.config.ts (seo).`,
@@ -160,8 +161,10 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
     }
     generate(feedPath(feed.under), () => rssFeed(site, feed, listed, site.site!));
   }
+  const keepHtml = site.markdown.html === "allow";
+  const publishable = (p: SitePage) => publishableMarkdown(p.body, { route: p.route, origin: site.site, keepHtml });
   if (site.seo.markdownCopies) {
-    for (const p of listed) generate(markdownCopyPath(p.route), () => markdownCopy(p.frontmatter.title, p.frontmatter.description, p.body));
+    for (const p of listed) generate(markdownCopyPath(p.route), () => markdownCopy(p.frontmatter.title, p.frontmatter.description, publishable(p)));
   }
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);
@@ -178,9 +181,10 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
     } else {
       const pages: LlmsPage[] = listed.map((p) => ({
         title: p.frontmatter.title,
-        url: absoluteUrl(site.site, p.route) ?? p.route,
+        // With Markdown copies, AI tools are pointed at the plain-text version (llmstxt.org).
+        url: site.seo.markdownCopies ? (absoluteUrl(site.site, `/${markdownCopyPath(p.route)}`) ?? `/${markdownCopyPath(p.route)}`) : (absoluteUrl(site.site, p.route) ?? p.route),
         description: p.frontmatter.description,
-        body: p.body,
+        body: publishable(p),
       }));
       generate("llms.txt", () => llmsTxt(site.title!, site.description, pages));
       if (site.seo.llmsTxt.full) generate("llms-full.txt", () => llmsFullTxt(site.title!, site.description, pages));

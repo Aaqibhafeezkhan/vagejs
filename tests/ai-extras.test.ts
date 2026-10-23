@@ -65,3 +65,60 @@ describe("sitemap lastmod from git", () => {
     expect((await build(plain)).warnings.join()).toMatch(/isn't a git repository|git isn't available/);
   });
 });
+
+describe("Markdown copies are safe to publish (review findings)", () => {
+  const BODY = [
+    "# My notes",
+    "",
+    "Hello <span>inline</span> world. <!-- INTERNAL: client pays 42k -->",
+    "",
+    "<!-- private block note -->",
+    "",
+    '<script src="https://evil.example/x.js"></script>',
+    "",
+    '<iframe src="https://casino-spam.example/"></iframe>',
+    "",
+    "See [about](../about/) and ![pic](img/a.png) and [ext](https://example.org/x).",
+    "",
+    "```html",
+    "<script>console.log('code sample')</script>",
+    "```",
+    "",
+  ].join("\n");
+
+  function site(extra = "") {
+    const root = copyFixture();
+    write(root, "vage.config.ts", `export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true, llmsTxt: { full: true } }${extra} };`);
+    write(root, "src/pages/docs/notes.md", `---\ntitle: Notes page\ndescription: Notes.\n---\n${BODY}`);
+    return root;
+  }
+
+  it("drops comments and raw HTML, keeps code, and makes links absolute", async () => {
+    const root = site();
+    await build(root);
+    for (const file of ["docs/notes.md", "llms-full.txt"]) {
+      const text = read(root, file);
+      expect(text, file).not.toMatch(/INTERNAL|private block note|evil\.example|casino-spam|<span>/);
+      expect(text, file).toContain("<script>console.log('code sample')</script>"); // inside a code block
+      expect(text, file).toContain("[about](https://fixture.example/docs/about/)");
+      expect(text, file).toContain("![pic](https://fixture.example/docs/notes/img/a.png)");
+      expect(text, file).toContain("[ext](https://example.org/x)");
+    }
+    expect(read(root, "docs/notes.md").startsWith("# My notes\n\n> Notes.")).toBe(true); // the author's own H1
+    expect(read(root, "llms.txt")).toContain("(https://fixture.example/docs/notes.md)");
+  });
+
+  it("keeps trusted HTML (markdown.html allow) but still drops comments", async () => {
+    const root = site(', markdown: { html: "allow" }');
+    await build(root);
+    const text = read(root, "docs/notes.md");
+    expect(text).toContain("evil.example");
+    expect(text).not.toMatch(/INTERNAL|private block note/);
+  });
+
+  it("refuses two pages that would produce the same copy", async () => {
+    const root = site();
+    write(root, "src/pages/index/index.md", "---\ntitle: Index dir\ndescription: Clash.\n---\n# Clash\n");
+    await expect(build(root)).rejects.toThrow(/Two generated files would be written to index\.md/);
+  });
+});
