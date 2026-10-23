@@ -353,6 +353,25 @@ cli
   );
 
 cli
+  .command("verify", "Compare the live site with your files: extra links, scripts, text or sitemap pages mean it was changed outside your repository")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--url <url>", "Live site origin (default: site in vage.config.ts)")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: CommonOptions & { url?: string }) =>
+    run(opts, async () => {
+      const { verifySite } = await import("../checks/verify.js");
+      const result = await verifySite(opts.root, { url: opts.url });
+      if (opts.json) print(result);
+      else {
+        for (const d of result.differences) console.log(`${d.severity === "error" ? "error  " : "warning"} ${d.kind.padEnd(15)} ${d.route}\n        ${d.detail}`);
+        console.log(`\nVerified ${result.pagesChecked} page(s) on ${result.url}: ${result.differences.filter((d) => d.severity === "error").length} error(s), ${result.differences.filter((d) => d.severity === "warning").length} warning(s).`);
+        if (!result.ok) console.log("The live site has content that isn't in your files. If you didn't deploy it, rotate your host and Git credentials, then redeploy from the repository.");
+      }
+      if (!result.ok) process.exitCode = 1;
+    }),
+  );
+
+cli
   .command("report <kind>", "Report from Search Console (search) or GA4 (analytics); needs vage connect")
   .option("--root <dir>", "Project root", { default: "." })
   .option("--property <property>", "Search Console property (default: integrations.searchConsole.property)")
