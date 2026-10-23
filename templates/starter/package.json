@@ -7,6 +7,7 @@
     "dev": "vage dev",
     "build": "vage build",
     "check": "vage check",
+    "audit": "vage audit",
     "preview": "vage preview"
   },
   "devDependencies": {

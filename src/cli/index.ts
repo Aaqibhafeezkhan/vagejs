@@ -74,7 +74,53 @@ cli
     run(opts, async () => {
       const result = await check(opts.root, { strict: opts.strict });
       if (opts.json) print(result);
-      else printFindings(result.findings, result.pagesChecked, result.errors, result.warnings);
+      else {
+        printFindings(result.findings);
+        console.log(`\nChecked ${result.pagesChecked} page(s): ${result.errors} error(s), ${result.warnings} warning(s).`);
+        console.log("Passing checks do not guarantee indexing, rankings, rich results or AI citations.");
+      }
+      if (!result.ok) process.exit(1);
+    }),
+  );
+
+cli
+  .command("audit", "Performance budgets and accessibility (local build), or PageSpeed/CrUX for a deployed --url")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--url <url>", "Audit a deployed URL with PageSpeed Insights (+ CrUX field data with CRUX_API_KEY)")
+  .option("--lighthouse", "Also run Lighthouse locally (needs the lighthouse package and Chrome)")
+  .option("--strategy <strategy>", "mobile, desktop or both", { default: "both" })
+  .option("--strict", "Fail on warnings too (budgets, lab scores, API failures)")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: CommonOptions & { url?: string; lighthouse?: boolean; strategy: string; strict?: boolean }) =>
+    run(opts, async () => {
+      if (!["mobile", "desktop", "both"].includes(opts.strategy)) {
+        throw new VageError(`Invalid --strategy "${opts.strategy}". Use mobile, desktop or both.`);
+      }
+      const strategies = opts.strategy === "both" ? (["mobile", "desktop"] as const) : ([opts.strategy] as ["mobile"] | ["desktop"]);
+      // Loaded lazily: jsdom and axe are only needed for audits.
+      const { audit } = await import("../audit/audit.js");
+      const { kbText } = await import("../audit/budgets.js");
+      const result = await audit(opts.root, { url: opts.url, lighthouse: opts.lighthouse, strict: opts.strict, strategies: [...strategies] });
+      if (opts.json) print(result);
+      else {
+        for (const p of result.pages) {
+          const b = p.bytes;
+          console.log(`  ${p.route.padEnd(28)} total ${kbText(p.total).padStart(9)}  js ${kbText(b.javascript)}  css ${kbText(b.css)}  img ${kbText(b.image)}  font ${kbText(b.font)}  ${p.requests} req`);
+        }
+        for (const r of result.lab) {
+          const s = r.scores;
+          console.log(`  [lab ${r.source}, ${r.strategy}] ${r.url}: perf ${s.performance} a11y ${s.accessibility} seo ${s.seo} bp ${s["best-practices"]} (${r.toolVersion}, ${r.fetchTime})`);
+          for (const o of r.opportunities) console.log(`      - ${o.title}${o.displayValue ? `: ${o.displayValue}` : ""}`);
+        }
+        for (const f of result.field) {
+          const m = Object.entries(f.metrics).map(([k, v]) => `${k.toUpperCase()} p75 ${v.p75} (${v.rating})`).join(", ");
+          console.log(`  [field CrUX, ${f.formFactor}, ${f.scope}] ${m || "no metrics"}${f.collectionPeriod ? ` — ${f.collectionPeriod}` : ""}`);
+        }
+        if (result.findings.length) console.log("");
+        printFindings(result.findings);
+        for (const note of result.notes) console.log(`\nNote: ${note}`);
+        console.log(`\nAudit of ${result.target}: ${result.errors} error(s), ${result.warnings} warning(s).`);
+      }
       if (!result.ok) process.exit(1);
     }),
   );
@@ -138,13 +184,11 @@ function fail(err: unknown, json: boolean): never {
   process.exit(1);
 }
 
-function printFindings(findings: Finding[], pages: number, errors: number, warnings: number) {
+function printFindings(findings: Finding[]) {
   for (const f of findings) {
     const where = f.page ? `${f.page}${f.source ? ` (${f.source})` : ""}` : (f.source ?? "site");
     console.log(`${f.severity === "error" ? "error  " : "warning"} ${f.rule.padEnd(22)} ${where}\n        ${f.message}${f.docs ? `\n        see ${f.docs}` : ""}`);
   }
-  console.log(`\nChecked ${pages} page(s): ${errors} error(s), ${warnings} warning(s).`);
-  console.log("Passing checks do not guarantee indexing, rankings, rich results or AI citations.");
 }
 
 function print(value: unknown) {

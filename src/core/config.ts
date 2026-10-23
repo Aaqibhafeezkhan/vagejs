@@ -60,6 +60,32 @@ const seoSchema = z.strictObject({
   ).describe("Automatic JSON-LD (WebSite, Organization, Article)."),
 });
 
+const score = z.number().int().min(0).max(100);
+const kb = z.number().positive();
+
+const budgetsSchema = z.strictObject({
+  performance: score.default(90).describe("Minimum Lighthouse performance score (lab)."),
+  accessibility: score.default(95).describe("Minimum Lighthouse accessibility score (lab)."),
+  seo: score.default(95).describe("Minimum Lighthouse SEO score (lab)."),
+  bestPractices: score.default(90).describe("Minimum Lighthouse best-practices score (lab)."),
+  javascriptKb: kb.default(100).describe("Max uncompressed JavaScript per page, KB."),
+  cssKb: kb.default(50).describe("Max uncompressed CSS per page, KB."),
+  imageKb: kb.default(500).describe("Max image bytes per page, KB."),
+  fontKb: kb.default(150).describe("Max font bytes per page, KB."),
+  totalKb: kb.default(1000).describe("Max total local bytes per page, KB."),
+  requests: z.number().int().positive().default(30).describe("Max resource requests per page (incl. the HTML)."),
+});
+
+const performanceSchema = z.strictObject({
+  budgets: budgetsSchema.default(() => budgetsSchema.parse({})).describe("Starting points, not universal standards. Adjust per site."),
+  lighthouse: z
+    .strictObject({
+      enabled: z.boolean().default(false).describe("Run Lighthouse in `vage audit` without --lighthouse. Needs the lighthouse package and Chrome."),
+      pages: z.array(z.string().regex(/^\//)).min(1).default(["/"]).describe("Routes to audit with Lighthouse."),
+    })
+    .default({ enabled: false, pages: ["/"] }),
+});
+
 export const configSchema = z.strictObject({
   site: z
     .url({ protocol: /^https?$/ })
@@ -71,6 +97,7 @@ export const configSchema = z.strictObject({
   description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
   lang: z.string().min(1).default("en").describe("<html lang> value."),
   seo: seoSchema.default(() => seoSchema.parse({})),
+  performance: performanceSchema.default(() => performanceSchema.parse({})),
   redirects: z
     .record(urlPath, z.string().min(1))
     .default({})

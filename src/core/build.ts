@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createBuildLoader } from "./loader.js";
-import { renderSite } from "./site.js";
+import { renderSite, type SiteModel } from "./site.js";
 
 export const OUT_DIR = "dist";
 
@@ -16,6 +16,11 @@ export interface BuildResult {
 }
 
 export async function build(root: string): Promise<BuildResult> {
+  return (await buildSite(root)).result;
+}
+
+/** Builds and also returns the rendered site model (for audits). */
+export async function buildSite(root: string): Promise<{ result: BuildResult; model: SiteModel }> {
   const start = performance.now();
   root = path.resolve(root);
   const outDir = path.join(root, OUT_DIR);
@@ -39,7 +44,7 @@ export async function build(root: string): Promise<BuildResult> {
       fs.writeFileSync(target, content);
     }
 
-    return {
+    const result: BuildResult = {
       outDir,
       pages: model.pages.map((p) => ({ route: p.route, source: p.source, output: p.outFile })),
       redirects: model.redirects.map((r) => ({ from: r.from, to: r.to, output: r.outFile })),
@@ -48,6 +53,7 @@ export async function build(root: string): Promise<BuildResult> {
       warnings: model.warnings,
       durationMs: Math.round(performance.now() - start),
     };
+    return { result, model };
   } finally {
     await loader.close();
   }

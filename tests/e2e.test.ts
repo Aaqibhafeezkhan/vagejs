@@ -52,6 +52,11 @@ describe("vage CLI (packed package)", () => {
     expect(checked.status, checked.stdout).toBe(0);
     expect(JSON.parse(checked.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 1, findings: [{ rule: "config" }] });
     expect(spawnSync("npx", ["vage", "check", "--strict"], { cwd: site, encoding: "utf8" }).status).toBe(1);
+
+    // The starter is within budgets and has no automated accessibility violations.
+    const audited = spawnSync("npx", ["vage", "audit", "--json"], { cwd: site, encoding: "utf8" });
+    expect(audited.status, audited.stdout).toBe(0);
+    expect(JSON.parse(audited.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 0 });
   }, 300_000);
 
   it("supports a representative coding-agent workflow", () => {
@@ -106,7 +111,7 @@ describe("vage CLI (packed package)", () => {
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
-    for (const cmd of ["create", "dev", "build", "check", "preview", "info"]) expect(help.stdout).toContain(cmd);
+    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info"]) expect(help.stdout).toContain(cmd);
     expect(vage(["--version"], work).stdout).toContain("0.1.0");
   });
 });

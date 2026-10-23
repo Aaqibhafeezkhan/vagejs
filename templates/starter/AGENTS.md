@@ -9,9 +9,10 @@ This website uses **VAGE JS** (pre-release). Only the features listed here exist
 | `npm run dev`     | Dev server with live reload. Prints the local URL.        |
 | `npm run build`   | Static build into `dist/`. Exits non-zero on any error.   |
 | `npm run check`   | SEO, link, structured-data and basic a11y checks. Writes nothing. Exit 1 on errors (`--strict`: also on warnings). |
+| `npm run audit`   | Builds, then checks page-weight budgets and runs axe accessibility rules. `--lighthouse` adds a local Lighthouse run (install `lighthouse`; needs Chrome). `--url <https://...>` audits a deployed page via PageSpeed Insights (+ CrUX field data with `CRUX_API_KEY`). |
 | `npm run preview` | Serves `dist/` locally.                                   |
 
-Add `--json` to `npx vage build` or `npx vage check` for machine-readable output (`{ ok: false, error }` on failure).
+Add `--json` to `npx vage build`, `check` or `audit` for machine-readable output (`{ ok: false, error }` on failure).
 Run `npm run check` after every change and fix all errors before finishing.
 
 ## Machine-readable reference
@@ -89,9 +90,16 @@ From the published pages and config (never from `public/`; a hand-written `publi
 `vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`,
 `seo: { robots, sitemap, llmsTxt, structuredData }`, `redirects`. Unknown keys are an error.
 
+## Performance and accessibility
+
+Budgets live in `vage.config.ts` under `performance.budgets` (Lighthouse scores and per-page KB/requests). They are starting points, not standards.
+Budget misses and lab scores are warnings (`--strict` fails on them). axe violations of serious/critical impact are errors.
+Lab results (Lighthouse, PageSpeed) are simulated and vary between runs; field data (CrUX, real users at p75) is what Google's Core Web Vitals assessment uses, and is missing for low-traffic sites.
+Never put API keys in `vage.config.ts`; use environment variables (`PAGESPEED_API_KEY`, `CRUX_API_KEY`).
+
 ## Not implemented yet
 
-Lighthouse/PageSpeed audits, full automated accessibility testing, analytics, Search Console, GitHub publishing, deployment. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Analytics, Search Console, GitHub publishing, deployment. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Safety
 

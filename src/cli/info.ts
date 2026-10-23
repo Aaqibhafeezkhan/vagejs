@@ -37,9 +37,11 @@ export function frameworkInfo(cli: CAC, version: string) {
       layouts: "src/layouts/<name>.ts default-exports ({ content, page, site }) => string and must contain </head>",
     },
     generatedFiles: ["robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt (opt-in)", "404.html", "redirect pages"],
+    environment: {
+      PAGESPEED_API_KEY: "optional; PageSpeed Insights quota for `vage audit --url`",
+      CRUX_API_KEY: "optional; CrUX field data for `vage audit --url` (falls back to PAGESPEED_API_KEY)",
+    },
     notImplemented: [
-      "Lighthouse / PageSpeed audits",
-      "full automated accessibility testing",
       "analytics and Search Console integrations",
       "GitHub publishing and deployment",
       "MCP server",

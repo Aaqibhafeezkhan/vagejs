@@ -57,6 +57,22 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 - **Agent workflow test** (`tests/e2e.test.ts`): discover via `info`, add a page, hit a broken link, fix it from the `check` finding, build. This is a scripted simulation of an agent, not an LLM in the loop.
 - **MCP deferred**: the CLI plus `--json` covers the same operations. Add MCP once the command surface is stable.
 
+## Phase 4: performance and accessibility
+
+- **`vage audit`** builds, measures every page (HTML + referenced local JS/CSS/images/fonts, including fonts/images from CSS `url()`), and runs axe-core in jsdom. Sizes are uncompressed; transfer size depends on the host.
+- **Severity**: axe critical/serious = error; moderate/minor, budget misses and lab scores = warning. `--strict` fails on warnings. External API failures are warnings unless `--strict`, so outages and noisy lab runs don't block builds by default.
+- **jsdom 28, not 30**: jsdom 29 and 30 require Node ≥22.13 / ≥22.22.2; 28 matches our `>=22.12` floor. Revisit when the floor rises. Layout-dependent axe rules (color contrast etc.) can't be decided in jsdom and are reported as "needs review", not as passes.
+- **Lighthouse is an optional peer dependency** (~19 MB, needs Chrome), loaded from the user's project only with `--lighthouse` / `performance.lighthouse.enabled`. It audits the local preview server.
+- **Deployed URLs**: PageSpeed Insights v5 for lab data; **CrUX API for field data**, because Google's PSI docs (checked 2026-10-23) say CrUX field data in PSI is planned for discontinuation. Field metrics: LCP, INP, CLS at p75, rated with web.dev thresholds (2.5 s / 200 ms / 0.1). URL-level data falls back to origin-level.
+- **API keys** come from env (`PAGESPEED_API_KEY`, `CRUX_API_KEY`), are sent as the `x-goog-api-key` header (never in URLs), and are redacted from all error text. Retries: 3 attempts, 1 s / 2 s backoff on 429/5xx/network errors.
+- **The audit module is lazy-loaded** by the CLI, so jsdom doesn't slow other commands.
+
+### Phase 4 verification status
+
+- Local Lighthouse: verified with a real run (Lighthouse 13.5.0, Chrome, 2026-10-23); CI runs it on Ubuntu.
+- PageSpeed Insights live: the keyless call hit Google's shared daily quota (HTTP 429), which verified the error path only. The success path, the CrUX API and header-based key auth are tested against mocks of the documented response shapes, not live. Verify with a real key before relying on them.
+- CrUX "no data" is assumed to be HTTP 404 (not specified in the docs).
+
 ## Not implemented (planned in later phases)
 
-Lighthouse/PageSpeed audits, full accessibility testing, analytics, Search Console, GitHub publishing, deployment, MCP server.
+Analytics, Search Console, GitHub publishing, deployment, MCP server.

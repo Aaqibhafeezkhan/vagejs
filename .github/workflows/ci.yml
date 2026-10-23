@@ -20,3 +20,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:e2e
+      # GitHub-hosted Ubuntu runners include Chrome.
+      - run: npx vitest run tests/audit.test.ts -t "real Lighthouse"
+        env:
+          VAGE_TEST_LIGHTHOUSE: "1"
