@@ -67,3 +67,14 @@ describe("vage check", () => {
     expect((await check(root, { strict: true })).ok).toBe(false);
   });
 });
+
+describe("redirect targets (review finding)", () => {
+  it("flags redirects to pages that don't exist, and accepts real targets", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", redirects: { "/gone/": "/nowhere/", "/old/": "/about/", "/ext/": "https://example.org/x" } };');
+    const result = await check(root);
+    const hits = result.findings.filter((f) => f.rule === "redirect-target");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.message).toContain('"/gone/" points to "/nowhere/"');
+  });
+});

@@ -22,7 +22,7 @@ const layout: Layout = ({ content, page, site }) => {
       <nav aria-label="Main">
         <a href="/">Home</a>
         <a href="/about/">About</a>
-        <a href="/blog/first-post/">Blog</a>
+        <a href="/blog/">Blog</a>
       </nav>
     </header>
     <main>

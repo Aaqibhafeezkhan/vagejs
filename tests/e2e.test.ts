@@ -41,7 +41,7 @@ describe("vage CLI (packed package)", () => {
     expect(built.status, built.stderr).toBe(0);
     const result = JSON.parse(built.stdout);
     expect(result.ok).toBe(true);
-    expect(result.pages.map((p: { route: string }) => p.route)).toEqual(["/", "/about/", "/blog/first-post/"]);
+    expect(result.pages.map((p: { route: string }) => p.route)).toEqual(["/", "/about/", "/blog/", "/blog/first-post/"]);
     for (const file of ["index.html", "about/index.html", "blog/first-post/index.html", "404.html", "favicon.svg", "favicon.ico", "apple-touch-icon.png"]) {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }
@@ -73,6 +73,11 @@ describe("vage CLI (packed package)", () => {
     // 1. Discover the API instead of guessing.
     const info = json(["info"]).data;
     expect(info.frontmatter.schema.required).toEqual(["title"]);
+    // 0.2 layout API is discoverable for agents.
+    expect(info.layouts.helpers.collection).toContain("under");
+    expect(info.layouts.props.pages).toBeDefined();
+    expect(info.checks["page-error"]).toBeDefined();
+    expect(info.config.schema.properties.deploy.properties.target.enum).toContain("cloudflare-workers");
     expect(info.commands.map((c: { usage: string }) => c.usage)).toContain("vage check");
 
     // 2. Add a page per the schema, and link to it with a typo.

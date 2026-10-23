@@ -22,7 +22,7 @@ Run `npm run check` after every change and fix all errors before finishing.
 ## Recipes
 
 - **Add a page:** create `src/pages/<slug>.md` with `title` and `description` frontmatter; link to it as `/<slug>/` (trailing slash).
-- **Add a blog post:** `src/pages/blog/<slug>.md`; for Article data add `type: article`, plus `author` / `datePublished` only if the owner provided them.
+- **Add a blog post:** `src/pages/blog/<slug>.md`; it appears on `/blog/` automatically (`src/layouts/blog.ts`). For Article data add `type: article`, plus `author` / `datePublished` only if the owner provided them.
 - **Add a layout:** `src/layouts/<name>.ts`, then `layout: <name>` in frontmatter. Keep `<html lang>`, one `<title>` and `</head>`.
 - **List pages (blog index, "latest posts", a sidebar):** in a layout, `collection(pages, { under: "/blog/", sort: "date" })` from `vagejs`. Never keep a hand-written list of pages.
 - **Give a layout its own frontmatter fields:** `export const frontmatter = z.object({ ... })` in the layout (`import { z } from "vagejs"`). Pages using it are then checked strictly: unknown or mistyped fields fail the build.
@@ -53,7 +53,7 @@ Every `.md` file in `src/pages/` becomes a page:
 ---
 title: Page title        # required
 description: One line    # meta description, og:description, llms.txt
-draft: true              # skipped in builds (still visible in dev); links to drafts fail `check`
+draft: true              # skipped in builds and left out of `pages`; still viewable in dev; links to drafts fail `check`
 layout: default          # loads src/layouts/<name>.ts
 noindex: true            # robots noindex; excluded from sitemap.xml and llms.txt
 canonical: /other/       # canonical override (path or absolute URL); page then leaves the sitemap
@@ -78,7 +78,7 @@ With `deploy.target: "cloudflare-workers"` or `"cloudflare-pages"`, the build wr
 `src/layouts/<name>.ts` default-exports a function `({ content, page, site, pages }) => html\`...\``.
 Write layouts with the `html` template tag from `vagejs`: every `${value}` is escaped automatically, arrays are joined,
 and `null`/`undefined`/`false` render nothing. `content` is already-rendered, sanitized HTML: insert it with `raw(content)`.
-Never wrap frontmatter or other text in `raw()`. (Plain template strings still work; then escape every value with `escapeHtml`.)
+Never wrap frontmatter or other text in `raw()`. `html` escapes text but doesn't check URLs: if a link target comes from frontmatter, allow only paths starting with `/` and `https:` links. (Plain template strings still work; then escape every value with `escapeHtml`.)
 `page.url` is the absolute canonical URL (when `site` is set and the page is indexable).
 `pages` lists every published page (`route`, `url`, `title`, `description`, `frontmatter`); pick and sort with `collection()`.
 
@@ -100,7 +100,9 @@ From the published pages and config (never from `public/`; a hand-written `publi
 ## Config
 
 `vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`,
-`seo: { robots, sitemap, llmsTxt, structuredData }`, `redirects`. Unknown keys are an error.
+`seo: { robots, sitemap, llmsTxt, structuredData }`, `redirects`, `markdown`, `performance`,
+`deploy: { target, cloudflareWorker, cloudflareProject }`, `security: { headers, csp, cspSources }`,
+`integrations`, `guidelines`. Unknown keys are an error; `npx vage info --json` has the full schema.
 
 ## Performance and accessibility
 

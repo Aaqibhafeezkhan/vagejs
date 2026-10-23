@@ -87,6 +87,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   }
   findings.push(...checkDuplicates(listedPages(model)));
   findings.push(...checkRobots(model));
+  findings.push(...checkRedirectTargets(model, outputs));
   return findings;
 }
 
@@ -308,6 +309,19 @@ function checkDuplicates(pages: SitePage[]): Finding[] {
       if (routes.length > 1) {
         findings.push({ rule, severity: "warning", message: `"${value}" is used by ${routes.join(", ")}. Make each page's ${rule.split("-")[0]} unique.` });
       }
+    }
+  }
+  return findings;
+}
+
+/** Redirects to a page on this site must land on something that exists. */
+function checkRedirectTargets(model: SiteModel, outputs: Set<string>): Finding[] {
+  const findings: Finding[] = [];
+  for (const r of model.redirects) {
+    const target = internalPath(r.to, "/", model.site.site);
+    if (target === undefined) continue;
+    if (target === MALFORMED || resolveOutput(target, outputs) === "missing") {
+      findings.push({ rule: "redirect-target", severity: "error", message: `Redirect from "${r.from}" points to "${r.to}", which isn't a page or file on this site.`, source: "vage.config.ts" });
     }
   }
   return findings;

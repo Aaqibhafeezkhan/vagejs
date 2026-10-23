@@ -72,7 +72,7 @@ Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` a
 
 ### Write a layout
 
-Layouts are TypeScript functions. The `html` template tag escapes every value for you; `raw()` inserts trusted HTML such as the rendered page. `pages` lists every published page, and `collection()` picks and sorts them:
+Layouts are TypeScript functions. The `html` template tag escapes every value for you; `raw()` inserts trusted HTML such as the rendered page. (Escaping doesn't check URLs, so validate link targets that come from frontmatter.) `pages` lists every published page, and `collection()` picks and sorts them:
 
 ```ts
 import { collection, html, raw, z, type Layout } from "vagejs";
@@ -176,8 +176,9 @@ vage check    [--root .] [--json] [--strict]      # SEO, links, JSON-LD, basic a
 vage audit    [--root .] [--lighthouse] [--url U] [--strategy mobile|desktop|both] [--strict] [--json]
                                                   # budgets + axe a11y; optional Lighthouse; PageSpeed/CrUX for deployed URLs
 vage preview  [--root .] [--port N] [--host]      # serve dist/ locally
-vage deploy:github [--remote URL] [--dry-run] [--yes] [--json]   # check, build, safe commit + push (asks first)
+vage deploy:github [--remote URL] [--branch B] [-m MSG] [--dry-run] [--yes] [--json]   # check, build, safe commit + push (asks first)
 vage deploy        [--remote URL] [--no-wait] [--dry-run] [--yes] # GitHub Pages via Actions; confirms with GitHub
+vage deploy --target cloudflare-workers [--project NAME]          # new Worker version at 100%; custom domains stay up
 vage deploy --target cloudflare-pages --project NAME [--branch B] # Wrangler upload; preview URL per branch
 vage indexnow --changed-since REF | --urls … | --all              # IndexNow URL notification (asks first)
 vage connect gsc|ga4 / vage disconnect google      # read-only Google OAuth (PKCE, loopback); token outside the repo
