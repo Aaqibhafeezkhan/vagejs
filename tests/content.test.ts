@@ -34,14 +34,14 @@ describe("loadConfig", () => {
     expect(await loadConfig("/nonexistent", loaderFor(undefined))).toEqual({
       lang: "en",
       redirects: {},
-      markdown: { html: "sanitize" },
+      markdown: { html: "sanitize", inlineStyles: false },
       seo: { robots: { rules: [] }, sitemap: true, llmsTxt: { full: false }, structuredData: {} },
       performance: {
         budgets: { performance: 90, accessibility: 95, seo: 95, bestPractices: 90, javascriptKb: 100, cssKb: 50, imageKb: 500, fontKb: 150, totalKb: 1000, requests: 30 },
         lighthouse: { enabled: false, pages: ["/"] },
       },
       deploy: { target: "github-pages" },
-      security: { headers: true, csp: "enforce", cspSources: {} },
+      security: { headers: true, csp: "enforce", cspSources: {}, outboundLinks: "lock", spamPatterns: true },
       guidelines: {},
       integrations: {},
     });

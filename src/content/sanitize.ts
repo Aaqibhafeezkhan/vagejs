@@ -17,12 +17,13 @@ async function load() {
  * Sanitizes rendered Markdown HTML. Page content may be written by AI agents,
  * contributors or (later) CMS sources, so scripts, event handlers, javascript:
  * URLs, iframes, forms and <meta>/<base>/<style> tricks are removed. data-*
- * attributes (used by analytics events) are kept. Loaded lazily: jsdom is heavy.
+ * attributes (used by analytics events) are kept. style="" is removed unless
+ * `markdown.inlineStyles` is on. Loaded lazily: jsdom is heavy.
  *
  * With `publicDir`, images get their size and loading hints inside the sanitizer
  * (a DOMPurify hook), so DOMPurify's serialization is the final output.
  */
-export async function sanitizeHtml(html: string, options: { publicDir?: string } = {}): Promise<string> {
+export async function sanitizeHtml(html: string, options: { publicDir?: string; inlineStyles?: boolean } = {}): Promise<string> {
   const { purifier } = await load();
   let first = true;
   const publicDir = options.publicDir;
@@ -39,6 +40,8 @@ export async function sanitizeHtml(html: string, options: { publicDir?: string }
     return purifier.sanitize(html, {
       FORBID_TAGS: ["style", "form", "input", "button", "textarea", "select", "option", "base", "link", "meta", "object", "embed"],
       ALLOW_DATA_ATTR: true,
+      // Inline styles are the usual way to hide injected links (display:none, off-screen); layouts style pages.
+      FORBID_ATTR: options.inlineStyles ? [] : ["style"],
     });
   } finally {
     if (publicDir) purifier.removeHook("afterSanitizeAttributes", hook);

@@ -314,6 +314,45 @@ cli
   );
 
 cli
+  .command("links [action] [...domains]", "List the external domains the site links to; the site owner approves them into links.lock.json (asks first)")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--all", "approve: every domain the site links to now")
+  .option("--prune", "approve: also remove approved domains the site no longer links to")
+  .option("--dry-run", "approve: show the change without writing")
+  .option("--yes", "Skip the confirmation prompt (only with the site owner's approval)")
+  .option("--json", "Print machine-readable JSON")
+  .action((action: string | undefined, domains: string[], opts: CommonOptions & { all?: boolean; prune?: boolean; dryRun?: boolean; yes?: boolean }) =>
+    run(opts, async () => {
+      const { linkStatus, nextLock, readLinkLock, writeLinkLock } = await import("../checks/links.js");
+      const root = path.resolve(opts.root);
+      const status = await linkStatus(root);
+      if (!action || action === "list") {
+        if (opts.json) return print({ ok: true, ...status });
+        if (!status.domains.length) return console.log("The site links to no external domains.");
+        for (const d of status.domains) console.log(`${d.approved ? "approved" : "NEW     "}  ${d.domain.padEnd(36)} ${d.pages.length} page(s): ${d.pages.slice(0, 3).join(", ")}${d.pages.length > 3 ? " …" : ""}`);
+        for (const d of status.unused) console.log(`unused    ${d}  (approved, no longer linked; drop with "vage links approve --prune")`);
+        if (!status.hasLock) console.log('\nNo links.lock.json yet. Review the list, then: npx vage links approve --all');
+        return;
+      }
+      if (action !== "approve") throw new VageError(`Unknown action "${action}". Use "vage links" to list or "vage links approve <domain...>".`);
+      const add = opts.all ? status.domains.map((d) => d.domain) : domains.map((d) => d.toLowerCase().replace(/^www\./, ""));
+      if (!add.length && !opts.prune) throw new VageError('Name the domains to approve ("vage links approve example.com"), or pass --all after reviewing "vage links".');
+      const current = readLinkLock(root)?.domains ?? [];
+      const next = nextLock(status, current, add, Boolean(opts.prune));
+      const added = next.filter((d) => !current.includes(d));
+      const removed = current.filter((d) => !next.includes(d));
+      if (!added.length && !removed.length) return opts.json ? print({ ok: true, changed: false }) : console.log("links.lock.json already up to date.");
+      const lines = ["Update links.lock.json", ...added.map((d) => `  + ${d}`), ...removed.map((d) => `  - ${d}`)];
+      if (!(await askConfirm(lines, opts as PublishFlags))) {
+        return opts.json ? print({ ok: !!opts.dryRun, dryRun: !!opts.dryRun, added, removed }) : console.log(opts.dryRun ? "Dry run: nothing written." : "Nothing written.");
+      }
+      writeLinkLock(root, next);
+      if (opts.json) print({ ok: true, added, removed });
+      else console.log(`links.lock.json updated: ${added.length} added, ${removed.length} removed.`);
+    }),
+  );
+
+cli
   .command("report <kind>", "Report from Search Console (search) or GA4 (analytics); needs vage connect")
   .option("--root <dir>", "Project root", { default: "." })
   .option("--property <property>", "Search Console property (default: integrations.searchConsole.property)")

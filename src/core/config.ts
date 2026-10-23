@@ -197,8 +197,12 @@ export const configSchema = z.strictObject({
         .enum(["sanitize", "allow"])
         .default("sanitize")
         .describe('"sanitize" removes scripts, event handlers, javascript: URLs, iframes and forms from page content. "allow" trusts all content authors.'),
+      inlineStyles: z
+        .boolean()
+        .default(false)
+        .describe('Keep style="..." attributes in page content (sanitize mode). Off by default: inline styles are the usual way to hide spam links. Put styling in layouts.'),
     })
-    .default({ html: "sanitize" }),
+    .default({ html: "sanitize", inlineStyles: false }),
   seo: seoSchema.default(() => seoSchema.parse({})),
   performance: performanceSchema.default(() => performanceSchema.parse({})),
   deploy: z
@@ -229,8 +233,13 @@ export const configSchema = z.strictObject({
         )
         .default({})
         .describe("Extra sources per directive, e.g. { \"connect-src\": [\"https://api.example.com\"] }."),
+      outboundLinks: z
+        .enum(["lock", "off"])
+        .default("lock")
+        .describe('"lock": every external domain the site links to must be listed in links.lock.json (approve with `vage links approve`); new domains fail `vage check`. Catches injected spam links.'),
+      spamPatterns: z.boolean().default(true).describe("Warn in `vage check` about common spam words (casino, pills, payday loans...) in page text and links."),
     })
-    .default({ headers: true, csp: "enforce", cspSources: {} }),
+    .default({ headers: true, csp: "enforce", cspSources: {}, outboundLinks: "lock", spamPatterns: true }),
   guidelines: z
     .strictObject({
       rulePack: z

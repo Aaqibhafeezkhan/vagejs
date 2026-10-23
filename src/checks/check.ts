@@ -3,6 +3,7 @@ import path from "node:path";
 import { parse, type HTMLElement } from "node-html-parser";
 import { createBuildLoader } from "../core/loader.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
+import { externalHost, hiddenReason, LINK_LOCK, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
 
 export type Severity = "error" | "warning";
 
@@ -88,6 +89,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   findings.push(...checkDuplicates(listedPages(model)));
   findings.push(...checkRobots(model));
   findings.push(...checkRedirectTargets(model, outputs));
+  findings.push(...checkOutboundLinks(root, model));
   return findings;
 }
 
@@ -100,6 +102,18 @@ function checkPage(
   add: (f: Omit<Finding, "page" | "source">) => void,
 ) {
   const indexable = !page.meta.noindex;
+
+  if (model.site.security.spamPatterns) {
+    const text = `${doc.querySelector("body")?.text ?? ""} ${doc.querySelectorAll("a[href]").map((a) => a.getAttribute("href")).join(" ")}`;
+    const hits = spamHits(text);
+    if (hits.length) {
+      add({
+        rule: "spam-pattern",
+        severity: "warning",
+        message: `Page contains words common in injected spam (${hits.join(", ")}). If you didn't write them, check this page's history. Turn off with security.spamPatterns: false.`,
+      });
+    }
+  }
 
   for (const key of emptyValues(page.frontmatter)) {
     add({
@@ -164,6 +178,15 @@ function checkPage(
 
   for (const a of doc.querySelectorAll("a[href]")) {
     const href = a.getAttribute("href")!;
+    const hidden = hiddenReason(a);
+    if (hidden) {
+      const external = externalHost(href, model.site.site) !== undefined;
+      add({
+        rule: "link-hidden",
+        severity: external ? "error" : "warning",
+        message: `Link to "${href}" is ${hidden}: visitors can't see it, but search engines can. Hidden links are a common sign of injected spam. Remove it, or show it.`,
+      });
+    }
     if (!a.text.trim() && !a.getAttribute("aria-label") && !a.querySelector("img[alt]:not([alt=''])")) {
       add({ rule: "link-text", severity: "warning", message: `Link to "${href}" has no accessible text.`, docs: DOCS.linkPurpose });
     }
@@ -310,6 +333,35 @@ function checkDuplicates(pages: SitePage[]): Finding[] {
         findings.push({ rule, severity: "warning", message: `"${value}" is used by ${routes.join(", ")}. Make each page's ${rule.split("-")[0]} unique.` });
       }
     }
+  }
+  return findings;
+}
+
+/**
+ * Outbound link guard: with security.outboundLinks "lock", every external domain must be
+ * listed in links.lock.json. A domain nobody approved is how injected spam usually shows up.
+ */
+function checkOutboundLinks(root: string, model: SiteModel): Finding[] {
+  if (model.site.security.outboundLinks === "off") return [];
+  const hosts = outboundHosts(model);
+  const lock = readLinkLock(root);
+  if (!lock) {
+    return hosts.size
+      ? [{ rule: "links-lock-missing", severity: "warning", message: `The site links to ${hosts.size} external domain(s) and has no ${LINK_LOCK}. The site owner should review them with "npx vage links" and approve them with "npx vage links approve --all"; after that, links to any new domain fail the check.` }]
+      : [];
+  }
+  const approved = new Set(lock.domains);
+  const findings: Finding[] = [];
+  for (const [host, pages] of hosts) {
+    if (approved.has(host)) continue;
+    const where = pages.map((p) => p.route);
+    findings.push({
+      rule: "link-unapproved",
+      severity: "error",
+      message: `Links to ${host} (on ${where.slice(0, 3).join(", ")}${where.length > 3 ? ` and ${where.length - 3} more` : ""}) aren't approved in ${LINK_LOCK}. If the site owner added them on purpose, they approve with "npx vage links approve ${host}". Otherwise remove them: unapproved links are how injected spam usually shows up.`,
+      page: pages[0]!.route,
+      source: pages[0]!.source,
+    });
   }
   return findings;
 }

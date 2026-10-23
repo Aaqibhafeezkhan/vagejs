@@ -57,7 +57,7 @@ export async function renderPage(options: {
   const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
   const { frontmatter, body } = parsed;
   const publicDir = path.join(root, "public");
-  const content = site.markdown.html === "allow" ? await enhanceTrustedHtml(parsed.html, publicDir) : await sanitizeHtml(parsed.html, { publicDir });
+  const content = site.markdown.html === "allow" ? await enhanceTrustedHtml(parsed.html, publicDir) : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles });
   const layout = await applyLayoutFields(root, frontmatter, load, file);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const result = await layout({
