@@ -9,22 +9,26 @@ const isoDate = z.preprocess(
   z.union([z.iso.date(), z.iso.datetime({ offset: true })], { error: "must be an ISO date (2026-01-31) or datetime" }),
 );
 
-const frontmatterSchema = z.looseObject({
-  title: z.string().min(1, "title is required"),
-  description: z.string().min(1).optional(),
-  draft: z.boolean().default(false),
-  layout: z.string().regex(/^[\w-]+$/, "layout must be a file name without extension").optional(),
-  /** Adds <meta name="robots" content="noindex"> and excludes the page from sitemap.xml and llms.txt. */
-  noindex: z.boolean().default(false),
-  /** Canonical URL override: absolute URL or a path on this site. Defaults to the page's own URL. */
-  canonical: z.string().regex(/^(\/|https?:\/\/)/, 'must be a path starting with "/" or an http(s) URL').optional(),
-  /** Social preview image: a path on this site (e.g. /images/og.png) or an absolute URL. */
-  image: z.string().min(1).optional(),
-  /** "article" emits og:type=article and Article JSON-LD. */
-  type: z.enum(["website", "article"]).default("website"),
-  author: z.string().min(1).optional(),
-  datePublished: isoDate.optional(),
-  dateModified: isoDate.optional(),
+export const frontmatterSchema = z.looseObject({
+  title: z.string().min(1, "title is required").describe("Page title. Required; never invented."),
+  description: z.string().min(1).optional().describe("Meta description, og:description and llms.txt summary."),
+  draft: z.boolean().default(false).describe("Skipped in builds; still visible in dev."),
+  layout: z
+    .string()
+    .regex(/^[\w-]+$/, "layout must be a file name without extension")
+    .optional()
+    .describe("Loads src/layouts/<layout>.ts. Defaults to 'default'."),
+  noindex: z.boolean().default(false).describe("Adds robots noindex; excludes the page from sitemap.xml and llms.txt."),
+  canonical: z
+    .string()
+    .regex(/^(\/|https?:\/\/)/, 'must be a path starting with "/" or an http(s) URL')
+    .optional()
+    .describe("Canonical URL override (site path or absolute URL). Defaults to the page's own URL."),
+  image: z.string().min(1).optional().describe("Social preview image: site path (e.g. /images/og.png) or absolute URL."),
+  type: z.enum(["website", "article"]).default("website").describe('"article" emits og:type=article and Article JSON-LD.'),
+  author: z.string().min(1).optional().describe("Article author name. Only use a real author."),
+  datePublished: isoDate.optional().describe("ISO date or datetime. Only use a real date."),
+  dateModified: isoDate.optional().describe("ISO date or datetime; also the sitemap <lastmod>."),
 });
 
 export type Frontmatter = z.output<typeof frontmatterSchema>;

@@ -8,6 +8,7 @@ import { VageError } from "../core/errors.js";
 import { startDevServer } from "../dev/server.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { createProject } from "./create.js";
+import { frameworkInfo } from "./info.js";
 
 const { version } = createRequire(import.meta.url)("../../package.json") as { version: string };
 const cli = cac("vage");
@@ -88,6 +89,20 @@ cli
       const server = await startPreviewServer(opts.root, { port: parsePort(opts.port), host: opts.host });
       console.log(`VAGE JS preview running at ${server.resolvedUrls?.local[0]}`);
       server.resolvedUrls?.network.forEach((url) => console.log(`  network: ${url}`));
+    }),
+  );
+
+cli
+  .command("info", "Describe commands, config and frontmatter (use --json for agents)")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: { json?: boolean }) =>
+    run(opts, () => {
+      const info = frameworkInfo(cli, version);
+      if (opts.json) return print(info);
+      console.log(`VAGE JS ${info.version}\n`);
+      for (const c of info.commands) console.log(`  ${c.usage.padEnd(28)} ${c.description}`);
+      console.log(`\nConfig: ${info.config.files.join(" | ")}. Pages: ${info.routing.pagesDir}/**/*.md`);
+      console.log("Run `vage info --json` for full config and frontmatter JSON Schemas.");
     }),
   );
 

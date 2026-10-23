@@ -50,6 +50,13 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 - No hreflang/alternate-language links yet.
 - Accessibility checks are basic (lang, alt, link text, image dimensions); full automated testing is Phase 4.
 
+## Phase 3: AI-agent support
+
+- **`vage info --json`** is generated from the live cac command list and the Zod schemas (`z.toJSONSchema`), so it cannot drift. Field docs live in `.describe()` on the schemas.
+- **Generated projects** get `AGENTS.md` (agent-neutral) and a one-line `CLAUDE.md` that imports it, so the guidance stays agent-neutral.
+- **Agent workflow test** (`tests/e2e.test.ts`): discover via `info`, add a page, hit a broken link, fix it from the `check` finding, build. This is a scripted simulation of an agent, not an LLM in the loop.
+- **MCP deferred**: the CLI plus `--json` covers the same operations. Add MCP once the command surface is stable.
+
 ## Not implemented (planned in later phases)
 
-Lighthouse/PageSpeed audits, full accessibility testing, analytics, Search Console, GitHub publishing, deployment, MCP.
+Lighthouse/PageSpeed audits, full accessibility testing, analytics, Search Console, GitHub publishing, deployment, MCP server.

@@ -17,7 +17,6 @@ const userAgents = z.union([z.string().min(1), z.array(z.string().min(1)).min(1)
 const urlPath = z.string().regex(/^\//, 'must start with "/"');
 
 const robotsSchema = z.strictObject({
-  /** Explicit groups, written to robots.txt in order. */
   rules: z
     .array(
       z.strictObject({
@@ -26,28 +25,28 @@ const robotsSchema = z.strictObject({
         disallow: z.array(urlPath).default([]),
       }),
     )
-    .default([]),
-  /**
-   * Adds groups for documented AI *training* crawler tokens (see src/discovery/crawlers.ts).
-   * Unset: no AI-specific groups; the `*` group applies.
-   */
-  aiTraining: z.enum(["allow", "disallow"]).optional(),
-  /** Same, for documented AI *search* crawler tokens. */
-  aiSearch: z.enum(["allow", "disallow"]).optional(),
+    .default([])
+    .describe("Explicit robots.txt groups, written in order."),
+  aiTraining: z
+    .enum(["allow", "disallow"])
+    .optional()
+    .describe("Groups for documented AI training crawlers (GPTBot, ClaudeBot, Google-Extended). Unset: the * group applies."),
+  aiSearch: z
+    .enum(["allow", "disallow"])
+    .optional()
+    .describe("Groups for documented AI search crawlers (OAI-SearchBot, Claude-SearchBot). Unset: the * group applies."),
 });
 
 const seoSchema = z.strictObject({
-  robots: toggle(robotsSchema),
-  sitemap: z.boolean().default(true),
+  robots: toggle(robotsSchema).describe("Generate robots.txt (true/false or options)."),
+  sitemap: z.boolean().default(true).describe("Generate sitemap.xml (needs `site`)."),
   llmsTxt: toggle(
     z.strictObject({
-      /** Also emit /llms-full.txt with the Markdown of every listed page. */
-      full: z.boolean().default(false),
+      full: z.boolean().default(false).describe("Also emit llms-full.txt with the Markdown of every listed page."),
     }),
-  ),
+  ).describe("Generate llms.txt (needs `title`)."),
   structuredData: toggle(
     z.strictObject({
-      /** Emitted as Organization JSON-LD on the home page. Only use facts that are true and visible. */
       organization: z
         .strictObject({
           name: z.string().min(1),
@@ -55,24 +54,27 @@ const seoSchema = z.strictObject({
           logo: z.string().min(1).optional(),
           sameAs: z.array(z.url()).optional(),
         })
-        .optional(),
+        .optional()
+        .describe("Organization JSON-LD on the home page. Only true, visible facts."),
     }),
-  ),
+  ).describe("Automatic JSON-LD (WebSite, Organization, Article)."),
 });
 
-const configSchema = z.strictObject({
-  /** Production origin, e.g. https://example.com. Required for canonical URLs, sitemap.xml and absolute links. */
+export const configSchema = z.strictObject({
   site: z
     .url({ protocol: /^https?$/ })
     .refine((s) => new URL(s).pathname === "/", "must be an origin without a path (base paths are not supported yet)")
     .transform((s) => new URL(s).origin)
-    .optional(),
-  title: z.string().min(1).optional(),
-  description: z.string().min(1).optional(),
-  lang: z.string().min(1).default("en"),
+    .optional()
+    .describe("Production origin, e.g. https://example.com. Needed for canonical URLs and sitemap.xml."),
+  title: z.string().min(1).optional().describe("Site name: page titles, og:site_name, llms.txt heading."),
+  description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
+  lang: z.string().min(1).default("en").describe("<html lang> value."),
   seo: seoSchema.default(() => seoSchema.parse({})),
-  /** Old path -> new path or absolute URL. Built as noindex meta-refresh pages; the dev server answers 301. */
-  redirects: z.record(urlPath, z.string().min(1)).default({}),
+  redirects: z
+    .record(urlPath, z.string().min(1))
+    .default({})
+    .describe("Old path -> new path or URL. Built as noindex meta-refresh pages; dev answers 301."),
 });
 
 export type UserConfig = z.input<typeof configSchema>;

@@ -54,6 +54,38 @@ describe("vage CLI (packed package)", () => {
     expect(spawnSync("npx", ["vage", "check", "--strict"], { cwd: site, encoding: "utf8" }).status).toBe(1);
   }, 300_000);
 
+  it("supports a representative coding-agent workflow", () => {
+    const site = path.join(work, "site");
+    const json = (args: string[]) => {
+      const res = spawnSync("npx", ["vage", ...args, "--json"], { cwd: site, encoding: "utf8" });
+      return { status: res.status, data: JSON.parse(res.stdout) };
+    };
+
+    // 1. Discover the API instead of guessing.
+    const info = json(["info"]).data;
+    expect(info.frontmatter.schema.required).toEqual(["title"]);
+    expect(info.commands.map((c: { usage: string }) => c.usage)).toContain("vage check");
+
+    // 2. Add a page per the schema, and link to it with a typo.
+    fs.writeFileSync(path.join(site, "src/pages/services.md"), "---\ntitle: Services\ndescription: What we offer.\n---\n# Services\n");
+    const index = path.join(site, "src/pages/index.md");
+    fs.appendFileSync(index, "\n[Our services](/service/)\n");
+
+    // 3. check reports an actionable error with the file to fix.
+    const failed = json(["check"]);
+    expect(failed.status).toBe(1);
+    expect(failed.data.findings).toContainEqual(
+      expect.objectContaining({ rule: "link-broken", source: path.join("src", "pages", "index.md"), message: expect.stringContaining("/service/") }),
+    );
+
+    // 4. Fix, re-check, build; the new page is in the sitemap and llms.txt.
+    fs.writeFileSync(index, fs.readFileSync(index, "utf8").replace("/service/", "/services/"));
+    expect(json(["check"]).data.errors).toBe(0);
+    expect(json(["build"]).status).toBe(0);
+    expect(fs.readFileSync(path.join(site, "dist/sitemap.xml"), "utf8")).toContain("https://example.com/services/");
+    expect(fs.readFileSync(path.join(site, "dist/llms.txt"), "utf8")).toContain("- [Services](https://example.com/services/): What we offer.");
+  }, 120_000);
+
   it("returns non-zero with a JSON error for failures", () => {
     const res = vage(["build", "--root", path.join(work, "missing"), "--json"], work);
     expect(res.status).toBe(1);
@@ -74,7 +106,7 @@ describe("vage CLI (packed package)", () => {
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
-    for (const cmd of ["create", "dev", "build", "check", "preview"]) expect(help.stdout).toContain(cmd);
+    for (const cmd of ["create", "dev", "build", "check", "preview", "info"]) expect(help.stdout).toContain(cmd);
     expect(vage(["--version"], work).stdout).toContain("0.1.0");
   });
 });

@@ -1,6 +1,6 @@
 # VAGE JS
 
-An AI-native, static-first web framework. **Pre-release (Phase 2)**: not published to npm.
+An AI-native, static-first web framework. **Pre-release (Phase 3)**: not published to npm.
 
 ## What works today
 
@@ -10,7 +10,10 @@ vage dev      [--root .] [--port N] [--host]      # dev server with live reload
 vage build    [--root .] [--json]                 # static build into dist/ (+ robots.txt, sitemap.xml, llms.txt)
 vage check    [--root .] [--json] [--strict]      # SEO, links, JSON-LD, basic a11y; writes nothing
 vage preview  [--root .] [--port N] [--host]      # serve dist/ locally
+vage info     [--json]                            # commands + config/frontmatter JSON Schemas for agents
 ```
+
+Generated sites include `AGENTS.md` (conventions, recipes, definition of done) and `CLAUDE.md` (imports AGENTS.md).
 
 Failures exit with code 1. With `--json`, output is `{ "ok": true, ... }` or `{ "ok": false, "error": "..." }`.
 

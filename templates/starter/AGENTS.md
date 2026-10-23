@@ -14,6 +14,23 @@ This website uses **VAGE JS** (pre-release). Only the features listed here exist
 Add `--json` to `npx vage build` or `npx vage check` for machine-readable output (`{ ok: false, error }` on failure).
 Run `npm run check` after every change and fix all errors before finishing.
 
+## Machine-readable reference
+
+`npx vage info --json` prints every command and option plus JSON Schemas for `vage.config.ts` and page frontmatter. Prefer it over guessing.
+
+## Recipes
+
+- **Add a page:** create `src/pages/<slug>.md` with `title` and `description` frontmatter; link to it as `/<slug>/` (trailing slash).
+- **Add a blog post:** `src/pages/blog/<slug>.md`; for Article data add `type: article`, plus `author` / `datePublished` only if the owner provided them.
+- **Add a layout:** `src/layouts/<name>.ts`, then `layout: <name>` in frontmatter. Keep `<html lang>`, one `<title>` and `</head>`.
+- **Rename a page:** move the file, then add `redirects: { "/old-slug/": "/new-slug/" }` to `vage.config.ts`.
+- **Hide a page from search:** `noindex: true` (it stays published). To unpublish, use `draft: true` or delete it.
+- **AI crawler policy:** set `seo.robots.aiTraining` / `aiSearch` only on the owner's instruction.
+
+## Definition of done
+
+`npm run check` reports 0 errors and `npm run build` succeeds. Report remaining warnings to the owner rather than hiding them.
+
 ## Routing
 
 Every `.md` file in `src/pages/` becomes a page:
