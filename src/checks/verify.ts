@@ -274,7 +274,9 @@ export async function verifySite(
         const added = [...textLinks(live.body)].filter((u) => !known.has(u));
         const spam = spamHits(live.body).filter((h) => !spamHits(local).includes(h));
         if (added.length) differences.push({ route: `/${name}`, severity: "error", kind: "links-added", detail: `Links in the live file that aren't in your build: ${added.slice(0, 5).join(", ")}` });
-        differences.push({ route: `/${name}`, severity: spam.length ? "error" : "warning", kind: "text-changed", detail: `The live file differs from your build${spam.length ? ` and contains spam words (${spam.join(", ")})` : ""}.` });
+        // Generated files are the same on every build, so any difference means the live file was changed
+        // (or is out of date): an error, however the change is written.
+        differences.push({ route: `/${name}`, severity: "error", kind: "text-changed", detail: `The live file differs from your build${spam.length ? ` and contains spam words (${spam.join(", ")})` : ""}. Redeploy, and if you didn't change it, check who can deploy your site.` });
       }
     }
     const images = new Set(model.pages.flatMap((p) => [...p.assets.keys()]));

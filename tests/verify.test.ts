@@ -198,3 +198,23 @@ describe("vage verify, final review", () => {
     expect(result.differences.find((d) => d.route === "/llms.txt" && d.kind === "links-added")?.severity).toBe("error");
   });
 });
+
+describe("vage verify, focused check", () => {
+  it("treats any change to a generated file as an error, however links are written", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true } };');
+    await build(root);
+    const dist = path.join(root, "dist");
+    for (const sneaky of ['<a href="https:\\\\evil.com">x</a>', "[r]: http:evil.com", '<a href="&#104;ttps:&#47;&#47;evil.com">x</a>']) {
+      const live = (async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        const file = url.pathname.endsWith("/") ? path.join(dist, url.pathname, "index.html") : path.join(dist, url.pathname);
+        if (!fs.existsSync(file)) return new Response("", { status: 404 });
+        const body = fs.readFileSync(file, "utf8");
+        return new Response(url.pathname === "/about.md" ? `${body}\n${sneaky}\n` : body);
+      }) as typeof fetch;
+      const result = await verifySite(root, { fetch: live, crawlers: false });
+      expect(result.ok, sneaky).toBe(false);
+    }
+  });
+});

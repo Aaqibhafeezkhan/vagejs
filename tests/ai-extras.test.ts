@@ -204,3 +204,23 @@ describe("Markdown copies, final review", () => {
     expect(text).toMatch(/-\s+done/);
   });
 });
+
+describe("Markdown copies, focused check", () => {
+  it("keeps backticks inside <pre> from closing the fence", async () => {
+    const { htmlToMarkdown } = await import("../src/discovery/markdown-copy.js");
+    const { Marked } = await import("marked");
+    const md = await htmlToMarkdown("<pre>```\n&lt;img src=x onerror=alert(1)&gt;</pre><ul><li><pre><span>```</span>\n&lt;img src=y onerror=alert(2)&gt;</pre></li></ul>", { route: "/p/" });
+    expect(new Marked().parse(md, { async: false }) as string).not.toMatch(/<img/);
+  });
+
+  it("converts deep nested tables quickly and skips empty rows and script-URL images", async () => {
+    const { htmlToMarkdown } = await import("../src/discovery/markdown-copy.js");
+    let nested = "x";
+    for (let i = 0; i < 30; i++) nested = `<table><tr><td>${nested}</td></tr></table>`;
+    const start = performance.now();
+    await htmlToMarkdown(nested, { route: "/p/" });
+    expect(performance.now() - start).toBeLessThan(2000);
+    expect(await htmlToMarkdown("<table><tr></tr><tr><th>A</th></tr><tr><td>1</td></tr></table>", { route: "/p/" })).toBe("| A |\n| --- |\n| 1 |");
+    expect(await htmlToMarkdown('<p><img src="javascript:alert(1)" alt="x"> ok</p>', { route: "/p/" })).toBe("ok");
+  });
+});

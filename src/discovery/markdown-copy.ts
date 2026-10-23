@@ -23,20 +23,33 @@ function converter(): TurndownService {
   td.addRule("strikethrough", { filter: ["del", "s"], replacement: (content) => (content.trim() ? `~~${content}~~` : "") });
   td.addRule("preformatted", {
     filter: (node) => node.nodeName === "PRE" && !node.querySelector("code"),
-    replacement: (_c, node) => `\n\n\`\`\`\n${(node.textContent ?? "").replace(/\n$/, "")}\n\`\`\`\n\n`,
+    replacement: (_c, node) => {
+      const text = (node.textContent ?? "").replace(/\n$/, "");
+      // The fence must be longer than any backtick run inside, or the text could close it early.
+      const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+      const fence = "`".repeat(Math.max(3, longest + 1));
+      return `\n\n${fence}\n${text}\n${fence}\n\n`;
+    },
   });
   // A link nobody can see or click on the page shouldn't appear in the copy.
   td.addRule("emptyLink", {
     filter: (node) => node.nodeName === "A" && !(node.textContent ?? "").trim() && !node.querySelector("img[alt]:not([alt=''])"),
     replacement: () => "",
   });
-  // Simple GFM tables. Only this table's own rows (a nested table is converted inside its cell).
-  const cell = (s: string) => s.replace(/\n+/g, " ").replace(/\|/g, "\\|").trim();
+  // Simple GFM tables, built in one pass: cells and rows leave separators that the table
+  // rule turns into pipes, so each level of a nested table is converted only once.
+  const CELL = "\u0001";
+  const ROW = "\u0002";
+  const cell = (s: string) => s.replace(/[\u0001\u0002]/g, "").replace(/\n+/g, " ").replace(/\|/g, "\\|").trim();
+  td.addRule("tableCell", { filter: ["th", "td"], replacement: (content) => `${cell(content)}${CELL}` });
+  td.addRule("tableRow", { filter: "tr", replacement: (content) => `${ROW}${content}` });
   td.addRule("table", {
     filter: "table",
-    replacement: (_content, node) => {
-      const table = node as HTMLTableElement;
-      const rows = Array.from(table.rows ?? []).map((tr) => Array.from(tr.cells ?? []).map((c) => cell(td.turndown(c as HTMLElement))));
+    replacement: (content) => {
+      const rows = content
+        .split(ROW)
+        .map((r) => r.split(CELL).slice(0, -1).map((c) => c.trim()))
+        .filter((r) => r.length);
       if (!rows.length) return "";
       const width = Math.max(...rows.map((r) => r.length));
       const line = (r: string[]) => `| ${Array.from({ length: width }, (_, i) => r[i] ?? "").join(" | ")} |`;
@@ -76,7 +89,9 @@ export async function htmlToMarkdown(html: string, options: { route: string; ori
     else a.setAttribute("href", absolute(href));
   }
   for (const img of template.content.querySelectorAll("img[src]")) {
-    img.setAttribute("src", absolute(img.getAttribute("src")!));
+    const src = img.getAttribute("src")!.trim();
+    if (/^(javascript|vbscript|data):/i.test(src.replace(/[\s\u0000-\u001f]/g, ""))) img.remove();
+    else img.setAttribute("src", absolute(src));
     img.removeAttribute("srcset");
   }
   const wrapper = doc.createElement("div");
