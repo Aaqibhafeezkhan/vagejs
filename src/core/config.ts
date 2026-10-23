@@ -57,6 +57,11 @@ const seoSchema = z.strictObject({
     )
     .default([])
     .describe('RSS feeds, e.g. [{ under: "/blog/" }] writes /blog/feed.xml (needs `site`). Pages in the section link to it.'),
+  lastmod: z
+    .enum(["frontmatter", "git"])
+    .default("frontmatter")
+    .describe('Where sitemap <lastmod> dates come from: "frontmatter" (dateModified/datePublished) or "git" (each page\'s last commit; dateModified still wins). Git dates are skipped in shallow clones.'),
+  markdownCopies: z.boolean().default(false).describe("Also publish each listed page as Markdown at /<path>.md (e.g. /docs/cli.md), linked from the page, for AI tools."),
   sitemap: z.boolean().default(true).describe("Generate sitemap.xml (needs `site`)."),
   llmsTxt: toggle(
     z.strictObject({

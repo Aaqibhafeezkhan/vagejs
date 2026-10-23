@@ -46,11 +46,17 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
     const pathname = urlPath.split(/[?#]/)[0]!;
     try {
       const isFeed = /^\/(?:[\w.-]+\/)*feed\.xml$/.test(pathname) && !pathname.includes("..");
-      if (DISCOVERY_FILES[pathname] || isFeed) {
+      const isCopy = /^\/(?:[\w-]+\/)*[\w-]+\.md$/.test(pathname);
+      if (DISCOVERY_FILES[pathname] || isFeed || isCopy) {
         // Built from the whole site (drafts excluded), exactly as `vage build` would write it.
         const content = (await renderSite(root, load)).files.get(pathname.slice(1));
-        if (content === undefined) return next();
-        res.setHeader("Content-Type", DISCOVERY_FILES[pathname] ?? "application/rss+xml; charset=utf-8");
+        if (content === undefined) {
+          // Feeds and Markdown copies exist only as generated files; never fall through to Vite,
+          // which would serve project sources (e.g. /src/pages/about.md).
+          if (isFeed || isCopy) return send(res, 404, plainPage("404 — Not found", `No generated file at ${pathname}`));
+          return next();
+        }
+        res.setHeader("Content-Type", DISCOVERY_FILES[pathname] ?? (isCopy ? "text/markdown; charset=utf-8" : "application/rss+xml; charset=utf-8"));
         return res.end(content);
       }
       // Leave asset requests (any extension other than .html) to Vite.

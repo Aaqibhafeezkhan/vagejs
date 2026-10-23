@@ -169,6 +169,18 @@ describe("network exposure of dev and preview servers", () => {
     expect(await status(`${url}/%zz`)).toBe(404);
   });
 
+  it("serves generated Markdown copies and feeds in dev, but never the source files behind them", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", seo: { markdownCopies: true, feeds: [{ under: "/blog/" }] } };');
+    write(root, "src/pages/blog/feed.xml", "<secret/>");
+    write(root, "README.md", "internal notes");
+    const server = await startDevServer(root, {});
+    servers.push(server);
+    const url = base(server);
+    for (const ok of ["/about.md", "/blog/post.md"]) expect(await status(url + ok), ok).toBe(200);
+    for (const blocked of ["/src/pages/about.md", "/README.md", "/src/pages/blog/feed.xml"]) expect(await status(url + blocked), blocked).toBe(404);
+  });
+
   it("preview server has no open redirect, no file-existence oracle and no stack traces", async () => {
     const root = copyFixture();
     write(root, "src/pages/evilsite.md", "---\ntitle: E\n---\n# E\n");

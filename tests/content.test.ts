@@ -35,7 +35,7 @@ describe("loadConfig", () => {
       lang: "en",
       redirects: {},
       markdown: { html: "sanitize", inlineStyles: false },
-      seo: { robots: { rules: [] }, feeds: [], sitemap: true, llmsTxt: { full: false }, structuredData: {} },
+      seo: { robots: { rules: [] }, feeds: [], lastmod: "frontmatter", markdownCopies: false, sitemap: true, llmsTxt: { full: false }, structuredData: {} },
       performance: {
         budgets: { performance: 90, accessibility: 95, seo: 95, bestPractices: 90, javascriptKb: 100, cssKb: 50, imageKb: 500, fontKb: 150, totalKb: 1000, requests: 30 },
         lighthouse: { enabled: false, pages: ["/"] },

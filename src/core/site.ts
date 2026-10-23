@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { feedPath, rssFeed } from "../discovery/feed.js";
+import { gitPageDates } from "../discovery/git-dates.js";
+import { markdownCopy, markdownCopyPath } from "../discovery/markdown-copy.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
 import { headersFile } from "../deploy/headers.js";
@@ -141,8 +143,14 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
     if (listed.length > SITEMAP_URL_LIMIT) {
       throw new VageError(`sitemap.xml would list ${listed.length} URLs; sitemap indexes (over ${SITEMAP_URL_LIMIT}) are not supported yet.`);
     }
+    let gitDates: Map<string, string> | undefined;
+    if (site.seo.lastmod === "git") {
+      const result = gitPageDates(root);
+      gitDates = result.dates;
+      if (result.problem) warnings.push(`seo.lastmod is "git", but ${result.problem}; sitemap dates come from frontmatter instead.`);
+    }
     generate("sitemap.xml", () =>
-      sitemapXml(listed.map((p) => ({ url: p.meta.canonical!, lastmod: p.frontmatter.dateModified ?? p.frontmatter.datePublished }))),
+      sitemapXml(listed.map((p) => ({ url: p.meta.canonical!, lastmod: p.frontmatter.dateModified ?? gitDates?.get(p.source) ?? p.frontmatter.datePublished }))),
     );
   }
   for (const feed of site.seo.feeds) {
@@ -151,6 +159,9 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
       continue;
     }
     generate(feedPath(feed.under), () => rssFeed(site, feed, listed, site.site!));
+  }
+  if (site.seo.markdownCopies) {
+    for (const p of listed) generate(markdownCopyPath(p.route), () => markdownCopy(p.frontmatter.title, p.frontmatter.description, p.body));
   }
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);

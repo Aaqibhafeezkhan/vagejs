@@ -54,6 +54,12 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
   if (image) tags.push(meta("property", "og:image", image));
   tags.push(meta("name", "twitter:card", image ? "summary_large_image" : "summary"));
 
+  // Markdown copy for AI tools (seo.markdownCopies), on pages that are listed.
+  if (site.seo.markdownCopies && m.canonical && m.canonical === absoluteUrl(site.site, m.route)) {
+    const href = m.route === "/" ? "/index.md" : `${m.route.slice(0, -1)}.md`;
+    tags.push({ exists: /<link[^>]+text\/markdown/i, html: `<link rel="alternate" type="text/markdown" href="${escapeHtml(href)}" />` });
+  }
+
   // Feed discovery: pages in a section with a feed point readers to it.
   for (const feed of site.site ? site.seo.feeds : []) {
     if (!m.route.startsWith(feed.under)) continue;

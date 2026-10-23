@@ -41,7 +41,9 @@ export function allowed(url: string, publicDir: string, allowedFiles: Set<string
   const ext = path.posix.extname(pathname);
   if (!ext || ext === ".html") return true; // rendered pages (our middleware decides 200/404)
   if (allowedFiles.has(pathname)) return true;
-  if (/^\/(?:[\w.-]+\/)*feed\.xml$/.test(pathname) && !pathname.includes("..")) return true; // section feeds (seo.feeds)
+  // Generated files (seo.feeds, seo.markdownCopies) never exist on disk in dev. If a real file
+  // sits at that path, it's a project source (e.g. /src/pages/about.md): Vite would serve it, so refuse.
+  if (/^\/(?:[\w-]+\/)*(?:feed\.xml|[\w-]+\.md)$/.test(pathname)) return !fs.existsSync(path.join(path.dirname(publicDir), pathname));
   const file = path.resolve(publicDir, `.${pathname}`);
   if (!file.startsWith(publicDir + path.sep)) return false;
   try {
