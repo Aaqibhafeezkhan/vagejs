@@ -1,4 +1,4 @@
-# Releasing VAGE JS to npm
+# Releasing vagejs to npm
 
 Two packages are published together, always with the same version:
 

@@ -1,7 +1,7 @@
 {
   "name": "create-vagejs",
   "version": "0.1.0",
-  "description": "Create a new VAGE JS website: npm create vagejs@latest my-site",
+  "description": "Create a new vagejs website: npm create vagejs@latest my-site",
   "keywords": [
     "vagejs",
     "create",

@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/agevenkat/vagejs/main/assets/brand/vagejs-logo-dark.svg">
-    <img src="https://raw.githubusercontent.com/agevenkat/vagejs/main/assets/brand/vagejs-logo.svg" alt="VAGE JS" width="320">
+    <img src="https://raw.githubusercontent.com/agevenkat/vagejs/main/assets/brand/vagejs-logo.svg" alt="vagejs" width="320">
   </picture>
 </p>
 
@@ -11,9 +11,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/npm/l/vagejs?color=2E2A8C" alt="MIT license"></a>
 </p>
 
-# VAGE JS
+# vagejs
 
-An AI-native, static-first web framework. Write pages in Markdown, and VAGE JS builds a fast static site with SEO, `llms.txt`, accessibility and security handled for you. It's built so AI coding agents can use it without guessing. **Pre-release (0.x).**
+An AI-native, static-first web framework. Write pages in Markdown, and vagejs builds a fast static site with SEO, `llms.txt`, accessibility and security handled for you. It's built so AI coding agents can use it without guessing. **Pre-release (0.x).**
 
 - **Static by default**: plain HTML, no client JavaScript unless you add analytics.
 - **SEO built in**: `robots.txt`, `sitemap.xml`, `llms.txt`, canonical URLs, Open Graph and JSON-LD, generated from your pages.
@@ -34,7 +34,7 @@ npm run dev
 
 Open the URL it prints. Edit `src/pages/index.md` and the browser reloads.
 
-## Using VAGE JS
+## Using vagejs
 
 ### Project layout
 
@@ -117,7 +117,7 @@ Optional, and off until configured: GA4 or Google Tag Manager (consent denied by
 
 ## Updating
 
-VAGE JS follows semver. While it's 0.x, a minor version (0.1 → 0.2) may include breaking changes, so read the release notes before moving up a minor version.
+vagejs follows semver. While it's 0.x, a minor version (0.1 → 0.2) may include breaking changes, so read the release notes before moving up a minor version.
 
 ```bash
 npm outdated vagejs           # see what's available

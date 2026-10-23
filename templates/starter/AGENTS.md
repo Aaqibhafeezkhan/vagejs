@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This website uses **VAGE JS** (pre-release). Only the features listed here exist today.
+This website uses **vagejs** (pre-release). Only the features listed here exist today.
 
 ## Commands
 
@@ -76,7 +76,7 @@ With `deploy.target: "cloudflare-pages"`, the build writes `_headers` with secur
 `content` is already-rendered HTML; escape every other interpolated value with `escapeHtml` from `vagejs`.
 `page.url` is the absolute canonical URL (when `site` is set and the page is indexable).
 
-The layout must contain `</head>`. VAGE JS inserts these before it, skipping any the layout already writes:
+The layout must contain `</head>`. vagejs inserts these before it, skipping any the layout already writes:
 meta description, robots noindex, canonical, Open Graph, `twitter:card`, and JSON-LD
 (WebSite + configured Organization on `/`, Article for `type: article`). If the layout writes its own
 `application/ld+json`, automatic JSON-LD is skipped. Helpers: `organization`, `website`, `article`,
@@ -101,7 +101,7 @@ From the published pages and config (never from `public/`; a hand-written `publi
 Budgets live in `vage.config.ts` under `performance.budgets` (Lighthouse scores and per-page KB/requests). They are starting points, not standards.
 Budget misses and lab scores are warnings (`--strict` fails on them). axe violations of serious/critical impact are errors.
 Lab results (Lighthouse, PageSpeed) are simulated and vary between runs; field data (CrUX, real users at p75) is what Google's Core Web Vitals assessment uses, and is missing for low-traffic sites.
-`vage audit --url` uses the **site owner's own** Google Cloud API keys; VAGE JS has none of its own and never calls PageSpeed without a key. Keys come from `PAGESPEED_API_KEY` / `CRUX_API_KEY`, or are saved by the owner with `npx vage connect pagespeed` / `crux` (stored outside the project). Never ask for, print, or commit a key; never put one in `vage.config.ts`.
+`vage audit --url` uses the **site owner's own** Google Cloud API keys; vagejs has none of its own and never calls PageSpeed without a key. Keys come from `PAGESPEED_API_KEY` / `CRUX_API_KEY`, or are saved by the owner with `npx vage connect pagespeed` / `crux` (stored outside the project). Never ask for, print, or commit a key; never put one in `vage.config.ts`.
 
 ## Publishing and deployment
 
@@ -114,7 +114,7 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 
 After deploying, `npx vage indexnow --changed-since HEAD~1` (needs `integrations.indexNow.key`) tells IndexNow search engines about changed pages. It's a hint, not a guarantee of indexing; ask the owner first.
 
-GitHub Pages needs a custom domain or a `<user>.github.io` repository, because VAGE JS does not support base paths yet.
+GitHub Pages needs a custom domain or a `<user>.github.io` repository, because vagejs does not support base paths yet.
 `.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
 
 ## Analytics and search reports
@@ -130,7 +130,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Provider rules
 
-`npx vage guidelines` lists the provider facts VAGE JS uses (AI crawler tokens, Web Vitals thresholds, GA4 limits) with their official sources. Pin a version with `guidelines: { rulePack: "<version>" }` so an upgrade can't silently change output.
+`npx vage guidelines` lists the provider facts vagejs uses (AI crawler tokens, Web Vitals thresholds, GA4 limits) with their official sources. Pin a version with `guidelines: { rulePack: "<version>" }` so an upgrade can't silently change output.
 
 ## Not implemented yet
 
@@ -138,7 +138,7 @@ Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-la
 
 ## Favicon
 
-`public/favicon.svg`, `public/favicon.ico` (16/32/48 px) and `public/apple-touch-icon.png` (180 px) are the VAGE JS icon as placeholders. Replace all three with the site owner's icon (same file names), or update the `<link rel="icon">` / `apple-touch-icon` tags in `src/layouts/default.ts`.
+`public/favicon.svg`, `public/favicon.ico` (16/32/48 px) and `public/apple-touch-icon.png` (180 px) are the vagejs icon as placeholders. Replace all three with the site owner's icon (same file names), or update the `<link rel="icon">` / `apple-touch-icon` tags in `src/layouts/default.ts`.
 
 ## Safety
 

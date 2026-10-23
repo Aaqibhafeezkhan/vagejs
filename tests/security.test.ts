@@ -105,7 +105,7 @@ describe("secret scanner coverage", () => {
       "a.json: looks like a Google OAuth client secret",
       "b.json: looks like a Google OAuth refresh token",
       "big.txt: text file too large to scan for secrets; review it manually",
-      "google.json: VAGE JS credentials file",
+      "google.json: vagejs credentials file",
     ]);
   });
 });

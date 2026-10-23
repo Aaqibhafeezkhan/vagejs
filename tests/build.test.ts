@@ -66,7 +66,7 @@ describe("build", () => {
     expect(fs.existsSync(path.join(root, "dist", "index.html"))).toBe(true);
   });
 
-  it("reports a clear error outside a VAGE JS project", async () => {
+  it("reports a clear error outside a vagejs project", async () => {
     await expect(build(path.join(copyFixture(), "public"))).rejects.toThrow(/No src\/pages directory/);
   });
 });

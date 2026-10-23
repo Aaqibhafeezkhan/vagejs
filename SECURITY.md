@@ -16,7 +16,7 @@ We aim to acknowledge reports within 3 business days and to agree a fix and disc
 
 ## Supported versions
 
-VAGE JS is pre-release (0.x). Security fixes go into the latest 0.x release only.
+vagejs is pre-release (0.x). Security fixes go into the latest 0.x release only.
 
 ## Scope and trust model
 

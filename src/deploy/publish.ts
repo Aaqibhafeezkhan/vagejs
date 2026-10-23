@@ -18,7 +18,7 @@ export interface PublishPlan {
   /** True when `--remote` will be added as "origin". */
   addRemote: boolean;
   files: ChangedFile[];
-  /** Files VAGE JS will create (they do not exist yet). */
+  /** Files vagejs will create (they do not exist yet). */
   extraFiles: Record<string, string>;
   message: string;
   /** Local commits not yet on the remote (before this commit). */
@@ -88,7 +88,7 @@ export async function publish(root: string, options: PublishOptions): Promise<Pu
     if (/rejected|non-fast-forward|fetch first/i.test(out)) {
       throw new VageError(
         `Push rejected: origin/${plan.branch} has commits you don't have. Your commit is saved locally. ` +
-          `Run "git pull --rebase origin ${plan.branch}", resolve any conflicts, then publish again. VAGE JS never force-pushes.`,
+          `Run "git pull --rebase origin ${plan.branch}", resolve any conflicts, then publish again. vagejs never force-pushes.`,
       );
     }
     throw new VageError(`Push failed (your commit is saved locally): ${out.trim()}`);
@@ -120,7 +120,7 @@ export async function planPublish(root: string, options: Omit<PublishOptions, "c
     branch = await git(cwd, ["branch", "--show-current"]);
     if (!branch) throw new VageError("HEAD is detached. Check out a branch before publishing.");
     if (options.branch && options.branch !== branch) {
-      throw new VageError(`You are on "${branch}", not "${options.branch}". Switch branches yourself first; VAGE JS won't do it for you.`);
+      throw new VageError(`You are on "${branch}", not "${options.branch}". Switch branches yourself first; vagejs won't do it for you.`);
     }
   }
 
@@ -170,7 +170,7 @@ export async function planPublish(root: string, options: Omit<PublishOptions, "c
     addRemote: Boolean(options.remote && !existingRemote),
     files,
     extraFiles,
-    message: options.message ?? "Publish site with VAGE JS",
+    message: options.message ?? "Publish site with vagejs",
     unpushedCommits,
     warnings,
   };

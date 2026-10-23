@@ -47,7 +47,7 @@ export interface SiteModel {
 export async function renderSite(root: string, load: ModuleLoader): Promise<SiteModel> {
   const pagesDir = path.join(root, "src", "pages");
   if (!fs.existsSync(pagesDir)) {
-    throw new VageError(`No src/pages directory found in ${root}. Is this a VAGE JS project?`);
+    throw new VageError(`No src/pages directory found in ${root}. Is this a vagejs project?`);
   }
   const site = await loadConfig(root, load);
   const pinned = site.guidelines.rulePack;

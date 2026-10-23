@@ -5,7 +5,7 @@ import path from "node:path";
 const SECRET_FILES: [RegExp, string][] = [
   [/(^|\/)\.env(\.(?!example$|sample$|template$)[^/]+)?$/, "environment file"],
   [/(^|\/)\.(dev\.vars|envrc)$/, "environment file"],
-  [/(^|\/)(google|api-keys)\.json$/, "VAGE JS credentials file"],
+  [/(^|\/)(google|api-keys)\.json$/, "vagejs credentials file"],
   [/\.(pem|key|p12|pfx|jks|keystore)$/i, "private key or certificate store"],
   [/(^|\/)id_(rsa|dsa|ecdsa|ed25519)$/, "SSH private key"],
   [/(^|\/)(credentials|client_secrets?|service[-_]?account[^/]*)\.json$/i, "credentials file"],

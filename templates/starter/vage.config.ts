@@ -4,7 +4,7 @@ export default defineConfig({
   // Your production origin. Needed for canonical URLs and sitemap.xml. Replace before deploying.
   site: "https://example.com",
   title: "My Website",
-  description: "A website built with VAGE JS.",
+  description: "A website built with vagejs.",
   lang: "en",
 
   seo: {

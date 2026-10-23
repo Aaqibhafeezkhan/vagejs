@@ -92,7 +92,7 @@ function structuredData(site: SiteConfig, m: PageMeta, description?: string, ima
 /** Inserts tags before </head>, skipping any the layout already provides. */
 export function injectHead(html: string, tags: Tag[], file: string): string {
   const index = html.search(/<\/head>/i);
-  if (index === -1) throw new VageError("Layout output has no </head>; VAGE JS needs it to add SEO tags.", file);
+  if (index === -1) throw new VageError("Layout output has no </head>; vagejs needs it to add SEO tags.", file);
   const head = html.slice(0, index);
   const add = tags.filter((t) => !t.exists.test(head)).map((t) => `    ${t.html}\n`).join("");
   // Insert at the start of the </head> line when it is only indented, to keep the output tidy.

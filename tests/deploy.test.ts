@@ -84,7 +84,7 @@ describe("publish (deploy:github)", () => {
     write(root, "src/pages/new.md", "---\ntitle: New\ndescription: New page.\n---\n# New\n");
     await expect(publish(root, { confirm: yes })).rejects.toThrow(/Push rejected[\s\S]*git pull --rebase origin main[\s\S]*never force-pushes/);
     expect(sh(remote, "rev-parse", "main")).toBe(theirs);
-    expect(sh(root, "log", "-1", "--format=%s")).toBe("Publish site with VAGE JS"); // kept locally
+    expect(sh(root, "log", "-1", "--format=%s")).toBe("Publish site with vagejs"); // kept locally
   });
 
   it("refuses possible secrets and build output, before changing anything", async () => {

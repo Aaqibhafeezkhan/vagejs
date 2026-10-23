@@ -1,6 +1,6 @@
 # create-vagejs
 
-Creates a new [VAGE JS](https://vagejs.com) website.
+Creates a new [vagejs](https://vagejs.com) website.
 
 ```bash
 npm create vagejs@latest my-site

@@ -5,7 +5,7 @@ import { VageError } from "../core/errors.js";
 import { credentialsPath } from "./google-auth.js";
 
 /**
- * The user's own Google Cloud API keys for audits. VAGE JS never ships or
+ * The user's own Google Cloud API keys for audits. vagejs never ships or
  * shares keys: each user brings theirs (env var, or saved with `vage connect`).
  * Saved keys live next to the Google token, outside any project, mode 0600.
  */

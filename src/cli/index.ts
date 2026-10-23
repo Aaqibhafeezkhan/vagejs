@@ -27,7 +27,7 @@ interface ServeFlags extends CommonOptions {
 }
 
 cli
-  .command("create <dir>", "Scaffold a new VAGE JS website")
+  .command("create <dir>", "Scaffold a new vagejs website")
   .option("--vage-spec <spec>", "Dependency spec for vagejs in the new package.json", { default: `^${version}` })
   .option("--json", "Print machine-readable JSON")
   .action((dir: string, opts: { vageSpec: string; json?: boolean }) =>
@@ -47,7 +47,7 @@ cli
   .action((opts: ServeFlags) =>
     run(opts, async () => {
       const server = await startDevServer(opts.root, { port: parsePort(opts.port), host: opts.host });
-      console.log(`VAGE JS dev server running at ${server.resolvedUrls?.local[0]}`);
+      console.log(`vagejs dev server running at ${server.resolvedUrls?.local[0]}`);
       server.resolvedUrls?.network.forEach((url) => console.log(`  network: ${url}`));
     }),
   );
@@ -144,7 +144,7 @@ cli
   .action((opts: ServeFlags) =>
     run(opts, async () => {
       const server = await startPreviewServer(opts.root, { port: parsePort(opts.port), host: opts.host });
-      console.log(`VAGE JS preview running at ${server.resolvedUrls?.local[0]}`);
+      console.log(`vagejs preview running at ${server.resolvedUrls?.local[0]}`);
       server.resolvedUrls?.network.forEach((url) => console.log(`  network: ${url}`));
     }),
   );
@@ -156,7 +156,7 @@ cli
     run(opts, () => {
       const info = frameworkInfo(cli, version);
       if (opts.json) return print(info);
-      console.log(`VAGE JS ${info.version}\n`);
+      console.log(`vagejs ${info.version}\n`);
       for (const c of info.commands) console.log(`  ${c.usage.padEnd(28)} ${c.description}`);
       console.log(`\nConfig: ${info.config.files.join(" | ")}. Pages: ${info.routing.pagesDir}/**/*.md`);
       console.log("Run `vage info --json` for full config and frontmatter JSON Schemas.");
@@ -560,7 +560,7 @@ function print(value: unknown) {
 async function askForApiKey(name: "pagespeed" | "crux", opts: { alwaysSave?: boolean } = {}): Promise<string | undefined> {
   const { API_KEYS, saveApiKey } = await import("../integrations/api-keys.js");
   const k = API_KEYS[name];
-  console.log(`\n${k.label} uses your own Google Cloud API key (VAGE JS has no shared key).\nGet one: ${k.howTo}`);
+  console.log(`\n${k.label} uses your own Google Cloud API key (vagejs has no shared key).\nGet one: ${k.howTo}`);
   const key = (await askHidden(`Paste your ${name} API key (input hidden, Enter to skip): `)).trim();
   if (!key) return undefined;
   let save = opts.alwaysSave ?? false;

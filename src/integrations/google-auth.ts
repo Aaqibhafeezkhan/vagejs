@@ -127,7 +127,7 @@ function waitForCode(server: http.Server, state: string, timeoutMs: number): Pro
         finish(200, "Authorization was not granted. You can close this tab.");
         return reject(new VageError(`Google authorization was not granted (${params.get("error")}).`));
       }
-      finish(200, "VAGE JS is connected. You can close this tab.");
+      finish(200, "vagejs is connected. You can close this tab.");
       resolve(params.get("code")!);
     });
   });

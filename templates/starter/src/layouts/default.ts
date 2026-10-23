@@ -32,6 +32,6 @@ ${content}
 `;
 };
 
-// VAGE JS adds description, canonical, Open Graph and JSON-LD tags before </head>
+// vagejs adds description, canonical, Open Graph and JSON-LD tags before </head>
 // unless this layout already writes them.
 export default layout;

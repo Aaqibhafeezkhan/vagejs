@@ -1,4 +1,4 @@
-"""Embeds a subset of Space Grotesk Bold into the VAGE JS logo SVG.
+"""Embeds a subset of Space Grotesk Bold into the vagejs logo SVG.
 
 Maintainer tool (not shipped). Usage:
   python -I scripts/brand/embed-logo-font.py <SpaceGrotesk[wght].ttf> <logo-in.svg> <logo-out.svg>

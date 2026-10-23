@@ -11,7 +11,7 @@ const LOCAL_HOST = String.raw`/^(localhost|127\.0\.0\.1|\[::1\])$/`;
  * - Google (GA4 or GTM): consent defaults are set before any measurement command
  *   (https://developers.google.com/tag-platform/security/guides/consent), and nothing
  *   loads on localhost, so `vage preview` sends no hits.
- * - Plausible / Clarity: the owner's dashboard snippet, inserted verbatim (VAGE JS
+ * - Plausible / Clarity: the owner's dashboard snippet, inserted verbatim (vagejs
  *   can't suppress those on localhost).
  * - window.vageConsent.update({ analytics_storage, ad_storage }) forwards consent to
  *   Google (consent update) and Clarity (consentv2). Sites provide their own consent UI.

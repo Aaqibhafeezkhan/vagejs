@@ -1,6 +1,6 @@
 # Guideline monitoring and rule-pack releases
 
-VAGE JS's behavior depends on facts that providers publish and sometimes change: AI crawler tokens, Core Web Vitals thresholds, GA4 naming limits, the consent-mode call order, the sitemap URL limit, and the GitHub Pages workflow. These facts live in one versioned file, **`src/guidelines/rule-pack.json`**. Each rule there lists:
+vagejs's behavior depends on facts that providers publish and sometimes change: AI crawler tokens, Core Web Vitals thresholds, GA4 naming limits, the consent-mode call order, the sitemap URL limit, and the GitHub Pages workflow. These facts live in one versioned file, **`src/guidelines/rule-pack.json`**. Each rule there lists:
 
 - `sources`: official documentation it relies on (registered in `sources`, with URL and check cadence)
 - `implementedIn`: code that uses it
