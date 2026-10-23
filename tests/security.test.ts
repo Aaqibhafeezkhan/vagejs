@@ -179,6 +179,10 @@ describe("network exposure of dev and preview servers", () => {
     const url = base(server);
     for (const ok of ["/about.md", "/blog/post.md"]) expect(await status(url + ok), ok).toBe(200);
     for (const blocked of ["/src/pages/about.md", "/README.md", "/src/pages/blog/feed.xml"]) expect(await status(url + blocked), blocked).toBe(404);
+    // A symlinked .md in public/ must not be followed (review finding).
+    fs.writeFileSync(path.join(root, "..", "outside-secret.md"), "secret");
+    fs.symlinkSync(path.join(root, "..", "outside-secret.md"), path.join(root, "public", "linked.md"));
+    expect(await status(`${url}/linked.md`)).toBe(404);
   });
 
   it("preview server has no open redirect, no file-existence oracle and no stack traces", async () => {

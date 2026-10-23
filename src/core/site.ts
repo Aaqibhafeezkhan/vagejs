@@ -16,6 +16,7 @@ import { VageError } from "./errors.js";
 import { escapeHtml } from "./html.js";
 import { renderPage, type RenderedPage } from "./render.js";
 import { parseFrontmatter } from "../content/markdown.js";
+import { sharpResize } from "../content/optimize.js";
 import { collectPages } from "./pages.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "./routes.js";
 
@@ -85,6 +86,8 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   };
 
   const pages = await collectPages(root, site, load, { skipInvalid: collect });
+  // Loaded once for the whole site, so a missing sharp is one clear error, not one per page.
+  const resize = site.images.optimize ? await sharpResize(root) : undefined;
   for (const entry of discoverRoutes(pagesDir)) {
     const source = path.relative(root, entry.file);
     await attempt(entry.file, entry.route, async () => {
@@ -94,14 +97,14 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
         model.draftRoutes.push(entry.route);
         return;
       }
-      const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true, pages });
+      const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true, pages, resize });
       model.pages.push({ ...page, route: entry.route, source, outFile: entry.outFile });
     });
   }
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) {
     await attempt(notFound, undefined, async () => {
-      const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true, pages });
+      const page = await renderPage({ root, file: notFound, route: "/404/", site, load, notFound: true, analytics: true, pages, resize });
       model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
     });
   }

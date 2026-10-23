@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { parse } from "node-html-parser";
 import { VageError } from "../core/errors.js";
 import { imageSize } from "./images.js";
 
@@ -46,7 +47,8 @@ export async function sharpResize(root: string): Promise<Resize> {
     throw new VageError('images.optimize needs the "sharp" package. Install it with: npm install --save-dev sharp');
   }
   const sharp = ((await import(pathToFileURL(resolved).href)) as { default: (input: Buffer) => { resize: (o: object) => { webp: (o: object) => { toBuffer: () => Promise<Buffer> } } } }).default;
-  return (input, width, quality) => sharp(input).resize({ width, withoutEnlargement: true }).webp({ quality }).toBuffer();
+  // rotate() applies EXIF orientation first, so phone photos aren't served sideways.
+  return (input, width, quality) => (sharp(input) as unknown as { rotate: () => ReturnType<typeof sharp> }).rotate().resize({ width, withoutEnlargement: true }).webp({ quality }).toBuffer();
 }
 
 /**
@@ -64,13 +66,21 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
   if (!RASTER.test(rel)) return undefined;
   const publicDir = path.join(root, "public");
   const file = path.join(publicDir, rel);
-  if (!file.startsWith(publicDir + path.sep) || !fs.existsSync(file)) return undefined;
+  if (!file.startsWith(publicDir + path.sep)) return undefined;
+  try {
+    // Never follow symlinks: they can point outside the project.
+    if (!fs.lstatSync(file).isFile()) return undefined;
+  } catch {
+    return undefined;
+  }
   const size = imageSize(file);
   if (!size) return undefined;
 
   const input = fs.readFileSync(file);
-  const hash = createHash("sha256").update(input).update(`q${options.quality}`).digest("hex").slice(0, 10);
-  const base = path.basename(rel).replace(RASTER, "").replace(/[^\w-]+/g, "-").slice(0, 60) || "image";
+  // "v2": variants are auto-rotated; older cached files (not rotated) must not be reused.
+  const hash = createHash("sha256").update(input).update(`q${options.quality}|v2`).digest("hex").slice(0, 10);
+  const slug = path.basename(rel).replace(RASTER, "").replace(/[^\w-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  const base = /[a-z0-9]/i.test(slug) ? slug : "image";
   // Never upscale; include the original width when it's smaller than every configured width.
   const widths = [...new Set(options.widths.filter((w) => w < size.width).concat(size.width <= Math.max(...options.widths) ? [size.width] : []))].sort((a, b) => a - b);
   const dir = cacheDir(root);
@@ -83,7 +93,13 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
     const cached = path.join(dir, name);
     if (!fs.existsSync(cached)) {
       const tmp = `${cached}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, await resize(input, w, options.quality));
+      let data: Buffer;
+      try {
+        data = await resize(input, w, options.quality);
+      } catch (err) {
+        throw new VageError(`Couldn't optimize ${src}: ${(err as Error).message}. Replace the file, or turn off images.optimize.`);
+      }
+      fs.writeFileSync(tmp, data);
       fs.renameSync(tmp, cached);
     }
     files.set(`${IMAGE_DIR}/${name}`, cached);
@@ -92,7 +108,7 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
   return entries.length ? { srcset: entries.join(", "), files } : undefined;
 }
 
-/** Image sources used in rendered Markdown (read-only scan; the sanitizer applies the result). */
+/** Image sources used in rendered Markdown, read with an HTML parser (so entities decode like the DOM's). */
 export function contentImageSources(html: string): string[] {
-  return [...new Set([...html.matchAll(/<img\b[^>]*?\ssrc\s*=\s*"([^"]+)"/gi)].map((m) => m[1]!))];
+  return [...new Set(parse(html).querySelectorAll("img").map((img) => img.getAttribute("src")).filter((s): s is string => !!s))];
 }

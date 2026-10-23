@@ -93,3 +93,47 @@ describe("optimized images in the dev server", () => {
     expect((await fetch(`${url}/_vage/img/nope-0000000000-1.webp`)).status).toBe(404);
   });
 });
+
+describe("image pipeline review fixes", () => {
+  it("respects EXIF orientation for width/height and in the resized copies", async () => {
+    const root = await site();
+    const rotated = await sharp({ create: { width: 1200, height: 600, channels: 3, background: "#a04060" } }).jpeg().withMetadata({ orientation: 6 }).toBuffer();
+    fs.writeFileSync(path.join(root, "public/images/phone.jpg"), rotated);
+    write(root, "src/pages/phone.md", "---\ntitle: Phone\ndescription: Phone.\n---\n# Phone\n\n![A portrait photo](/images/phone.jpg)\n");
+    await build(root);
+    const img = new JSDOM(fs.readFileSync(path.join(root, "dist/phone/index.html"), "utf8")).window.document.querySelector("img")!;
+    expect([img.getAttribute("width"), img.getAttribute("height")]).toEqual(["600", "1200"]);
+    const first = img.getAttribute("srcset")!.split(" ")[0]!;
+    const meta = await sharp(path.join(root, "dist", first)).metadata();
+    expect(meta.height!).toBeGreaterThan(meta.width!); // portrait, not sideways
+  });
+
+  it("never follows symlinks, and matches file names with characters that need escaping", async () => {
+    const root = await site();
+    const outside = path.join(root, "..", `outside-${Date.now()}.jpg`);
+    fs.writeFileSync(outside, await jpeg(900, 600));
+    fs.symlinkSync(outside, path.join(root, "public/images/linked.jpg"));
+    const never: Resize = async () => {
+      throw new Error("should not be called");
+    };
+    expect(await imageVariants("/images/linked.jpg", root, { optimize: true, widths: [400], quality: 75, sizes: "100vw" }, never)).toBeUndefined();
+
+    fs.writeFileSync(path.join(root, "public/images/a&b.jpg"), await jpeg(900, 600));
+    write(root, "src/pages/amp.md", "---\ntitle: Amp\ndescription: Amp.\n---\n# Amp\n\n<img src=\"/images/a&amp;b.jpg\" alt=\"Ampersand\">\n");
+    fs.rmSync(path.join(root, "public/images/linked.jpg"));
+    await build(root);
+    expect(fs.readFileSync(path.join(root, "dist/amp/index.html"), "utf8")).toMatch(/srcset="\/_vage\/img\/a-b-[0-9a-f]{10}-400\.webp 400w/);
+  });
+
+  it("reports a missing sharp once, and a corrupt image by name", async () => {
+    const { check } = await import("../src/checks/check.js");
+    const bare = copyFixture();
+    write(bare, "vage.config.ts", CONFIG);
+    await expect(check(bare)).rejects.toThrow(/npm install --save-dev sharp/);
+
+    const root = await site();
+    fs.writeFileSync(path.join(root, "public/images/broken.png"), Buffer.concat([Buffer.from("89504e470d0a1a0a0000000d49484452000003e8000001f40806000000", "hex")]));
+    write(root, "src/pages/broken.md", "---\ntitle: Broken\ndescription: Broken.\n---\n# Broken\n\n![Broken](/images/broken.png)\n");
+    await expect(build(root)).rejects.toThrow(/Couldn't optimize \/images\/broken\.png/);
+  });
+});

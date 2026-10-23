@@ -33,18 +33,42 @@ export function imageSize(file: string): ImageSize | undefined {
     }
     if (chunk === "VP8X") return { width: buf.readUIntLE(24, 3) + 1, height: buf.readUIntLE(27, 3) + 1 };
   }
-  // JPEG: walk the segments to the first start-of-frame marker.
+  // JPEG: walk the segments to the first start-of-frame marker. EXIF orientations 5-8
+  // (phone photos taken sideways) display rotated, so width and height swap.
   if (buf.length >= 4 && buf[0] === 0xff && buf[1] === 0xd8) {
     let i = 2;
+    let orientation = 1;
     while (i + 9 < buf.length) {
       if (buf[i] !== 0xff) return undefined;
       const marker = buf[i + 1]!;
       const length = buf.readUInt16BE(i + 2);
+      if (marker === 0xe1) orientation = exifOrientation(buf, i + 4, length - 2) ?? orientation;
       if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-        return { width: buf.readUInt16BE(i + 7), height: buf.readUInt16BE(i + 5) };
+        const width = buf.readUInt16BE(i + 7);
+        const height = buf.readUInt16BE(i + 5);
+        return orientation >= 5 && orientation <= 8 ? { width: height, height: width } : { width, height };
       }
       i += 2 + length;
     }
+  }
+  return undefined;
+}
+
+/** The EXIF Orientation tag (0x0112) from an APP1 segment, if present. */
+function exifOrientation(buf: Buffer, start: number, length: number): number | undefined {
+  const end = Math.min(buf.length, start + length);
+  if (end - start < 14 || buf.toString("latin1", start, start + 6) !== "Exif\0\0") return undefined;
+  const tiff = start + 6;
+  const little = buf.toString("latin1", tiff, tiff + 2) === "II";
+  const u16 = (o: number) => (o + 2 <= end ? (little ? buf.readUInt16LE(o) : buf.readUInt16BE(o)) : undefined);
+  const u32 = (o: number) => (o + 4 <= end ? (little ? buf.readUInt32LE(o) : buf.readUInt32BE(o)) : undefined);
+  const ifd = u32(tiff + 4);
+  if (ifd === undefined) return undefined;
+  const count = u16(tiff + ifd);
+  if (count === undefined) return undefined;
+  for (let k = 0; k < count; k++) {
+    const entry = tiff + ifd + 2 + k * 12;
+    if (u16(entry) === 0x0112) return u16(entry + 8);
   }
   return undefined;
 }
