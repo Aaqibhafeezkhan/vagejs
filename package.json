@@ -1,7 +1,7 @@
 {
   "name": "vagejs",
   "version": "0.1.0",
-  "description": "VAGE JS \u2014 an AI-native, static-first web framework (pre-release, unpublished).",
+  "description": "VAGE JS — an AI-native, static-first web framework (pre-release, unpublished).",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -31,6 +31,7 @@
   "dependencies": {
     "axe-core": "^4.14.0",
     "cac": "^7.1.0",
+    "dompurify": "^3.4.17",
     "jsdom": "^28.1.0",
     "marked": "^18.1.1",
     "node-html-parser": "^9.0.5",

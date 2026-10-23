@@ -4,6 +4,7 @@ import path from "node:path";
 import { check } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
+import { assertBranchName, assertGitRemote } from "../core/validate.js";
 import { changedFiles, git, gitRaw, type ChangedFile } from "./git.js";
 import { findSecrets } from "./secrets.js";
 
@@ -58,7 +59,7 @@ export async function publish(root: string, options: PublishOptions): Promise<Pu
 
   const cwd = plan.root;
   if (plan.initRepo) await git(cwd, ["init", "-b", plan.branch]);
-  if (plan.addRemote) await git(cwd, ["remote", "add", "origin", plan.remote!]);
+  if (plan.addRemote) await git(cwd, ["remote", "add", "--", "origin", plan.remote!]);
   for (const [rel, content] of Object.entries(plan.extraFiles)) {
     fs.mkdirSync(path.dirname(path.join(cwd, rel)), { recursive: true });
     fs.writeFileSync(path.join(cwd, rel), content);
@@ -81,7 +82,7 @@ export async function publish(root: string, options: PublishOptions): Promise<Pu
   commit ??= await git(cwd, ["rev-parse", "HEAD"]);
   if (!plan.remote) return { plan, status: "committed", commit };
 
-  const push = await gitRaw(cwd, ["push", "-u", "origin", plan.branch]);
+  const push = await gitRaw(cwd, ["push", "-u", "origin", "--", plan.branch]);
   if (push.code !== 0) {
     const out = push.stderr + push.stdout;
     if (/rejected|non-fast-forward|fetch first/i.test(out)) {
@@ -101,6 +102,8 @@ export async function publish(root: string, options: PublishOptions): Promise<Pu
 
 export async function planPublish(root: string, options: Omit<PublishOptions, "confirm">): Promise<PublishPlan> {
   root = path.resolve(root);
+  if (options.branch) assertBranchName(options.branch);
+  if (options.remote) assertGitRemote(options.remote);
   const checked = await check(root);
   if (checked.errors > 0) throw new VageError(`vage check found ${checked.errors} error(s). Fix them (run "vage check") before publishing.`);
   await build(root);

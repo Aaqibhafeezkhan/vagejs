@@ -4,7 +4,7 @@
 
 ## Pages
 
-- [Home](https://fixture.example/): Fixture home <page>
+- [Home](https://fixture.example/): Fixture home \<page\>
 - [About](https://fixture.example/about/): About the fixture.
 - [Blog](https://fixture.example/blog/): Fixture blog index.
 - [Post](https://fixture.example/blog/post/): A fixture post.

@@ -3,4 +3,6 @@ dist/
 .env
 .env.*
 !.env.example
+.dev.vars
+.envrc
 .DS_Store

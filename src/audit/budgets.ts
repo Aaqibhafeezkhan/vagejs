@@ -45,8 +45,14 @@ export function measurePages(outDir: string, pages: { route: string; outFile: st
       weight.requests++;
       const local = url.host === "local.invalid" || (site !== undefined && url.origin === site);
       if (!local) return weight.external.push(url.href);
-      const file = path.join(outDir, decodeURIComponent(url.pathname));
-      if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return; // missing assets are reported by `vage check`
+      let rel: string;
+      try {
+        rel = decodeURIComponent(url.pathname);
+      } catch {
+        return; // malformed URLs are reported by `vage check`
+      }
+      const file = path.resolve(outDir, `.${rel}`);
+      if (!file.startsWith(outDir + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return; // missing assets are reported by `vage check`
       weight.bytes[kind] += fs.statSync(file).size;
       if (kind === "css") {
         // Fonts and images referenced from stylesheets load with the page too.

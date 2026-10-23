@@ -64,6 +64,10 @@ dateModified: 2026-02-15 # also used as sitemap <lastmod>
 
 Do not invent titles, descriptions, dates, authors or facts. Ask the site owner.
 
+## Content safety
+
+HTML inside Markdown is sanitized: scripts, event handlers, `javascript:` links, iframes and forms are removed. Embeds (e.g. video) belong in a layout, which is trusted code. The owner can trust all authors with `markdown: { html: "allow" }`; don't set that yourself. Never put secrets in `public/` (it is published, and the build refuses secret-looking files and symlinks there). `npm run dev -- --host` exposes the dev server to your network; it serves only pages and `public/`, but use it only on trusted networks.
+
 ## Layouts
 
 `src/layouts/<name>.ts` default-exports a function `({ content, page, site }) => string`.

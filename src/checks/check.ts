@@ -117,6 +117,15 @@ function checkPage(
     }
   }
 
+  for (const el of doc.querySelectorAll("[href], [src], [action], [formaction]")) {
+    for (const attr of ["href", "src", "action", "formaction"]) {
+      const value = el.getAttribute(attr);
+      if (value && /^\s*(javascript|vbscript|data:text\/html)/i.test(value.replace(/[\u0000-\u0020]/g, ""))) {
+        add({ rule: "unsafe-url", severity: "error", message: `<${el.tagName.toLowerCase()} ${attr}="${value.slice(0, 60)}"> uses a script URL; this runs code on your site.` });
+      }
+    }
+  }
+
   for (const a of doc.querySelectorAll("a[href]")) {
     const href = a.getAttribute("href")!;
     if (!a.text.trim() && !a.getAttribute("aria-label") && !a.querySelector("img[alt]:not([alt=''])")) {
@@ -124,6 +133,10 @@ function checkPage(
     }
     const target = internalPath(href, page.route, model.site.site);
     if (target === undefined) continue;
+    if (target === MALFORMED) {
+      add({ rule: "link-broken", severity: "error", message: `Link to "${href}" is a malformed URL.` });
+      continue;
+    }
     const resolved = resolveOutput(target, outputs);
     if (resolved === "missing") {
       const draft = drafts.has(target.endsWith("/") ? target : `${target}/`);
@@ -145,7 +158,7 @@ function checkPage(
     for (const el of doc.querySelectorAll(selector)) {
       const value = el.getAttribute(attr)!;
       const target = internalPath(value, page.route, model.site.site);
-      if (target !== undefined && resolveOutput(target, outputs) === "missing") {
+      if (target !== undefined && (target === MALFORMED || resolveOutput(target, outputs) === "missing")) {
         add({ rule: "asset-missing", severity: "error", message: `<${el.tagName.toLowerCase()} ${attr}="${value}"> does not exist in the build output.` });
       }
     }
@@ -162,7 +175,9 @@ function checkPage(
       continue;
     }
     const target = internalPath(href, page.route, model.site.site);
-    if (target !== undefined && resolveOutput(target, outputs) !== "ok") {
+    if (target === undefined) {
+      add({ rule: "canonical", severity: "warning", message: `Canonical "${href}" points to another site; search engines may credit that site instead of yours.`, docs: DOCS.canonical });
+    } else if (target === MALFORMED || resolveOutput(target, outputs) !== "ok") {
       add({ rule: "canonical", severity: "error", message: `Canonical "${href}" does not point to a published page.`, docs: DOCS.canonical });
     }
   }
@@ -301,17 +316,24 @@ function outputPaths(root: string, model: SiteModel): Set<string> {
   return out;
 }
 
-/** Returns the site-relative path for internal URLs, undefined for external ones. */
+const MALFORMED = "\u0000malformed";
+
+/** Returns the site-relative path for internal URLs, undefined for external ones, MALFORMED when undecodable. */
 function internalPath(href: string, base: string, site: string | undefined): string | undefined {
-  if (/^(mailto:|tel:|javascript:|data:|#)/i.test(href) || href === "") return undefined;
+  if (/^(mailto:|tel:|javascript:|vbscript:|data:|#)/i.test(href.trim()) || href === "") return undefined;
   let url: URL;
   try {
     url = new URL(href, `http://internal.invalid${base}`);
   } catch {
-    return undefined;
+    return MALFORMED;
   }
   const isInternal = url.host === "internal.invalid" || (site !== undefined && url.origin === site);
-  return isInternal ? decodeURIComponent(url.pathname) : undefined;
+  if (!isInternal) return undefined;
+  try {
+    return decodeURIComponent(url.pathname);
+  } catch {
+    return MALFORMED;
+  }
 }
 
 function resolveOutput(target: string, outputs: Set<string>): "ok" | "needs-slash" | "missing" {

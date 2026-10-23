@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { VageError } from "../core/errors.js";
+import { routeForPage } from "../core/routes.js";
 
 const exec = promisify(execFile);
 
@@ -46,4 +47,20 @@ export async function changedFiles(cwd: string): Promise<ChangedFile[]> {
     if (status.startsWith("R") || status.startsWith("C")) i++; // skip the rename source
   }
   return files;
+}
+
+/**
+ * Routes of pages changed (or deleted) since `ref`. The ref is resolved to a
+ * commit SHA first, so it can never be read as a git option such as --output=<file>.
+ */
+export async function changedPageRoutes(cwd: string, ref: string): Promise<string[]> {
+  if (ref.startsWith("-")) throw new VageError(`Invalid ref "${ref}".`);
+  const resolved = await gitRaw(cwd, ["rev-parse", "--verify", "--quiet", "--end-of-options", `${ref}^{commit}`]);
+  if (resolved.code !== 0) throw new VageError(`"${ref}" is not a commit in this repository.`);
+  const changed = await git(cwd, ["diff", "--name-only", "--relative", resolved.stdout.trim(), "--", "src/pages"]);
+  return changed
+    .split("\n")
+    .filter(Boolean)
+    .map((f) => routeForPage(f.replace(/^src\/pages\//, "")))
+    .filter((r): r is string => Boolean(r));
 }

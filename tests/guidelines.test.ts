@@ -114,7 +114,7 @@ describe("source monitor", () => {
     );
     expect(report).toContain("**Human review required:**");
     expect(report).toContain("`robots.ai-crawlers` (changes output)");
-    expect(report).toContain('Draft classification (LLM, not authoritative):\n  - "New bot": **required**');
+    expect(report).toContain("Draft classification (LLM, not authoritative):\n  - `New bot`: **required**: `It says X.`");
     expect(report).toContain("Not monitored automatically (check by hand): [Bing Webmaster Guidelines]");
   });
 });

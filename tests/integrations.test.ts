@@ -86,8 +86,10 @@ describe("analytics tags", () => {
     write(
       root,
       "src/pages/index.md",
-      '---\ntitle: Home\ndescription: Home.\n---\n# Home\n\n<a href="/about/" data-vage-event="signup_click" data-vage-param-plan="pro">ok</a>\n<a href="/about/" data-vage-event="signup_click" data-vage-param-tier="x">bad param</a>\n<a href="/about/" data-vage-event="unknown_evt">bad event</a>\n<script async src="https://www.googletagmanager.com/gtag/js?id=G-OTHER"></script>\n',
+      '---\ntitle: Home\ndescription: Home.\n---\n# Home\n\n<a href="/about/" data-vage-event="signup_click" data-vage-param-plan="pro">ok</a>\n<a href="/about/" data-vage-event="signup_click" data-vage-param-tier="x">bad param</a>\n<a href="/about/" data-vage-event="unknown_evt">bad event</a>\n',
     );
+    // A layout (trusted code) that also loads gtag: the integration then double-counts.
+    write(root, "src/layouts/default.ts", 'export default ({ content }: { content: string }) => `<html lang="en"><head><title>t</title><script async src="https://www.googletagmanager.com/gtag/js?id=G-OTHER"></script></head><body><main>${content}</main></body></html>`;');
     const messages = (await check(root)).findings.filter((f) => f.page === "/").map((f) => `${f.rule}: ${f.message}`);
     expect(messages).toEqual([
       expect.stringMatching(/^analytics-duplicate: Page loads Google tags 2 times/),

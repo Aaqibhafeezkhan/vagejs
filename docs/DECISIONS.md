@@ -26,7 +26,7 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 - **Trailing slashes**: dev and preview both 301-redirect `/about` → `/about/`, matching most static hosts.
 - **Frontmatter**: YAML; `title` required (no generated titles), `description`, `draft`, `layout` optional; extra keys pass through to layouts.
 - **Layouts are plain TypeScript functions** `({ content, page, site }) => string` in `src/layouts/<name>.ts`, loaded through Vite's SSR loader. No custom template language or component syntax yet. A built-in default layout is used when `src/layouts/default.ts` is absent.
-- **Markdown**: `marked` (GFM). Raw HTML in Markdown is passed through (content is author-controlled).
+- **Markdown**: `marked` (GFM). Raw HTML in content is **sanitized by default** (DOMPurify); see the security review below.
 - **Zero client JS in build output.** The dev server injects only Vite's client for live reload.
 - **Live reload, not HMR**: any change under `src/` or to the config sends a full page reload. Pages are re-rendered per request, so new pages need no restart.
 - **Builds are atomic-ish**: all pages render before `dist/` is replaced, so a failing build leaves the last good output.
@@ -132,6 +132,29 @@ The spec says "based on demand" and warns against scope creep, so this phase add
 ### Phase 8 verification status
 
 - Snippet injection, consent forwarding, event dispatch, `_redirects`, the key file and all error paths are tested locally. **Not run against live services**: Cloudflare (needs your account), IndexNow (needs a deployed site with the key file), Plausible and Clarity (need your snippets).
+
+## Security review (2026-10-23)
+
+Trust model: the owner's config and layouts are trusted code. Page content (Markdown/frontmatter) may come from AI agents, contributors or future CMS sources. Dev/preview servers may be reachable over the network (`--host`). CLI arguments may be relayed by agents. Fetched remote text is untrusted. An independent review plus our own found 18 issues; all are fixed, with a regression test each in `tests/security.test.ts`. `npm audit`: 0 known vulnerabilities.
+
+| Issue | Fix |
+|---|---|
+| Stored XSS: `<script>`, `on*=`, `javascript:` links, iframes, forms from content reached built pages | Content sanitized with DOMPurify by default (forms, iframes, meta/base/style also removed; `data-*` kept). Opt out: `markdown: { html: "allow" }`. `check` errors on script URLs anywhere |
+| Dev server served `package.json`, config, page sources, layouts, `.dev.vars`, `/@fs/` paths, `?raw` (LAN-exposed with `--host`) | Access guard runs before Vite: only rendered pages, discovery files, `public/` files and Vite's reload client |
+| `vage indexnow --changed-since=--output=<file>` truncated arbitrary files via git option injection | Ref resolved with `git rev-parse --verify --end-of-options` to a SHA; leading `-` refused |
+| Symlinks in `public/` copied into `dist/` (exposing e.g. `../.env`, `/etc/hosts`) | Build refuses symlinks in `public/` |
+| Secret files in `public/` would be published | Build refuses secret-looking files in `public/` (Google browser keys only warn) |
+| Preview open redirect (`//evil.example/...`) and file-existence oracle; stack traces on bad `%` | Paths resolved inside `dist/` only; redirects rebuilt from the normalized path; 400 on undecodable URLs |
+| `llms.txt` line/link injection via titles | Titles, descriptions and authors must be single-line; Markdown link syntax escaped |
+| Canonical hijack via `//evil` / script `og:image` | `canonical`/`image` must be a single-`/` site path or http(s) URL; `check` warns on cross-site canonicals |
+| Malformed links crashed `check` / `audit` | Reported as `link-broken`; decoding guarded |
+| Redirect keys could write outside `dist/`; `javascript:` targets; robots.txt line injection | Config validation (no `.`/`..` segments, safe targets, no whitespace/line breaks) and a write guard in the build |
+| Secret scanner missed `.dev.vars`, `.envrc`, Google OAuth secrets/refresh tokens, VAGE JS credential files; >1 MB files skipped silently | Patterns added; large text files flagged for manual review; starter `.gitignore` covers `.dev.vars`/`.envrc` |
+| Monitor: fetched headings and LLM output pasted raw into GitHub issues; page text could close prompt tags | Rendered as inert inline code; data tags stripped from page text; heading moved inside the data tags |
+| Windows browser opening via `cmd /c start` (`&` splits commands) | `rundll32 url.dll,FileProtocolHandler`, no shell |
+| Unvalidated `--project`, `--branch`, `--remote`, `--vage-spec` reaching wrangler/git/npm | Validators refuse leading `-`, `ext::`/`fd::` remotes and non-version specs; `--` separators for git |
+
+Still by design (documented): `vage.config.ts`, layouts and the optional Lighthouse package run as code. Only run `vage` commands on projects you trust, as with any build tool.
 
 ## Not implemented
 

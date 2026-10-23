@@ -1,0 +1,51 @@
+import fs from "node:fs";
+import path from "node:path";
+import type { Plugin } from "vite";
+
+/** Vite's source-transform endpoints: they would expose project files as text or modules. */
+const SOURCE_QUERY = /[?&](raw|import|url|inline|worker|sharedworker|direct|html-proxy)\b/;
+const VITE_CLIENT = "/node_modules/vite/dist/client/";
+
+/**
+ * Runs before Vite's own middleware. The dev server only needs to serve
+ * rendered pages, discovery files, public/ files and Vite's live-reload
+ * client, so everything else (package.json, vage.config.ts, page sources,
+ * layouts, /@fs/ paths, ?raw/?import) is a 404. This matters with --host.
+ */
+export function devAccessGuard(root: string, allowedFiles: Set<string>): Plugin {
+  const publicDir = path.join(root, "public");
+  return {
+    name: "vage:dev-access-guard",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (allowed(req.url ?? "/", publicDir, allowedFiles)) return next();
+        res.statusCode = 404;
+        res.end("Not found");
+      });
+    },
+  };
+}
+
+export function allowed(url: string, publicDir: string, allowedFiles: Set<string>): boolean {
+  const [rawPath = "/", query = ""] = url.split("?");
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(rawPath);
+  } catch {
+    return false;
+  }
+  if (pathname === "/@vite/client" || pathname === "/@vite/env" || pathname.startsWith("/__vite")) return true;
+  if (pathname.startsWith(VITE_CLIENT) || (pathname.startsWith("/@fs/") && pathname.includes(VITE_CLIENT))) return !pathname.includes("..");
+  if (SOURCE_QUERY.test(`?${query}`)) return false;
+  if (pathname.startsWith("/@")) return false; // /@fs/, /@id/ and other internals
+  const ext = path.posix.extname(pathname);
+  if (!ext || ext === ".html") return true; // rendered pages (our middleware decides 200/404)
+  if (allowedFiles.has(pathname)) return true;
+  const file = path.resolve(publicDir, `.${pathname}`);
+  if (!file.startsWith(publicDir + path.sep)) return false;
+  try {
+    return fs.lstatSync(file).isFile(); // lstat: symlinks are not served
+  } catch {
+    return false;
+  }
+}

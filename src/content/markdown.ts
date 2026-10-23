@@ -9,9 +9,14 @@ const isoDate = z.preprocess(
   z.union([z.iso.date(), z.iso.datetime({ offset: true })], { error: "must be an ISO date (2026-01-31) or datetime" }),
 );
 
+// Single line, no control characters: these values end up in <title>, meta tags and llms.txt lines.
+const singleLine = z.string().regex(/^[^\u0000-\u001f\u007f]*$/, "must be a single line without control characters");
+// A site path ("/x", not "//host") or an absolute http(s) URL.
+const pathOrUrl = /^(\/(?!\/)|https?:\/\/)/;
+
 export const frontmatterSchema = z.looseObject({
-  title: z.string().min(1, "title is required").describe("Page title. Required; never invented."),
-  description: z.string().min(1).optional().describe("Meta description, og:description and llms.txt summary."),
+  title: singleLine.min(1, "title is required").describe("Page title. Required; never invented."),
+  description: singleLine.min(1).optional().describe("Meta description, og:description and llms.txt summary."),
   draft: z.boolean().default(false).describe("Skipped in builds; still visible in dev."),
   layout: z
     .string()
@@ -21,12 +26,12 @@ export const frontmatterSchema = z.looseObject({
   noindex: z.boolean().default(false).describe("Adds robots noindex; excludes the page from sitemap.xml and llms.txt."),
   canonical: z
     .string()
-    .regex(/^(\/|https?:\/\/)/, 'must be a path starting with "/" or an http(s) URL')
+    .regex(pathOrUrl, 'must be a site path starting with a single "/" or an http(s) URL')
     .optional()
     .describe("Canonical URL override (site path or absolute URL). Defaults to the page's own URL."),
-  image: z.string().min(1).optional().describe("Social preview image: site path (e.g. /images/og.png) or absolute URL."),
+  image: z.string().regex(pathOrUrl, 'must be a site path starting with a single "/" or an http(s) URL').optional().describe("Social preview image: site path (e.g. /images/og.png) or absolute URL."),
   type: z.enum(["website", "article"]).default("website").describe('"article" emits og:type=article and Article JSON-LD.'),
-  author: z.string().min(1).optional().describe("Article author name. Only use a real author."),
+  author: singleLine.min(1).optional().describe("Article author name. Only use a real author."),
   datePublished: isoDate.optional().describe("ISO date or datetime. Only use a real date."),
   dateModified: isoDate.optional().describe("ISO date or datetime; also the sitemap <lastmod>."),
 });

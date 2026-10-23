@@ -9,6 +9,7 @@ import { baseViteConfig, viteLoader } from "../core/loader.js";
 import { renderPage } from "../core/render.js";
 import { renderSite } from "../core/site.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "../core/routes.js";
+import { devAccessGuard } from "./guard.js";
 import { listenOrExplain, type ServeOptions } from "./listen.js";
 import { redirect } from "./preview.js";
 
@@ -27,6 +28,7 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
 
   const server = await createServer({
     ...baseViteConfig(root),
+    plugins: [devAccessGuard(root, new Set(Object.keys(DISCOVERY_FILES)))],
     server: { port: options.port, strictPort: options.port !== undefined, host: options.host },
   });
   const load = viteLoader(server);
@@ -53,7 +55,13 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
       if (/\.[a-z0-9]+$/i.test(pathname) && !pathname.endsWith(".html")) return next();
 
       const site = await loadConfig(root, load);
-      const route = normalizeRequestPath(urlPath);
+      let route: string;
+      try {
+        route = normalizeRequestPath(urlPath);
+      } catch {
+        res.statusCode = 400;
+        return res.end("Bad request");
+      }
       const target = Object.entries(site.redirects).find(([from]) => normalizeRequestPath(from) === route)?.[1];
       if (target) return redirect(res, target);
       const entry = discoverRoutes(pagesDir).find((r) => r.route === route);

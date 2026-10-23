@@ -26,9 +26,12 @@ Keep the rationale to two sentences and quote the decisive phrase. suggestedActi
 /**
  * @param {{ client?: Anthropic, source: { title: string, url: string }, section: string, text: string, rules: { id: string, summary: string }[] }} input
  */
+/** Page text can't close our data tags early. */
+const stripTags = (value) => value.replace(/<\/?section_(?:text|heading)>/gi, "");
+
 export async function classifyChange({ client = new Anthropic(), source, section, text, rules }) {
   const truncated = text.length > MAX_SECTION_CHARS;
-  const body = truncated ? text.slice(0, MAX_SECTION_CHARS) : text;
+  const body = stripTags(truncated ? text.slice(0, MAX_SECTION_CHARS) : text);
   const response = await client.beta.messages.parse({
     model: "claude-opus-5-5",
     max_tokens: 16000,
@@ -42,9 +45,9 @@ export async function classifyChange({ client = new Anthropic(), source, section
         role: "user",
         content:
           `Framework rules citing this page:\n${rules.map((r) => `- ${r.id}: ${r.summary}`).join("\n")}\n\n` +
-          `Page: ${source.title} (${source.url})\nSection: ${section}\n` +
+          `Page: ${source.title} (${source.url})\n` +
           (truncated ? `Note: the section was truncated to its first ${MAX_SECTION_CHARS} characters.\n` : "") +
-          `<section_text>\n${body}\n</section_text>`,
+          `<section_heading>${stripTags(section)}</section_heading>\n<section_text>\n${body}\n</section_text>`,
       },
     ],
   });

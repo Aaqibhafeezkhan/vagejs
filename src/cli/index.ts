@@ -6,6 +6,7 @@ import { cac } from "cac";
 import { check, type Finding } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
+import { assertBranchName, assertCloudflareProject, assertVageSpec } from "../core/validate.js";
 import { startDevServer } from "../dev/server.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { createInterface } from "node:readline/promises";
@@ -30,7 +31,7 @@ cli
   .option("--json", "Print machine-readable JSON")
   .action((dir: string, opts: { vageSpec: string; json?: boolean }) =>
     run(opts, () => {
-      const result = createProject(dir, opts.vageSpec);
+      const result = createProject(dir, assertVageSpec(opts.vageSpec));
       if (opts.json) return print({ ok: true, ...result });
       const rel = path.relative(process.cwd(), result.dir) || ".";
       console.log(`Created ${result.dir}\n\nNext steps:\n  cd ${rel}\n  npm install\n  npm run dev`);
@@ -379,10 +380,8 @@ cli
       if (opts.all) urls = listedPages(model).map((p) => p.meta.canonical!);
       else if (opts.urls) urls = opts.urls.split(",").map((u) => abs(u.trim()));
       else if (opts.changedSince) {
-        const { git } = await import("../deploy/git.js");
-        const { routeForPage } = await import("../core/routes.js");
-        const changed = (await git(root, ["diff", "--name-only", "--relative", opts.changedSince, "--", "src/pages"])).split("\n").filter(Boolean);
-        urls = changed.map((f) => routeForPage(f.replace(/^src\/pages\//, ""))).filter((r): r is string => Boolean(r)).map(abs);
+        const { changedPageRoutes } = await import("../deploy/git.js");
+        urls = (await changedPageRoutes(root, opts.changedSince)).map(abs);
         if (!urls.length) return opts.json ? print({ ok: true, submitted: 0 }) : console.log(`No page changes since ${opts.changedSince}.`);
       } else throw new VageError("Choose what to submit: --changed-since <ref>, --urls <list>, or --all.");
 
@@ -457,6 +456,7 @@ type Plan = import("../deploy/publish.js").PublishPlan;
 async function deployToCloudflare(opts: PublishFlags & { project?: string }, configuredProject?: string) {
   const project = opts.project ?? configuredProject;
   if (!project) throw new VageError("No Cloudflare Pages project. Pass --project <name> or set deploy.cloudflareProject.");
+  assertCloudflareProject(project);
   const root = path.resolve(opts.root);
   const { check } = await import("../checks/check.js");
   const checked = await check(root);
@@ -465,7 +465,7 @@ async function deployToCloudflare(opts: PublishFlags & { project?: string }, con
   const { gitRaw } = await import("../deploy/git.js");
   const currentBranch = (await gitRaw(root, ["branch", "--show-current"])).stdout.trim();
   const commit = (await gitRaw(root, ["rev-parse", "HEAD"])).stdout.trim() || undefined;
-  const branch = opts.branch ?? (currentBranch || "main");
+  const branch = assertBranchName(opts.branch ?? (currentBranch || "main"));
   const { deployCloudflarePages, WRANGLER } = await import("../deploy/cloudflare-pages.js");
 
   const lines = [
@@ -576,7 +576,8 @@ function askHidden(question: string): Promise<string> {
 
 function openBrowser(url: string) {
   const [cmd, args] =
-    process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["cmd", ["/c", "start", "", url]] : ["xdg-open", [url]];
+    // Windows: rundll32 opens the URL without cmd.exe, which would treat "&" in the URL as a command separator.
+    process.platform === "darwin" ? ["open", [url]] : process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : ["xdg-open", [url]];
   // Best effort; the URL is printed too.
   spawn(cmd as string, args as string[], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
 }

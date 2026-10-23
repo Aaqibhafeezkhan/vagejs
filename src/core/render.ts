@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseMarkdown, type Frontmatter } from "../content/markdown.js";
+import { sanitizeHtml } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
 import { escapeHtml } from "./html.js";
@@ -43,7 +44,9 @@ export async function renderPage(options: {
   analytics?: boolean;
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
-  const { frontmatter, body, html: content } = parseMarkdown(fs.readFileSync(file, "utf8"), file);
+  const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
+  const { frontmatter, body } = parsed;
+  const content = site.markdown.html === "allow" ? parsed.html : await sanitizeHtml(parsed.html);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const layout = await resolveLayout(root, frontmatter.layout, load, file);
   const html = await layout({

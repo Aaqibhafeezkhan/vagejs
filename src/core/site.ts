@@ -4,6 +4,7 @@ import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
 import { cloudflareRedirects } from "../deploy/redirects.js";
+import { findSecrets } from "../deploy/secrets.js";
 import { rulePack } from "../guidelines/pack.js";
 import { absoluteUrl } from "../seo/urls.js";
 import { loadConfig, type ModuleLoader, type SiteConfig } from "./config.js";
@@ -71,6 +72,7 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
     model.notFound = { ...page, route: "/404/", source: path.relative(root, notFound), outFile: "404.html" };
   }
 
+  checkPublicDir(root, model.warnings);
   model.redirects = buildRedirects(site, new Set(model.pages.map((p) => p.route)));
   addDiscoveryFiles(root, model);
   return model;
@@ -127,6 +129,38 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
       generate("llms.txt", () => llmsTxt(site.title!, site.description, pages));
       if (site.seo.llmsTxt.full) generate("llms-full.txt", () => llmsFullTxt(site.title!, site.description, pages));
     }
+  }
+}
+
+/**
+ * Everything in public/ is published. Refuses symlinks (they can point at files
+ * outside the project) and files that look like secrets. Google browser API keys
+ * are meant to be public when referrer-restricted, so they only warn.
+ */
+function checkPublicDir(root: string, warnings: string[]) {
+  const publicDir = path.join(root, "public");
+  if (!fs.existsSync(publicDir)) return;
+  const files: string[] = [];
+  const walk = (dir: string, prefix: string) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = `${prefix}${e.name}`;
+      if (e.isSymbolicLink()) {
+        throw new VageError(`public/${rel} is a symlink. Copy the real file into public/ instead; links can expose files outside the project.`);
+      }
+      if (e.isDirectory()) walk(path.join(dir, e.name), `${rel}/`);
+      else files.push(rel);
+    }
+  };
+  walk(publicDir, "");
+  const hits = findSecrets(publicDir, files);
+  const blocking = hits.filter((h) => h.reason !== "looks like a Google API key");
+  for (const h of hits.filter((h) => !blocking.includes(h))) {
+    warnings.push(`public/${h.path} contains a Google API key and will be public. Fine for a referrer-restricted browser key; otherwise remove it.`);
+  }
+  if (blocking.length) {
+    throw new VageError(
+      `Refusing to publish possible secrets from public/:\n${blocking.map((h) => `  public/${h.path}: ${h.reason}`).join("\n")}\nEverything in public/ is served to the world. Move these files out (and rotate exposed credentials).`,
+    );
   }
 }
 

@@ -127,19 +127,28 @@ export function changeReport(pack: RulePack, changes: SourceChange[], date: stri
   for (const c of changes) {
     lines.push(`## ${c.source.title} (${c.source.provider})`, "", `- Source: ${c.source.url}`, `- Change: ${c.kind}${c.detail ? ` (${c.detail})` : ""}`);
     for (const [label, list] of [["Added sections", c.added], ["Removed sections", c.removed], ["Modified sections", c.modified]] as const) {
-      if (list.length) lines.push(`- ${label}: ${list.map((h) => `"${h}"`).join(", ")}`);
+      if (list.length) lines.push(`- ${label}: ${list.map((h) => untrusted(h, 120)).join(", ")}`);
     }
     const rules = affectedRules(pack, c.source.id);
     lines.push(`- Affected rules: ${rules.length ? rules.map((r) => `\`${r.id}\`${r.behaviorChanging ? " (changes output)" : ""}`).join(", ") : "none (tracked only)"}`);
     const drafts = classifications.filter((x) => x.sourceId === c.source.id);
     if (drafts.length) {
       lines.push("- Draft classification (LLM, not authoritative):");
-      for (const d of drafts) lines.push(`  - "${d.section}": **${d.classification}**: ${d.rationale} Suggested: ${d.suggestedAction}`);
+      for (const d of drafts) lines.push(`  - ${untrusted(d.section, 120)}: **${d.classification}**: ${untrusted(d.rationale)} Suggested: ${untrusted(d.suggestedAction)}`);
     }
     lines.push("");
   }
   lines.push("## Next steps", "", "1. Read each changed source.", "2. If a rule must change, edit `src/guidelines/rule-pack.json`, bump `version`, add a changelog entry (`reviewedBy`, new `contentHash`).", "3. Run `npm test` (golden outputs show the effect) and release.", "4. Then run the monitor with `--update` to accept the new snapshots.", "");
   return lines.join("\n");
+}
+
+/**
+ * Fetched headings and LLM output are untrusted: shown as inline code so they
+ * can't become links, images, HTML or @-mentions in the issue.
+ */
+export function untrusted(text: string, max = 300): string {
+  const one = text.replace(/\s+/g, " ").replace(/`/g, "'").trim();
+  return `\`${one.length > max ? `${one.slice(0, max)}…` : one}\``;
 }
 
 export function affectedRules(pack: RulePack, sourceId: string) {

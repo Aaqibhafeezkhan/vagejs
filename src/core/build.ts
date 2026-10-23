@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { VageError } from "./errors.js";
 import { createBuildLoader } from "./loader.js";
 import { renderSite, type SiteModel } from "./site.js";
 
@@ -39,7 +40,9 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
     const publicDir = path.join(root, "public");
     if (fs.existsSync(publicDir)) fs.cpSync(publicDir, outDir, { recursive: true });
     for (const [output, content] of outputs) {
-      const target = path.join(outDir, output);
+      const target = path.resolve(outDir, output);
+      // Defense in depth: config is validated, but never write outside dist/.
+      if (!target.startsWith(outDir + path.sep)) throw new VageError(`Refusing to write outside ${OUT_DIR}/: ${output}`);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, content);
     }

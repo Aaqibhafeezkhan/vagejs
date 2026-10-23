@@ -14,8 +14,14 @@ function toggle<T extends z.ZodType>(options: T) {
     .transform((v): z.output<T> | false => (v === true ? options.parse({}) : v === false ? false : (v as z.output<T>)));
 }
 
-const userAgents = z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]);
-const urlPath = z.string().regex(/^\//, 'must start with "/"');
+// No whitespace or control characters: these values become robots.txt lines and output paths.
+const token = z.string().min(1).regex(/^[^\s\u0000-\u001f\u007f]+$/, "must not contain spaces or line breaks");
+const userAgents = z.union([token, z.array(token).min(1)]);
+const urlPath = token.regex(/^\//, 'must start with "/"');
+/** Redirect source: a site path without ".." segments (it becomes a file path under dist/). */
+const redirectSource = urlPath.refine((p) => !p.split("/").some((seg) => seg === ".." || seg === "."), 'must not contain "." or ".." segments');
+/** Redirect target: a site path ("/x", not "//host") or an absolute http(s) URL. */
+const redirectTarget = token.regex(/^(\/(?!\/)|https?:\/\/)/, 'must be a site path starting with a single "/" or an http(s) URL');
 
 const robotsSchema = z.strictObject({
   rules: z
@@ -185,6 +191,14 @@ export const configSchema = z.strictObject({
   title: z.string().min(1).optional().describe("Site name: page titles, og:site_name, llms.txt heading."),
   description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
   lang: z.string().min(1).default("en").describe("<html lang> value."),
+  markdown: z
+    .strictObject({
+      html: z
+        .enum(["sanitize", "allow"])
+        .default("sanitize")
+        .describe('"sanitize" removes scripts, event handlers, javascript: URLs, iframes and forms from page content. "allow" trusts all content authors.'),
+    })
+    .default({ html: "sanitize" }),
   seo: seoSchema.default(() => seoSchema.parse({})),
   performance: performanceSchema.default(() => performanceSchema.parse({})),
   deploy: z
@@ -204,7 +218,13 @@ export const configSchema = z.strictObject({
     .default({}),
   integrations: integrationsSchema.default({}).describe("Optional analytics and search integrations. All off unless configured."),
   redirects: z
-    .record(urlPath, z.string().min(1))
+    .record(z.string(), redirectTarget)
+    .superRefine((redirects, ctx) => {
+      for (const from of Object.keys(redirects)) {
+        const result = redirectSource.safeParse(from);
+        if (!result.success) ctx.addIssue({ code: "custom", path: [from], message: `redirect source "${from}" ${result.error.issues[0]!.message}` });
+      }
+    })
     .default({})
     .describe("Old path -> new path or URL. Built as noindex meta-refresh pages; dev answers 301."),
 });
