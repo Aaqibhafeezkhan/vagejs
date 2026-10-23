@@ -47,6 +47,9 @@ describe("vage CLI (packed package)", () => {
     }
     expect(fs.readFileSync(path.join(site, "dist", "index.html"), "utf8")).toContain("<title>Home | My Website</title>");
     expect(fs.existsSync(path.join(site, ".github/workflows/ci.yml")), "starter CI survives npm pack").toBe(true);
+    for (const f of ["links.lock.json", ".github/dependabot.yml", ".github/workflows/verify.yml"]) {
+      expect(fs.existsSync(path.join(site, f)), `${f} survives npm pack`).toBe(true);
+    }
     for (const file of ["robots.txt", "sitemap.xml", "llms.txt"]) {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }

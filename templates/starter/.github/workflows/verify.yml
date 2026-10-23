@@ -1,0 +1,28 @@
+# Daily check that the live site still matches this repository (catches injected links,
+# scripts and pages). Opt in: Settings → Secrets and variables → Actions → Variables,
+# add VAGE_VERIFY_URL with your site's origin, e.g. https://example.com.
+# GitHub emails you when a scheduled run fails.
+name: Verify live site
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: ${{ vars.VAGE_VERIFY_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vage verify --url "$VAGE_VERIFY_URL"
+        env:
+          VAGE_VERIFY_URL: ${{ vars.VAGE_VERIFY_URL }}

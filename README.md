@@ -196,6 +196,26 @@ Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-la
 
 Page content is sanitized, dev/preview servers serve only what a site needs, and Cloudflare deploys get security headers with a computed Content-Security-Policy. Report vulnerabilities privately: see [SECURITY.md](SECURITY.md).
 
+### Protection against spam injection
+
+A static site has no admin panel, database or plugins to break into, so attackers go after your content, your repository or your host instead, usually to plant hidden links and spam pages. vagejs checks for that on every build:
+
+| Protection | What it does |
+| --- | --- |
+| Outbound link lock | `links.lock.json` lists the domains your site may link to. A link to any other domain fails `vage check` (and so every deploy) until you approve it with `vage links approve <domain>`. |
+| No hidden links | Inline styles are stripped from page content, and `vage check` fails on links hidden with CSS (`display:none`, off-screen, zero size…), in content and layouts. |
+| Spam words | `vage check` warns about common injected-spam terms (casino, pharmacy, payday loans…). |
+| Live-site verification | `vage verify` compares the live site with your files and fails on links, scripts or sitemap pages that aren't in your repository. New sites include a daily GitHub Actions check (opt in with the `VAGE_VERIFY_URL` variable). |
+| Supply chain | New sites run `npm audit` in CI and get Dependabot updates. |
+
+```bash
+npx vage links                    # list external domains: approved or NEW
+npx vage links approve github.com # approve one (asks first)
+npx vage verify                   # compare the live site with your files
+```
+
+Also protect the accounts around the site: two-factor authentication on GitHub, npm, your host and your domain registrar; branch protection on `main`; and Google Search Console alerts for security issues.
+
 ## Contributing
 
 ```bash

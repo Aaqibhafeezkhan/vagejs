@@ -17,6 +17,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Fails on known high-severity vulnerabilities in dependencies (supply-chain attacks, injected code).
+      - run: npm audit --audit-level=high
       - run: npx vage check
       - run: npx vage build
       - run: npx vage audit

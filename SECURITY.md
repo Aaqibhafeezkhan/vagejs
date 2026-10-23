@@ -14,6 +14,10 @@ Please include:
 
 We aim to acknowledge reports within 3 business days and to agree a fix and disclosure timeline with you. We credit reporters in the release notes unless you prefer otherwise.
 
+## What vagejs protects against
+
+Besides sanitizing content and safe deploys, vagejs guards against injected spam: outbound links must be approved in `links.lock.json`, inline styles are stripped from content, links hidden with CSS fail `vage check`, spam vocabulary is flagged, and `vage verify` detects changes to the live site that aren't in the repository. Reports about ways around these protections are welcome.
+
 ## Supported versions
 
 vagejs is pre-release (0.x). Security fixes go into the latest 0.x release only.

@@ -1,0 +1,4 @@
+{
+  "$comment": "External domains this site may link to. vage check fails on links to any other domain. Only the site owner approves new ones: npx vage links approve <domain>",
+  "domains": []
+}
