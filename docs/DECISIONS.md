@@ -15,7 +15,7 @@ Phase 0 record. Dates are 2026-10-23 unless noted.
 
 `npm view` on 2026-10-23 returned 404 (no published package) for `vagejs`, `vage`, `create-vagejs`, `@vagejs/core`.
 A 404 only means nothing is published under that name right now. Trademark, GitHub org and domain
-checks have **not** been done. `package.json` is `"private": true` to prevent an accidental publish.
+checks have **not** been done. `"private": true` was removed when preparing the release (2026-10-23); publishing still needs the owner's npm login and 2FA. Re-checked that day: `vagejs`, `create-vagejs`, `vage` and `@vagejs/cli` were all unclaimed.
 Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain separate decisions.
 
 ## Implementation choices (Phase 1)
@@ -163,6 +163,12 @@ Trust model: the owner's config and layouts are trusted code. Page content (Mark
 - **`SECURITY.md`**: private reporting through GitHub's "Report a vulnerability" (enable private vulnerability reporting in the repository settings). No email address yet; add one at vagejs.com when it exists.
 
 Still by design (documented): `vage.config.ts`, layouts and the optional Lighthouse package run as code. Only run `vage` commands on projects you trust, as with any build tool.
+
+## Release setup
+
+- Two packages: `vagejs` (framework and CLI) and `create-vagejs` (`npm create vagejs`, which delegates to `vage create` so there is one scaffolder; pinned to the same version).
+- `prepublishOnly` runs typecheck, all tests and the end-to-end tests (which pack and install both tarballs, as users will). The e2e tests clear the `npm_config_dry_run` npm passes to child processes, so `npm publish --dry-run` is a faithful rehearsal.
+- Releases after the first use npm trusted publishing from `.github/workflows/release.yml` (OIDC: no stored token; provenance automatic), behind a GitHub environment with required reviewers. The first publish is manual, because trusted publishing is configured on an existing package. See `docs/RELEASING.md`.
 
 ## Not implemented
 

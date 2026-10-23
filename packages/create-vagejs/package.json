@@ -1,0 +1,30 @@
+{
+  "name": "create-vagejs",
+  "version": "0.1.0",
+  "description": "Create a new VAGE JS website: npm create vagejs@latest my-site",
+  "keywords": [
+    "vagejs",
+    "create",
+    "static-site-generator",
+    "scaffold"
+  ],
+  "homepage": "https://vagejs.com",
+  "author": "vagejs.com",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-vagejs": "index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "vagejs": "0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

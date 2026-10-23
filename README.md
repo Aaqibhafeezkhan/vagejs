@@ -4,7 +4,7 @@
 
 # VAGE JS
 
-An AI-native, static-first web framework. **Pre-release (Phase 8)**: not published to npm.
+An AI-native, static-first web framework. **Pre-release (0.x).**
 
 ## What works today
 
@@ -33,17 +33,18 @@ Failures exit with code 1. With `--json`, output is `{ "ok": true, ... }` or `{ 
 
 See [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md) for routing, frontmatter, layouts and config, and [`docs/DECISIONS.md`](docs/DECISIONS.md) for design decisions.
 
-## Trying it locally (before any npm release)
+## Getting started
 
 ```bash
+npm create vagejs@latest my-site
+cd my-site
 npm install
-npm run build
-npm pack                                   # -> vagejs-0.1.0.tgz
-node dist/cli/index.js create ../my-site --vage-spec "file:$PWD/vagejs-0.1.0.tgz"
-cd ../my-site && npm install && npm run dev
+npm run dev
 ```
 
-Provider facts (AI crawler tokens, Web Vitals thresholds, GA4 limits…) come from a versioned, source-linked rule pack that is monitored for upstream changes. See [`docs/GUIDELINES.md`](docs/GUIDELINES.md).
+## Releasing
+
+See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Development
 

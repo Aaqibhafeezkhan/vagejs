@@ -1,0 +1,35 @@
+name: Release
+
+# Publishes vagejs and create-vagejs when a tag like v0.1.1 is pushed.
+# Uses npm trusted publishing (OIDC): no npm token is stored in GitHub.
+# npm adds provenance automatically for public repos and packages.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm # add required reviewers to this environment in repo settings
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install -g npm@^11.5.1 # trusted publishing needs npm >= 11.5.1
+      - name: Check versions match the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          node -e 'const [t]=process.argv.slice(1);const a=require("./package.json").version,b=require("./packages/create-vagejs/package.json");if(a!==t||b.version!==t||b.dependencies.vagejs!==t){console.error(`tag ${t}, vagejs ${a}, create-vagejs ${b.version} -> vagejs ${b.dependencies.vagejs}`);process.exit(1)}' "$tag"
+      - run: npm ci
+      - run: npm publish # prepublishOnly runs typecheck, tests and end-to-end tests
+      - run: npm publish
+        working-directory: packages/create-vagejs

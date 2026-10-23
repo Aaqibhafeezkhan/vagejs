@@ -1,18 +1,32 @@
 {
   "name": "vagejs",
   "version": "0.1.0",
-  "description": "VAGE JS — an AI-native, static-first web framework (pre-release, unpublished).",
+  "description": "AI-native, static-first web framework: Markdown sites with built-in SEO, llms.txt, audits, security and safe deploys.",
+  "keywords": [
+    "static-site-generator",
+    "ssg",
+    "markdown",
+    "seo",
+    "llms-txt",
+    "ai-agents",
+    "vite",
+    "cli",
+    "web-framework"
+  ],
+  "homepage": "https://vagejs.com",
+  "author": "vagejs.com",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "bin": {
-    "vage": "./dist/cli/index.js"
+    "vage": "dist/cli/index.js"
   },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./cli": "./dist/cli/index.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -26,7 +40,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude tests/e2e.test.ts",
     "test:e2e": "npm run build && vitest run tests/e2e.test.ts",
-    "guidelines:monitor": "npm run build && node scripts/guidelines-monitor.mjs"
+    "guidelines:monitor": "npm run build && node scripts/guidelines-monitor.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run test:e2e"
   },
   "dependencies": {
     "axe-core": "^4.14.0",
@@ -54,5 +69,8 @@
     "lighthouse": {
       "optional": true
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

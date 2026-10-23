@@ -12,6 +12,9 @@ let work: string;
 let tarball: string;
 
 beforeAll(() => {
+  // Under `npm publish --dry-run` (prepublishOnly), npm exports npm_config_dry_run to child
+  // processes; the npm commands below must really pack and install.
+  delete process.env.npm_config_dry_run;
   work = fs.mkdtempSync(path.join(os.tmpdir(), "vage-e2e-"));
   const packed = execFileSync("npm", ["pack", "--pack-destination", work, "--json"], { cwd: REPO, encoding: "utf8" });
   tarball = path.join(work, JSON.parse(packed)[0].filename);
@@ -110,6 +113,21 @@ describe("vage CLI (packed package)", () => {
     expect(refused.stderr).toMatch(/Confirmation required/);
     expect(fs.existsSync(path.join(site, ".git"))).toBe(false);
   }, 120_000);
+
+  it("npm create vagejs: the create-vagejs package scaffolds a site pinned to the released version", () => {
+    const createDir = path.join(REPO, "packages", "create-vagejs");
+    const packed = execFileSync("npm", ["pack", "--pack-destination", work, "--json"], { cwd: createDir, encoding: "utf8" });
+    const createTarball = path.join(work, JSON.parse(packed)[0].filename);
+    const runner = path.join(work, "runner");
+    fs.mkdirSync(runner);
+    // Install both tarballs, as `npm create` would from the registry.
+    execFileSync("npm", ["install", "--no-audit", "--no-fund", tarball, createTarball], { cwd: runner, stdio: "pipe" });
+    const res = spawnSync(path.join(runner, "node_modules", ".bin", "create-vagejs"), ["fresh-site"], { cwd: work, encoding: "utf8" });
+    expect(res.status, res.stderr).toBe(0);
+    const pkg = JSON.parse(fs.readFileSync(path.join(work, "fresh-site", "package.json"), "utf8"));
+    expect(pkg.devDependencies.vagejs).toBe("^0.1.0");
+    expect(spawnSync(path.join(runner, "node_modules", ".bin", "create-vagejs"), [], { encoding: "utf8" }).stderr).toMatch(/Usage: npm create vagejs@latest/);
+  }, 300_000);
 
   it("returns non-zero with a JSON error for failures", () => {
     const res = vage(["build", "--root", path.join(work, "missing"), "--json"], work);
