@@ -3,6 +3,7 @@ import path from "node:path";
 import { parseFrontmatter, type Frontmatter } from "../content/markdown.js";
 import { pageMeta } from "../seo/head.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
+import { clonePlain } from "./clone.js";
 import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
 import { discoverRoutes } from "./routes.js";
@@ -51,11 +52,13 @@ export async function collectPages(root: string, site: SiteConfig, load: ModuleL
     });
   }
   // A frozen deep copy: shared by every layout, and never the objects a page renders with.
-  return deepFreeze(structuredClone(out));
+  return deepFreeze(clonePlain(out));
 }
 
+/** Freezes plain data only; URL/Date/class instances from schema transforms stay usable. */
 function deepFreeze<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+  const plain = Array.isArray(value) || (value && typeof value === "object" && [Object.prototype, null].includes(Object.getPrototypeOf(value)));
+  if (plain && !Object.isFrozen(value)) {
     Object.freeze(value);
     for (const v of Object.values(value)) deepFreeze(v);
   }

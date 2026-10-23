@@ -156,3 +156,13 @@ export default ({ page }) => { page.frontmatter.v.list.push("x"); return \`<html
     await expect(build(root)).rejects.toThrow(/Zod object schema/);
   });
 });
+
+describe("schema transforms (final review)", () => {
+  it("keeps values like URL objects from schema transforms working", async () => {
+    const root = copyFixture();
+    write(root, "src/layouts/link.ts", `import { z } from ${ZOD};\nexport const frontmatter = z.object({ home: z.string().transform((s) => new URL(s)) });\nexport default ({ page }) => \`<html lang="en"><head><title>\${page.title}</title></head><body>\${page.frontmatter.home.hostname}</body></html>\`;`);
+    write(root, "src/pages/l.md", "---\ntitle: L\ndescription: L.\nlayout: link\nhome: https://example.org/x\n---\n# L\n");
+    await build(root);
+    expect(fs.readFileSync(path.join(root, "dist/l/index.html"), "utf8")).toContain("<body>example.org</body>");
+  });
+});

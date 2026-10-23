@@ -20,6 +20,10 @@ export default defineConfig({
     },
   },
 
+  // Spam protection: links to other websites must be approved in links.lock.json
+  // (npx vage links approve <domain>). "require" also fails if that file is deleted.
+  security: { outboundLinks: "require" },
+
   // redirects: { "/old-page/": "/about/" },
 
   // Analytics is off until you configure it. Tags are added to production builds only.

@@ -2,7 +2,7 @@ import path from "node:path";
 import { VageError } from "../core/errors.js";
 import { createBuildLoader } from "../core/loader.js";
 import { renderSite } from "../core/site.js";
-import { outboundHosts, readLinkLock, writeLinkLock } from "./integrity.js";
+import { normalizeHost, outboundHosts, readLinkLock, writeLinkLock } from "./integrity.js";
 
 export interface LinkStatus {
   /** External domains the site links to now, with how many pages link there, and whether they're approved. */
@@ -30,13 +30,24 @@ export async function linkStatus(root: string): Promise<LinkStatus> {
   }
 }
 
-const HOSTNAME = /^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+/** "Bücher.DE." -> "xn--bcher-kva.de"; throws for anything that isn't a bare host (or IP). */
+export function parseHost(input: string): string {
+  const raw = input.trim();
+  let host: string;
+  try {
+    if (/[/\\?#@\s]/.test(raw) || raw.includes("://")) throw new Error("not a host");
+    host = new URL(`http://${raw}`).hostname;
+  } catch {
+    throw new VageError(`"${input}" is not a domain name. Use a host like example.com (no https://, no path).`);
+  }
+  host = normalizeHost(host);
+  if (!host || (!host.includes(".") && !host.startsWith("["))) throw new VageError(`"${input}" is not a domain name. Use a host like example.com.`);
+  return host;
+}
 
 /** The lock file's domains after approving `add` (and, with `prune`, dropping unused ones). */
 export function nextLock(status: LinkStatus, current: string[], add: string[], prune: boolean): string[] {
-  for (const d of add) {
-    if (!HOSTNAME.test(d)) throw new VageError(`"${d}" is not a domain name. Use a host like example.com (no https://, no path).`);
-  }
+  add = add.map(parseHost);
   const keep = prune ? current.filter((d) => !status.unused.includes(d)) : current;
   return [...new Set([...keep, ...add])].sort();
 }

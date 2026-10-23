@@ -1,7 +1,8 @@
 # Daily check that the live site still matches this repository (catches injected links,
 # scripts and pages). Opt in: Settings → Secrets and variables → Actions → Variables,
 # add VAGE_VERIFY_URL with your site's origin, e.g. https://example.com.
-# GitHub emails you when a scheduled run fails.
+# GitHub emails you when a scheduled run fails. If vage.config.ts reads other environment
+# variables (e.g. analytics IDs), add them as repository variables too, as below.
 name: Verify live site
 
 on:
@@ -26,3 +27,6 @@ jobs:
       - run: npx vage verify --url "$VAGE_VERIFY_URL"
         env:
           VAGE_VERIFY_URL: ${{ vars.VAGE_VERIFY_URL }}
+          # The same values your site is built with, so analytics tags match the live pages.
+          GA4_MEASUREMENT_ID: ${{ vars.GA4_MEASUREMENT_ID }}
+          GTM_CONTAINER_ID: ${{ vars.GTM_CONTAINER_ID }}

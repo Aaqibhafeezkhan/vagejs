@@ -234,9 +234,9 @@ export const configSchema = z.strictObject({
         .default({})
         .describe("Extra sources per directive, e.g. { \"connect-src\": [\"https://api.example.com\"] }."),
       outboundLinks: z
-        .enum(["lock", "off"])
+        .enum(["require", "lock", "off"])
         .default("lock")
-        .describe('"lock": every external domain the site links to must be listed in links.lock.json (approve with `vage links approve`); new domains fail `vage check`. Catches injected spam links.'),
+        .describe('"lock": when links.lock.json exists, every external domain the site links to must be listed there (approve with `vage links approve`); new domains fail `vage check`. Catches injected spam links. "require": the same, and a missing links.lock.json is an error, so deleting it can\'t switch the guard off. "off": no guard.'),
       spamPatterns: z.boolean().default(true).describe("Warn in `vage check` about common spam words (casino, pills, payday loans...) in page text and links."),
     })
     .default({ headers: true, csp: "enforce", cspSources: {}, outboundLinks: "lock", spamPatterns: true }),

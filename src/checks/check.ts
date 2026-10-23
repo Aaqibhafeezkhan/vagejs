@@ -3,7 +3,7 @@ import path from "node:path";
 import { parse, type HTMLElement } from "node-html-parser";
 import { createBuildLoader } from "../core/loader.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
-import { externalHost, hiddenReason, LINK_LOCK, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
+import { externalHost, hiddenReason, isEmptyLink, LINK_LOCK, linkTarget, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
 
 export type Severity = "error" | "warning";
 
@@ -180,15 +180,7 @@ function checkPage(
 
   for (const a of doc.querySelectorAll("a[href]")) {
     const href = a.getAttribute("href")!;
-    const hidden = hiddenReason(a);
-    if (hidden) {
-      const external = externalHost(href, model.site.site) !== undefined;
-      add({
-        rule: "link-hidden",
-        severity: external ? "error" : "warning",
-        message: `Link to "${href}" is ${hidden}: visitors can't see it, but search engines can. Hidden links are a common sign of injected spam. Remove it, or show it.`,
-      });
-    }
+    checkHiddenLink(a, href, model, add);
     if (!a.text.trim() && !a.getAttribute("aria-label") && !a.querySelector("img[alt]:not([alt=''])")) {
       add({ rule: "link-text", severity: "warning", message: `Link to "${href}" has no accessible text.`, docs: DOCS.linkPurpose });
     }
@@ -209,6 +201,11 @@ function checkPage(
     } else if (resolved === "needs-slash") {
       add({ rule: "link-trailing-slash", severity: "warning", message: `Link to "${href}" redirects; use "${target}/".` });
     }
+  }
+
+  // SVG links (a xlink:href) aren't in the loop above; they get the hidden-link check too.
+  for (const a of doc.querySelectorAll("a")) {
+    if (!a.hasAttribute("href") && a.getAttribute("xlink:href")) checkHiddenLink(a, linkTarget(a)!, model, add);
   }
 
   for (const [selector, attr] of [
@@ -339,6 +336,18 @@ function checkDuplicates(pages: SitePage[]): Finding[] {
   return findings;
 }
 
+/** Links visitors can't see but search engines can: the signature of injected spam. */
+function checkHiddenLink(a: HTMLElement, href: string, model: SiteModel, add: (f: Omit<Finding, "page" | "source">) => void) {
+  const external = externalHost(href, model.site.site) !== undefined;
+  const hidden = hiddenReason(a) ?? (external && isEmptyLink(a) ? { reason: "empty (no text or image)", strength: "strong" as const } : undefined);
+  if (!hidden) return;
+  add({
+    rule: "link-hidden",
+    severity: external && hidden.strength === "strong" ? "error" : "warning",
+    message: `Link to "${href}" is ${hidden.reason}: visitors can't see it, but search engines can. Hidden links are a common sign of injected spam. Remove it, or show it.`,
+  });
+}
+
 /**
  * Outbound link guard: with security.outboundLinks "lock", every external domain must be
  * listed in links.lock.json. A domain nobody approved is how injected spam usually shows up.
@@ -347,6 +356,9 @@ function checkOutboundLinks(root: string, model: SiteModel): Finding[] {
   if (model.site.security.outboundLinks === "off") return [];
   const hosts = outboundHosts(model);
   const lock = readLinkLock(root);
+  if (!lock && model.site.security.outboundLinks === "require") {
+    return [{ rule: "links-lock-missing", severity: "error", message: `${LINK_LOCK} is missing, but security.outboundLinks is "require". Restore it from git, or have the site owner recreate it with "npx vage links approve --all" after reviewing "npx vage links".` }];
+  }
   if (!lock) {
     return hosts.size
       ? [{ rule: "links-lock-missing", severity: "warning", message: `The site links to ${hosts.size} external domain(s) and has no ${LINK_LOCK}. The site owner should review them with "npx vage links" and approve them with "npx vage links approve --all"; after that, links to any new domain fail the check.` }]

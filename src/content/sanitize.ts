@@ -38,10 +38,12 @@ export async function sanitizeHtml(html: string, options: { publicDir?: string; 
   }
   try {
     return purifier.sanitize(html, {
-      FORBID_TAGS: ["style", "form", "input", "button", "textarea", "select", "option", "base", "link", "meta", "object", "embed"],
+      // font/marquee/center: legacy ways to hide or disguise text (white-on-white, 1px scrollers).
+      FORBID_TAGS: ["style", "form", "input", "button", "textarea", "select", "option", "base", "link", "meta", "object", "embed", "font", "marquee", "center"],
       ALLOW_DATA_ATTR: true,
       // Inline styles are the usual way to hide injected links (display:none, off-screen); layouts style pages.
-      FORBID_ATTR: options.inlineStyles ? [] : ["style"],
+      // xlink:href: SVG links, which would slip past link checks.
+      FORBID_ATTR: options.inlineStyles ? ["xlink:href"] : ["style", "xlink:href"],
     });
   } finally {
     if (publicDir) purifier.removeHook("afterSanitizeAttributes", hook);

@@ -6,19 +6,21 @@ import { fingerprint, verifySite } from "../src/checks/verify.js";
 import { copyFixture } from "./helpers.js";
 
 /** A fake live site that serves the real build output, with optional tampering. */
-async function liveSite(tamper: (route: string, html: string) => string = (_, h) => h, extraSitemap = "") {
+async function liveSite(tamper: (route: string, html: string, ua: string) => string = (_, h) => h, extraSitemap = "", robots?: (t: string) => string) {
   const root = copyFixture();
   await build(root);
   const dist = path.join(root, "dist");
   const fetched: string[] = [];
-  const fake = (async (input: string | URL | Request) => {
+  const fake = (async (input: string | URL | Request, init?: RequestInit) => {
+    const ua = String((init?.headers as Record<string, string> | undefined)?.["user-agent"] ?? "");
     const url = new URL(String(input));
     fetched.push(url.pathname);
     const file = url.pathname.endsWith("/") ? path.join(dist, url.pathname, "index.html") : path.join(dist, url.pathname);
     if (!fs.existsSync(file)) return new Response("", { status: 404 });
     let body = fs.readFileSync(file, "utf8");
     if (url.pathname === "/sitemap.xml") body = body.replace("</urlset>", `${extraSitemap}</urlset>`);
-    else body = tamper(url.pathname, body);
+    else if (url.pathname === "/robots.txt") body = robots ? robots(body) : body;
+    else body = tamper(url.pathname, body, ua);
     return new Response(body);
   }) as typeof fetch;
   return { root, fake, fetched };
@@ -66,5 +68,39 @@ describe("vage verify", () => {
     const a = fingerprint('<body><p>Hi  there</p><a href="/x">x</a><script>var a=1</script></body>', "https://s.example/p/");
     const b = fingerprint('<body>\n<p>Hi there</p>\n<a  href="https://s.example/x">x</a><script>var a=1</script></body>', "https://s.example/p/");
     expect(a).toEqual(b);
+  });
+});
+
+describe("vage verify (final review)", () => {
+  const inject = (snippet: string, where = "</body>") => (route: string, html: string) => (route === "/about/" ? html.replace(where, `${snippet}${where}`) : html);
+
+  it("catches meta refresh, iframes, swapped canonicals, inline handlers, JSON-LD and forms", async () => {
+    for (const [snippet, where] of [
+      ['<meta http-equiv="refresh" content="0;url=https://spam.example/">', "</head>"],
+      ['<iframe src="https://spam.example/" width="0" height="0"></iframe>', "</body>"],
+      ['<link rel="canonical" href="https://spam.example/">', "</head>"],
+      ['<img src="/x.png" onload="location=1">', "</body>"],
+      ['<script type="application/ld+json">{"sameAs":"https://spam.example/"}</script>', "</head>"],
+      ['<form action="https://spam.example/"></form>', "</body>"],
+    ]) {
+      const { root, fake } = await liveSite(inject(snippet!, where));
+      const result = await verifySite(root, { fetch: fake });
+      expect(result.ok, snippet).toBe(false);
+    }
+  });
+
+  it("fails on text-only spam and ignores Cloudflare's own scripts", async () => {
+    const spam = await liveSite(inject("<p>buy cheap viagra here</p>"));
+    expect((await verifySite(spam.root, { fetch: spam.fake })).differences.find((d) => d.kind === "text-changed")?.severity).toBe("error");
+    const cdn = await liveSite((_, html) => html.replace("</body>", '<script src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script defer src="https://static.cloudflareinsights.com/beacon.min.js"></script></body>'));
+    expect((await verifySite(cdn.root, { fetch: cdn.fake })).ok).toBe(true);
+  });
+
+  it("catches spam shown only to Googlebot, and changes to robots.txt", async () => {
+    const cloaked = await liveSite((route, html, ua) => (ua.includes("Googlebot") && route === "/" ? html.replace("</body>", '<a href="https://casino.example/">casino</a></body>') : html));
+    const result = await verifySite(cloaked.root, { fetch: cloaked.fake });
+    expect(result.differences.find((d) => d.kind === "links-added")!.detail).toMatch(/Only when visited as Googlebot/);
+    const robots = await liveSite(undefined, "", (t) => `${t}\nSitemap: https://spam.example/sitemap.xml\n`);
+    expect((await verifySite(robots.root, { fetch: robots.fake })).differences.map((d) => d.kind)).toContain("robots-changed");
   });
 });

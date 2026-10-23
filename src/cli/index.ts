@@ -335,7 +335,7 @@ cli
         return;
       }
       if (action !== "approve") throw new VageError(`Unknown action "${action}". Use "vage links" to list or "vage links approve <domain...>".`);
-      const add = opts.all ? status.domains.map((d) => d.domain) : domains.map((d) => d.toLowerCase().replace(/^www\./, ""));
+      const add = opts.all ? status.domains.map((d) => d.domain) : domains;
       if (!add.length && !opts.prune) throw new VageError('Name the domains to approve ("vage links approve example.com"), or pass --all after reviewing "vage links".');
       const current = readLinkLock(root)?.domains ?? [];
       const next = nextLock(status, current, add, Boolean(opts.prune));

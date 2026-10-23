@@ -4,6 +4,7 @@ import { parse } from "node-html-parser";
 import { VageError } from "../core/errors.js";
 import { createBuildLoader } from "../core/loader.js";
 import { renderSite } from "../core/site.js";
+import { spamHits } from "./integrity.js";
 
 /**
  * `vage verify`: compares the live site with a fresh local render of the project. Anything
@@ -13,15 +14,19 @@ import { renderSite } from "../core/site.js";
  */
 
 export interface PageFingerprint {
+  /** Where the page sends people and crawlers: links, canonical/og:url, meta refresh, iframes, embeds, forms. */
   links: string[];
+  /** Scripts (src or hash), inline event handlers (hash) and JSON-LD blocks (hash). */
   scripts: string[];
   text: string;
+  /** Spam vocabulary in the visible text (read with spaces intact). */
+  spam: string[];
 }
 
 export interface Difference {
   route: string;
   severity: "error" | "warning";
-  kind: "unreachable" | "links-added" | "links-removed" | "scripts-added" | "text-changed" | "sitemap-extra";
+  kind: "unreachable" | "links-added" | "links-removed" | "scripts-added" | "text-changed" | "sitemap-extra" | "robots-changed";
   detail: string;
 }
 
@@ -32,34 +37,62 @@ export interface VerifyResult {
   differences: Difference[];
 }
 
+const GOOGLEBOT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+
 const sha = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 
-/** What matters for injected spam: link targets, scripts and visible text, independent of formatting. */
+/** Scripts a CDN adds by itself (Cloudflare email protection, Web Analytics), not content changes. */
+const CDN_SCRIPT = /\/cdn-cgi\/|static\.cloudflareinsights\.com/;
+
+const TARGETS: [string, string, (el: import("node-html-parser").HTMLElement) => string | null | undefined][] = [
+  ["a, area", "", (el) => el.getAttribute("href") ?? el.getAttribute("xlink:href")],
+  ["link[href]", "link:", (el) => el.getAttribute("href")],
+  ['meta[property="og:url"]', "og:url:", (el) => el.getAttribute("content")],
+  ["meta[http-equiv]", "refresh:", (el) => (/^refresh$/i.test(el.getAttribute("http-equiv") ?? "") ? /url\s*=\s*['"]?([^'";]+)/i.exec(el.getAttribute("content") ?? "")?.[1] : undefined)],
+  ["iframe[src], embed[src], frame[src]", "frame:", (el) => el.getAttribute("src")],
+  ["object[data]", "object:", (el) => el.getAttribute("data")],
+  ["form[action]", "form:", (el) => el.getAttribute("action")],
+];
+
+/** What matters for injected spam: where the page sends people, what runs on it, and its visible text, independent of formatting. */
 export function fingerprint(html: string, pageUrl: string): PageFingerprint {
   const doc = parse(html);
-  const links = new Set<string>();
-  for (const a of doc.querySelectorAll("a[href], area[href]")) {
-    const href = a.getAttribute("href")!.trim();
-    let abs: string;
+  const abs = (href: string) => {
     try {
-      abs = new URL(href, pageUrl).href;
+      return new URL(href.trim(), pageUrl).href;
     } catch {
-      abs = href;
+      return href.trim();
     }
-    // Cloudflare's email protection rewrites mailto: links; not a content change.
-    if (/\/cdn-cgi\//.test(abs) || href.startsWith("mailto:")) continue;
-    links.add(abs);
+  };
+  const links = new Set<string>();
+  for (const [selector, prefix, read] of TARGETS) {
+    for (const el of doc.querySelectorAll(selector)) {
+      const value = read(el);
+      if (!value || value.trim().startsWith("mailto:")) continue;
+      const url = abs(value);
+      // Cloudflare's email protection rewrites mailto: links; not a content change.
+      if (/\/cdn-cgi\//.test(url)) continue;
+      links.add(prefix + url);
+    }
   }
   const scripts = new Set<string>();
-  for (const s of doc.querySelectorAll("script")) {
-    const src = s.getAttribute("src");
-    if (src) scripts.add(`src:${new URL(src, pageUrl).href}`);
-    else if (s.getAttribute("type") !== "application/ld+json") scripts.add(`inline:${sha(s.text.trim())}`);
+  for (const el of doc.querySelectorAll("script")) {
+    const src = el.getAttribute("src");
+    if (src) {
+      const url = abs(src);
+      if (!CDN_SCRIPT.test(url)) scripts.add(`src:${url}`);
+    } else if (el.getAttribute("type") === "application/ld+json") scripts.add(`json-ld:${sha(el.text.replace(/\s+/g, ""))}`);
+    else scripts.add(`inline:${sha(el.text.trim())}`);
   }
-  for (const s of doc.querySelectorAll("script, style, noscript, template")) s.remove();
+  for (const el of doc.querySelectorAll("*")) {
+    for (const [name, value] of Object.entries(el.attributes)) {
+      if (/^on/i.test(name)) scripts.add(`handler:${el.tagName.toLowerCase()}.${name.toLowerCase()}:${sha(value)}`);
+    }
+  }
+  for (const el of doc.querySelectorAll("script, style, noscript, template")) el.remove();
   // Whitespace between elements depends on formatting, not content, so it's ignored entirely.
-  const text = (doc.querySelector("body") ?? doc).text.replace(/\s+/g, "");
-  return { links: [...links].sort(), scripts: [...scripts].sort(), text };
+  const visible = (doc.querySelector("body") ?? doc).text;
+  return { links: [...links].sort(), scripts: [...scripts].sort(), text: visible.replace(/\s+/g, ""), spam: spamHits(visible.replace(/\s+/g, " ")) };
 }
 
 export function compare(route: string, local: PageFingerprint, live: PageFingerprint): Difference[] {
@@ -70,7 +103,14 @@ export function compare(route: string, local: PageFingerprint, live: PageFingerp
   if (added.length) out.push({ route, severity: "error", kind: "links-added", detail: `Links on the live page that aren't in your files: ${added.slice(0, 5).join(", ")}${added.length > 5 ? ` (+${added.length - 5})` : ""}` });
   if (scripts.length) out.push({ route, severity: "error", kind: "scripts-added", detail: `Scripts on the live page that aren't in your files: ${scripts.slice(0, 5).join(", ")}` });
   if (removed.length) out.push({ route, severity: "warning", kind: "links-removed", detail: `Links missing from the live page: ${removed.slice(0, 5).join(", ")}${removed.length > 5 ? ` (+${removed.length - 5})` : ""}` });
-  if (local.text !== live.text) out.push({ route, severity: "warning", kind: "text-changed", detail: "The live page's text differs from your files (an old deploy, or content changed outside the repository)." });
+  if (local.text !== live.text) {
+    const spam = live.spam.filter((h) => !local.spam.includes(h));
+    out.push(
+      spam.length
+        ? { route, severity: "error", kind: "text-changed", detail: `The live page's text differs from your files and contains spam words (${spam.join(", ")}).` }
+        : { route, severity: "warning", kind: "text-changed", detail: "The live page's text differs from your files (an old deploy, or content changed outside the repository)." },
+    );
+  }
   return out;
 }
 
@@ -89,9 +129,9 @@ export async function verifySite(
     const model = await renderSite(root, loader.load);
     const origin = (options.url ?? model.site.site)?.replace(/\/+$/, "");
     if (!origin || !/^https?:\/\/[^/]+$/.test(origin)) throw new VageError('Pass the live site\'s origin with --url https://example.com, or set "site" in vage.config.ts.');
-    const get = async (url: string) => {
+    const get = async (url: string, userAgent = "vagejs-verify") => {
       try {
-        const res = await doFetch(url, { redirect: "follow", headers: { "user-agent": "vagejs-verify" }, signal: AbortSignal.timeout(20_000) });
+        const res = await doFetch(url, { redirect: "follow", headers: { "user-agent": userAgent }, signal: AbortSignal.timeout(20_000) });
         return { status: res.status, body: res.ok ? await res.text() : "" };
       } catch (err) {
         return { status: 0, body: "", error: (err as Error).message };
@@ -108,10 +148,29 @@ export async function verifySite(
           differences.push({ route: page.route, severity: "error", kind: "unreachable", detail: live.status ? `HTTP ${live.status}` : "no response" });
           continue;
         }
-        differences.push(...compare(page.route, fingerprint(page.html, url), fingerprint(live.body, url)));
+        const local = fingerprint(page.html, url);
+        const seen = compare(page.route, local, fingerprint(live.body, url));
+        differences.push(...seen);
+        // Hacked sites often show spam only to search engines ("cloaking"): look again as Googlebot.
+        const bot = await get(url, GOOGLEBOT);
+        if (bot.status === 200) {
+          for (const d of compare(page.route, local, fingerprint(bot.body, url))) {
+            if (!seen.some((x) => x.kind === d.kind && x.detail === d.detail)) differences.push({ ...d, detail: `Only when visited as Googlebot: ${d.detail}` });
+          }
+        }
       }
     };
     await Promise.all(Array.from({ length: Math.max(1, options.concurrency ?? 4) }, worker));
+
+    // A planted Sitemap: line or new rules in robots.txt point crawlers at spam.
+    const localRobots = model.files.get("robots.txt");
+    if (localRobots) {
+      const live = await get(`${origin}/robots.txt`);
+      const lines = (t: string) => t.split(/\r?\n/).map((l) => l.replace(/#.*/, "").trim()).filter(Boolean).join("\n");
+      if (live.status === 200 && lines(live.body) !== lines(localRobots)) {
+        differences.push({ route: "/robots.txt", severity: "error", kind: "robots-changed", detail: "The live robots.txt differs from the one your build writes." });
+      }
+    }
 
     // Pages someone added on the server announce themselves in the live sitemap.
     const localSitemap = model.files.get("sitemap.xml");

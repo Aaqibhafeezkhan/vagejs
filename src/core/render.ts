@@ -5,6 +5,7 @@ import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/m
 import { enhanceTrustedHtml, sanitizeHtml } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
+import { clonePlain } from "./clone.js";
 import { escapeHtml, isSafeHtml, type SafeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
@@ -136,7 +137,7 @@ function validateLayoutFields(frontmatter: Frontmatter, schema: FieldSchema, lay
     throw new VageError(`Frontmatter doesn't match the "${layoutName}" layout's fields:\n${detail}`, file);
   }
   // Zod reuses a default's nested objects across parses; give each page its own copy.
-  return structuredClone(result.data) as Record<string, unknown>;
+  return clonePlain(result.data) as Record<string, unknown>;
 }
 
 /** Used when a project has no src/layouts/default.ts. */

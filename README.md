@@ -202,10 +202,10 @@ A static site has no admin panel, database or plugins to break into, so attacker
 
 | Protection | What it does |
 | --- | --- |
-| Outbound link lock | `links.lock.json` lists the domains your site may link to. A link to any other domain fails `vage check` (and so every deploy) until you approve it with `vage links approve <domain>`. |
-| No hidden links | Inline styles are stripped from page content, and `vage check` fails on links hidden with CSS (`display:none`, off-screen, zero size…), in content and layouts. |
+| Outbound link lock | `links.lock.json` lists the domains your site may link to. A link to any other domain fails `vage check` (and so every deploy) until you approve it with `vage links approve <domain>`. It covers links, SVG links, canonical and `og:url`, meta refresh, iframes and forms. With `security.outboundLinks: "require"` (the default for new sites), deleting the file is an error too. |
+| No hidden links | Inline styles, SVG `xlink:href` and legacy tags like `<font>` and `<marquee>` are stripped from page content, and `vage check` fails on external links hidden with CSS, `aria-hidden`, zero-size SVG or no visible content, in content and layouts. |
 | Spam words | `vage check` warns about common injected-spam terms (casino, pharmacy, payday loans…). |
-| Live-site verification | `vage verify` compares the live site with your files and fails on links, scripts or sitemap pages that aren't in your repository. New sites include a daily GitHub Actions check (opt in with the `VAGE_VERIFY_URL` variable). |
+| Live-site verification | `vage verify` compares the live site with your files: links and other targets, scripts, event handlers, JSON-LD, text (spam words are errors), `robots.txt` and sitemap pages. It also looks at every page as Googlebot, to catch spam shown only to search engines. New sites include a daily GitHub Actions check (opt in with the `VAGE_VERIFY_URL` variable). |
 | Supply chain | New sites run `npm audit` in CI and get Dependabot updates. |
 
 ```bash
