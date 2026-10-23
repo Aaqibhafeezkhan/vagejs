@@ -3,7 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
-import { enhanceImages, imageSize } from "../src/content/images.js";
+import { imageSize } from "../src/content/images.js";
+import { enhanceTrustedHtml, sanitizeHtml } from "../src/content/sanitize.js";
+import { JSDOM } from "jsdom";
 import { copyFixture, write } from "./helpers.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "vage-img-"));
@@ -69,29 +71,60 @@ describe("imageSize", () => {
   });
 });
 
-describe("enhanceImages", () => {
-  it("adds sizes from public/, async decoding, and lazy loading after the first image", () => {
+describe("image hints", () => {
+  const enhance = (html: string, pub: string) => sanitizeHtml(html, { publicDir: pub });
+  const imgs = (html: string) => [...new JSDOM(html).window.document.querySelectorAll("img")];
+
+  it("adds sizes from public/, async decoding, and lazy loading after the first image", async () => {
     const pub = tmp();
     save(pub, "img/hero.png", png(800, 400));
     save(pub, "img/b.jpg", jpeg(300, 200));
-    const out = enhanceImages('<p><img src="/img/hero.png" alt="Hero"></p><p><img src="/img/b.jpg" alt="B"></p>', pub);
-    expect(out).toContain('<img src="/img/hero.png" alt="Hero" width="800" height="400" decoding="async">');
-    expect(out).toContain('<img src="/img/b.jpg" alt="B" width="300" height="200" decoding="async" loading="lazy">');
+    const [a, b] = imgs(await enhance('<p><img src="/img/hero.png" alt="Hero"></p><p><img src="/img/b.jpg" alt="B"></p>', pub));
+    expect([a!.getAttribute("width"), a!.getAttribute("height"), a!.getAttribute("decoding"), a!.hasAttribute("loading")]).toEqual(["800", "400", "async", false]);
+    expect([b!.getAttribute("width"), b!.getAttribute("height"), b!.getAttribute("loading")]).toEqual(["300", "200", "lazy"]);
   });
 
-  it("keeps author attributes, skips remote images and never reads outside public/", () => {
+  it("keeps author attributes, skips remote images and never reads outside public/", async () => {
     const root = tmp();
     const pub = path.join(root, "public");
     save(root, "secret.png", png(1, 1));
     save(pub, "a.png", png(10, 10));
-    const out = enhanceImages(
-      '<img src="/a.png" width="5" height="5" loading="eager"><img src="https://cdn.example/x.png"><img src="/../secret.png"><img src="//evil.example/a.png">',
-      pub,
+    const [own, remote, outside, proto] = imgs(
+      await enhance('<img src="/a.png" width="5" height="5" loading="eager"><img src="https://cdn.example/x.png"><img src="/../secret.png"><img src="//evil.example/a.png">', pub),
     );
-    expect(out).toContain('<img src="/a.png" width="5" height="5" loading="eager" decoding="async">');
-    expect(out).toContain('<img src="https://cdn.example/x.png" decoding="async" loading="lazy">');
-    expect(out).toContain('<img src="/../secret.png" decoding="async" loading="lazy">');
-    expect(out).not.toContain('width="1"');
+    expect([own!.getAttribute("width"), own!.getAttribute("loading")]).toEqual(["5", "eager"]);
+    expect(remote!.hasAttribute("width")).toBe(false);
+    expect(outside!.hasAttribute("width")).toBe(false);
+    expect(proto!.hasAttribute("width")).toBe(false);
+  });
+
+  it("can't be used to smuggle markup out of alt or title text (review finding)", async () => {
+    const pub = tmp();
+    save(pub, "y.png", png(4, 4));
+    for (const html of [
+      '<p><img src="/y.png" alt="&lt;img src=/x.png&gt;&lt;img src=q onerror=alert(1)&gt;"></p>',
+      '<p><a href="/x" title="&lt;img src=/x.png&gt;&lt;img src=q onerror=alert(1)&gt;">t</a></p>',
+    ]) {
+      const out = await enhance(html, pub);
+      const doc = new JSDOM(out).window.document;
+      expect(doc.querySelectorAll("[onerror]").length).toBe(0);
+      expect(doc.querySelectorAll("img").length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("ignores paths that aren't valid percent-encoding instead of crashing (review finding)", async () => {
+    const pub = tmp();
+    const [img] = imgs(await enhance('<img src="/100%.png" alt="x">', pub));
+    expect(img!.getAttribute("decoding")).toBe("async");
+    expect(img!.hasAttribute("width")).toBe(false);
+  });
+
+  it("applies the same hints to trusted HTML (markdown.html: allow)", async () => {
+    const pub = tmp();
+    save(pub, "a.png", png(20, 10));
+    const out = await enhanceTrustedHtml('<figure><img src="/a.png" alt="A"><img src="/a.png" alt="B"></figure>', pub);
+    const [a, b] = imgs(out);
+    expect([a!.getAttribute("width"), b!.getAttribute("loading")]).toEqual(["20", "lazy"]);
   });
 
   it("is applied to Markdown images in a build", async () => {

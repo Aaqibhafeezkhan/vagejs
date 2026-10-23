@@ -60,29 +60,41 @@ function svgSize(svg: string): ImageSize | undefined {
   return box ? { width: Math.round(Number(box[1])), height: Math.round(Number(box[2])) } : undefined;
 }
 
+/** The attributes `enhanceImage` reads and writes; satisfied by DOM elements (jsdom, DOMPurify). */
+export interface ImageElement {
+  getAttribute(name: string): string | null;
+  hasAttribute(name: string): boolean;
+  setAttribute(name: string, value: string): void;
+}
+
 /**
  * Fills in what Markdown images can't say: width and height from the file in public/
- * (prevents layout shift), decoding="async", and loading="lazy" on every image after
- * the first (the first is often the main image, which shouldn't wait). Attributes
- * already present are kept; remote images only get the loading hints.
+ * (prevents layout shift), decoding="async", and loading="lazy" unless it's the first
+ * image (often the main one, which shouldn't wait). Attributes already present are kept;
+ * remote images only get the loading hints. Works on DOM elements, never on HTML text,
+ * so it can't change how the sanitized markup parses.
  */
-export function enhanceImages(content: string, publicDir: string): string {
-  let index = 0;
-  return content.replace(/<img\b([^>]*?)\s*(\/?)>/gi, (_tag, attrs: string, slash: string) => {
-    const has = (name: string) => new RegExp(`\\s${name}\\s*=`, "i").test(attrs);
-    let extra = "";
-    const src = /\ssrc\s*=\s*"([^"]*)"/i.exec(attrs)?.[1];
-    if (src && !has("width") && !has("height") && /^\/(?!\/)/.test(src)) {
-      const rel = decodeURIComponent(src.split(/[?#]/)[0]!);
-      const file = path.join(publicDir, rel);
-      // Only files inside public/.
-      if (file.startsWith(publicDir + path.sep)) {
-        const size = imageSize(file);
-        if (size) extra += ` width="${size.width}" height="${size.height}"`;
-      }
+export function enhanceImage(img: ImageElement, publicDir: string, first: boolean): void {
+  const src = img.getAttribute("src");
+  if (src && !img.hasAttribute("width") && !img.hasAttribute("height") && /^\/(?!\/)/.test(src)) {
+    const size = localImageSize(src, publicDir);
+    if (size) {
+      img.setAttribute("width", String(size.width));
+      img.setAttribute("height", String(size.height));
     }
-    if (!has("decoding")) extra += ' decoding="async"';
-    if (index++ > 0 && !has("loading")) extra += ' loading="lazy"';
-    return `<img${attrs}${extra}${slash ? " /" : ""}>`;
-  });
+  }
+  if (!img.hasAttribute("decoding")) img.setAttribute("decoding", "async");
+  if (!first && !img.hasAttribute("loading")) img.setAttribute("loading", "lazy");
+}
+
+/** Size of a site-path image inside public/; undefined for bad paths or anything outside public/. */
+function localImageSize(src: string, publicDir: string): ImageSize | undefined {
+  let rel: string;
+  try {
+    rel = decodeURIComponent(src.split(/[?#]/)[0]!);
+  } catch {
+    return undefined; // e.g. "/100%.png": not a valid encoded path
+  }
+  const file = path.join(publicDir, rel);
+  return file.startsWith(publicDir + path.sep) ? imageSize(file) : undefined;
 }
