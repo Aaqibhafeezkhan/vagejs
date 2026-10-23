@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/markdown.js";
+import { enhanceImages } from "../content/images.js";
 import { sanitizeHtml } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
@@ -56,7 +57,8 @@ export async function renderPage(options: {
   const { root, file, route, site, load } = options;
   const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
   const { frontmatter, body } = parsed;
-  const content = site.markdown.html === "allow" ? parsed.html : await sanitizeHtml(parsed.html);
+  const clean = site.markdown.html === "allow" ? parsed.html : await sanitizeHtml(parsed.html);
+  const content = enhanceImages(clean, path.join(root, "public"));
   const { layout, schema } = await resolveLayout(root, frontmatter.layout, load, file);
   if (schema) Object.assign(frontmatter, validateLayoutFields(frontmatter, schema, frontmatter.layout ?? "default", file));
   const meta = pageMeta(site, route, frontmatter, options.notFound);
