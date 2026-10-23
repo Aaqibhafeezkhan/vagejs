@@ -68,6 +68,31 @@ Our plans start at …
 
 Save it as `src/pages/pricing.md` and it's served at `/pricing/`. `title` is required. `description`, `draft`, `noindex`, `canonical`, `image`, `type: article`, `author`, `datePublished` and `dateModified` are optional; see [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md).
 
+Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading.
+
+### Write a layout
+
+Layouts are TypeScript functions. The `html` template tag escapes every value for you; `raw()` inserts trusted HTML such as the rendered page. `pages` lists every published page, and `collection()` picks and sorts them:
+
+```ts
+import { collection, html, raw, z, type Layout } from "vagejs";
+
+// Optional: fields this layout accepts. Pages using it are checked strictly, so typos fail the build.
+export const frontmatter = z.object({ intro: z.string().optional() });
+
+const layout: Layout = ({ content, page, site, pages }) => html`<!doctype html>
+<html lang="${site.lang}">
+  <head><title>${page.title}</title></head>
+  <body>
+    <main>${raw(content)}</main>
+    <h2>Latest posts</h2>
+    <ul>${collection(pages, { under: "/blog/", sort: "date", limit: 5 }).map((p) => html`<li><a href="${p.route}">${p.title}</a></li>`)}</ul>
+  </body>
+</html>`;
+
+export default layout;
+```
+
 ### Everyday commands
 
 | Command | What it does |
@@ -106,10 +131,13 @@ Unknown keys are an error, so typos don't silently do nothing. `npx vage info --
 ```bash
 npx vage deploy:github --remote https://github.com/you/site.git   # check, build, safe commit + push (asks first)
 npx vage deploy                                                  # GitHub Pages via Actions
-npx vage deploy --target cloudflare-pages --project my-site      # Cloudflare Pages, preview URL per branch
+npx vage deploy --target cloudflare-workers --project my-site    # Cloudflare Workers: new version, no downtime
+npx vage deploy --target cloudflare-pages --project my-site      # older Cloudflare Pages projects
 ```
 
 Every deploy shows its plan and asks for confirmation (`--dry-run` to preview, `--yes` to skip). It reports success only after the host confirms.
+
+Cloudflare now creates new static sites as Workers, so use `cloudflare-workers` for new projects. For a custom domain, add a `wrangler.jsonc` with your `routes`; vagejs uses it and switches versions without re-attaching domains, so the site stays up during deploys.
 
 ### Analytics, Search Console and audits of live pages
 
@@ -121,7 +149,7 @@ vagejs follows semver. While it's 0.x, a minor version (0.1 → 0.2) may include
 
 ```bash
 npm outdated vagejs           # see what's available
-npm update vagejs             # latest patch in your range (with ^0.1.0: any 0.1.x)
+npm update vagejs             # latest patch in your range (with ^0.2.0: any 0.2.x)
 npm install vagejs@latest     # move to the newest version, including a new minor
 npx vage --version            # confirm
 npx vage check && npx vage build
@@ -161,7 +189,7 @@ vage info     [--json]                            # commands + config/frontmatte
 
 ## Planned, not implemented
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, MCP server.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, MCP server, image resizing and WebP/AVIF conversion.
 
 ## Security
 

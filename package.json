@@ -1,6 +1,6 @@
 {
   "name": "vagejs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI-native, static-first web framework: Markdown sites with built-in SEO, llms.txt, audits, security and safe deploys.",
   "keywords": [
     "static-site-generator",

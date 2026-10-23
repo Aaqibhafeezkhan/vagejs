@@ -24,6 +24,9 @@ Run `npm run check` after every change and fix all errors before finishing.
 - **Add a page:** create `src/pages/<slug>.md` with `title` and `description` frontmatter; link to it as `/<slug>/` (trailing slash).
 - **Add a blog post:** `src/pages/blog/<slug>.md`; for Article data add `type: article`, plus `author` / `datePublished` only if the owner provided them.
 - **Add a layout:** `src/layouts/<name>.ts`, then `layout: <name>` in frontmatter. Keep `<html lang>`, one `<title>` and `</head>`.
+- **List pages (blog index, "latest posts", a sidebar):** in a layout, `collection(pages, { under: "/blog/", sort: "date" })` from `vagejs`. Never keep a hand-written list of pages.
+- **Give a layout its own frontmatter fields:** `export const frontmatter = z.object({ ... })` in the layout (`import { z } from "vagejs"`). Pages using it are then checked strictly: unknown or mistyped fields fail the build.
+- **Add an image:** put it in `public/images/` and write `![Describe the image](/images/name.jpg)`. Width and height are filled in from the file; write real alt text.
 - **Rename a page:** move the file, then add `redirects: { "/old-slug/": "/new-slug/" }` to `vage.config.ts`.
 - **Hide a page from search:** `noindex: true` (it stays published). To unpublish, use `draft: true` or delete it.
 - **AI crawler policy:** set `seo.robots.aiTraining` / `aiSearch` only on the owner's instruction.
@@ -66,15 +69,18 @@ Do not invent titles, descriptions, dates, authors or facts. Ask the site owner.
 
 ## Content safety
 
-HTML inside Markdown is sanitized: scripts, event handlers, `javascript:` links, iframes and forms are removed. Embeds (e.g. video) belong in a layout, which is trusted code. The owner can trust all authors with `markdown: { html: "allow" }`; don't set that yourself. Never put secrets in `public/` (it is published, and the build refuses secret-looking files and symlinks there). `npm run dev -- --host` exposes the dev server to your network; it serves only pages and `public/`, but use it only on trusted networks.
+HTML inside Markdown is sanitized: scripts, event handlers, `javascript:` links, iframes and forms are removed. Embeds (e.g. video) belong in a layout, which is trusted code. The owner can trust all authors with `markdown: { html: "allow" }`; don't set that yourself. Values inside `{ }` in frontmatter that contain a comma or colon must be quoted; `vage check` warns about empty values (`frontmatter-empty`). Never put secrets in `public/` (it is published, and the build refuses secret-looking files and symlinks there). `npm run dev -- --host` exposes the dev server to your network; it serves only pages and `public/`, but use it only on trusted networks.
 
-With `deploy.target: "cloudflare-pages"`, the build writes `_headers` with security headers and a Content-Security-Policy computed from the pages (inline scripts are allowed by hash). Don't use inline event handlers (`onclick=`); add sources the site really needs to `security.cspSources`.
+With `deploy.target: "cloudflare-workers"` or `"cloudflare-pages"`, the build writes `_headers` with security headers and a Content-Security-Policy computed from the pages (inline scripts are allowed by hash). Don't use inline event handlers (`onclick=`); add sources the site really needs to `security.cspSources`.
 
 ## Layouts
 
-`src/layouts/<name>.ts` default-exports a function `({ content, page, site }) => string`.
-`content` is already-rendered HTML; escape every other interpolated value with `escapeHtml` from `vagejs`.
+`src/layouts/<name>.ts` default-exports a function `({ content, page, site, pages }) => html\`...\``.
+Write layouts with the `html` template tag from `vagejs`: every `${value}` is escaped automatically, arrays are joined,
+and `null`/`undefined`/`false` render nothing. `content` is already-rendered, sanitized HTML: insert it with `raw(content)`.
+Never wrap frontmatter or other text in `raw()`. (Plain template strings still work; then escape every value with `escapeHtml`.)
 `page.url` is the absolute canonical URL (when `site` is set and the page is indexable).
+`pages` lists every published page (`route`, `url`, `title`, `description`, `frontmatter`); pick and sort with `collection()`.
 
 The layout must contain `</head>`. vagejs inserts these before it, skipping any the layout already writes:
 meta description, robots noindex, canonical, Open Graph, `twitter:card`, and JSON-LD
@@ -109,7 +115,9 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 
 - `npx vage deploy:github --dry-run`: runs check + build and lists exactly what would be committed and pushed.
 - `npx vage deploy:github --remote <git-url>`: commits and pushes after confirmation (`--yes` skips the prompt; use only with the owner's approval). Refuses secrets (`.env`, keys, token-like strings), `dist/`, `node_modules/`, and never force-pushes. If the push is rejected, pull/rebase manually.
-- `npx vage deploy --target cloudflare-pages --project <name>` (or `deploy: { target: "cloudflare-pages", cloudflareProject }` in config): uploads `dist/` with Wrangler. Non-production branches get preview URLs. Config redirects become real 301s (`_redirects`). It reports success only when Wrangler succeeds and the URL responds. Needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` or `npx wrangler login`.
+- `npx vage deploy` with `deploy: { target: "cloudflare-workers", cloudflareWorker: "<name>" }`: Cloudflare's current way to host static sites. Uploads a new version and switches all traffic to it, so custom domains stay up. For custom domains or routes, the owner adds a `wrangler.jsonc` (vagejs then uses it). Config redirects become real 301s (`_redirects`).
+- `npx vage deploy --target cloudflare-pages --project <name>`: older Cloudflare Pages projects. Non-production branches get preview URLs. Cloudflare now turns new Pages projects into Workers; use `cloudflare-workers` for new sites.
+- Both Cloudflare targets report success only when Wrangler succeeds and the site responds. They need `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` or `npx wrangler login`.
 - `npx vage deploy`: GitHub Pages (default target). Adds `.github/workflows/deploy.yml` (if missing), publishes, enables Pages via `gh` if needed, then waits for the Actions run. It says "deployed" only when GitHub reports success.
 
 After deploying, `npx vage indexnow --changed-since HEAD~1` (needs `integrations.indexNow.key`) tells IndexNow search engines about changed pages. It's a hint, not a guarantee of indexing; ask the owner first.
@@ -134,7 +142,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Not implemented yet
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, image resizing and WebP/AVIF conversion. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Favicon
 

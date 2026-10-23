@@ -52,6 +52,7 @@ export function frameworkInfo(cli: CAC, version: string) {
       "CMS / external content-source adapters",
       "hreflang / multi-language sites, base paths, sitemap indexes",
       "MCP server",
+      "Image resizing and WebP/AVIF conversion (width/height are filled in automatically)",
     ],
   };
 }
