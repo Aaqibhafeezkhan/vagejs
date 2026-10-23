@@ -108,6 +108,15 @@ const consentDefault = z
   .default("denied")
   .describe("Consent mode default for analytics/ads storage before the visitor chooses. Your site provides the consent UI.");
 
+/** A tracking snippet pasted from the provider's dashboard; inserted verbatim into <head>. */
+const snippet = z
+  .string()
+  .max(5000)
+  .refine((v) => /<script[\s>]/i.test(v), "must be the <script> snippet from the provider's dashboard")
+  .refine((v) => !/googletagmanager\.com/.test(v), "Google tags belong in integrations.ga4 or integrations.gtm");
+
+const INDEXNOW = ruleData<{ endpoint: string; keyPattern: string }>("indexnow.protocol");
+
 const integrationsSchema = z
   .strictObject({
     ga4: z
@@ -129,6 +138,27 @@ const integrationsSchema = z
         containerId: z.string().regex(/^GTM-[A-Z0-9]+$/, 'must look like "GTM-XXXXXX"').optional().describe("Google Tag Manager container ID."),
         consentDefault,
         events: ga4Events.default({}),
+      })
+      .optional(),
+    plausible: z
+      .strictObject({
+        snippet: snippet.describe("Your site's script snippet from Plausible (Site settings → Site installation)."),
+        events: z
+          .record(z.string().min(1).max(120), z.strictObject({ params: z.array(z.string().min(1)).default([]) }))
+          .default({})
+          .describe("Custom events for data-vage-event, sent with plausible(name, { props })."),
+      })
+      .optional(),
+    clarity: z
+      .strictObject({
+        snippet: snippet.describe("Tracking code from Clarity (Settings → Setup → Install manually)."),
+      })
+      .optional()
+      .describe("Microsoft Clarity. window.vageConsent.update() also sends Clarity's consentv2 signal."),
+    indexNow: z
+      .strictObject({
+        key: z.string().regex(new RegExp(INDEXNOW.keyPattern), "must be 8-128 characters: letters, digits or dashes").describe("Public IndexNow key; served as /<key>.txt."),
+        endpoint: z.url().default(INDEXNOW.endpoint).describe("IndexNow endpoint (default: the shared api.indexnow.org)."),
       })
       .optional(),
     searchConsole: z
@@ -157,6 +187,12 @@ export const configSchema = z.strictObject({
   lang: z.string().min(1).default("en").describe("<html lang> value."),
   seo: seoSchema.default(() => seoSchema.parse({})),
   performance: performanceSchema.default(() => performanceSchema.parse({})),
+  deploy: z
+    .strictObject({
+      target: z.enum(["github-pages", "cloudflare-pages"]).default("github-pages").describe("Host used by `vage deploy`."),
+      cloudflareProject: z.string().regex(/^[a-z0-9][a-z0-9-]{0,57}$/).optional().describe("Cloudflare Pages project name."),
+    })
+    .default({ target: "github-pages" }),
   guidelines: z
     .strictObject({
       rulePack: z

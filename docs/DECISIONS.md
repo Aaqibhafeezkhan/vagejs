@@ -113,6 +113,26 @@ See `docs/GUIDELINES.md` for the process.
 - **Monitor robustness, found on the first live run (2026-10-23)**: Google served random localized pages without `Accept-Language` (now sent as English); Google's common-crawlers doc had moved to `/crawling/docs/crawlers-fetchers/…` (registry updated); Bing's guidelines page is client-rendered with no readable text (marked `monitor: manual`; empty pages are reported as "unreadable", never silently accepted). A second full run reported zero changes.
 - **The initial pack (2026.10.0) has `reviewedBy: "pending"`**: its facts were checked against the cited sources during implementation, but the owner has not signed it off. Later versions need a named reviewer.
 
-## Not implemented (planned in later phases)
+## Phase 8: additional integrations (scoped to real gaps)
 
-Bing Webmaster Tools, IndexNow, Clarity, Plausible, more hosting adapters (Phase 8); MCP server.
+The spec says "based on demand" and warns against scope creep, so this phase adds only what fills a known gap and can be tested without the owner's accounts:
+
+- **Cloudflare Pages adapter**: fills Phase 5's missing per-branch preview URLs and gives real 301s via `_redirects` (written only for this target, up to 2,000 rules; meta-refresh pages stay as a fallback). It uses a pinned `wrangler@4.152.0` through `npx` (not a dependency). Success requires Wrangler to succeed *and* the deployment URL to answer 200. Tokens are redacted from output.
+- **IndexNow**: key file generated from config (8-128 letters/digits/dashes); `vage indexnow` submits changed pages (`--changed-since <git ref>`, mapped through the same routing rules, deleted pages included), given URLs, or all listed pages. It checks that the key file is live before submitting, accepts 200/202, and **does not retry 429** (the docs warn this can be treated as spam). Default endpoint is the shared `api.indexnow.org` from the IndexNow FAQ; per-engine endpoints can be configured.
+- **Plausible and Clarity**: both providers tell site owners to copy a site-specific snippet from their dashboards, so config takes that snippet verbatim (validated as a `<script>`, with Google tags rejected) instead of VAGE JS guessing a format. `window.vageConsent.update()` forwards consent to Google and to Clarity's documented `consentv2` API. Events go to every configured provider; `check` requires each to declare them. Plausible events use the documented `plausible(name, { props })`.
+- **The generated consent/event script is tested by executing it** in jsdom with provider stubs, not just by string matching.
+- **The rule pack gained** `indexnow.protocol`, `clarity.consent`, `plausible.events` and `cloudflare.redirects`. Pack 2026.10.0 was still unreleased and unreviewed, so it was extended in place (changelog entry updated) rather than issuing a version nobody had reviewed.
+
+### Deliberately not built
+
+- **Bing Webmaster Tools API**: IndexNow covers URL submission to Bing; reporting needs a Bing API key and a concrete need.
+- **Netlify / Vercel**: one extra static host covers previews; add more on demand.
+- **CMS / content-source adapters**: no concrete source to target yet.
+
+### Phase 8 verification status
+
+- Snippet injection, consent forwarding, event dispatch, `_redirects`, the key file and all error paths are tested locally. **Not run against live services**: Cloudflare (needs your account), IndexNow (needs a deployed site with the key file), Plausible and Clarity (need your snippets).
+
+## Not implemented
+
+Bing Webmaster Tools API, Netlify/Vercel, CMS content sources, hreflang/multi-language, base paths, sitemap indexes, MCP server.

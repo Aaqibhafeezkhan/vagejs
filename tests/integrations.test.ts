@@ -56,7 +56,7 @@ describe("analytics tags", () => {
       script.indexOf('gtag("config","G-TEST123")'),
     );
     expect(script).toContain("https://www.googletagmanager.com/gtag/js?id=");
-    expect(script).toContain("window.vageConsent=");
+    expect(head).toContain("window.vageConsent=");
   });
 
   it("adds the GTM noscript after <body>", async () => {

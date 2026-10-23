@@ -210,6 +210,38 @@
       "url": "https://www.indexnow.org/documentation",
       "category": "search",
       "cadence": "weekly"
+    },
+    {
+      "id": "indexnow-faq",
+      "provider": "IndexNow",
+      "title": "IndexNow FAQ",
+      "url": "https://www.indexnow.org/faq",
+      "category": "search",
+      "cadence": "weekly"
+    },
+    {
+      "id": "clarity-consent",
+      "provider": "Microsoft",
+      "title": "Clarity Cookie Consent API - ConsentV2",
+      "url": "https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-consent-api-v2",
+      "category": "privacy",
+      "cadence": "weekly"
+    },
+    {
+      "id": "plausible-events",
+      "provider": "Plausible",
+      "title": "Custom event goals",
+      "url": "https://plausible.io/docs/custom-event-goals",
+      "category": "analytics",
+      "cadence": "weekly"
+    },
+    {
+      "id": "cloudflare-redirects",
+      "provider": "Cloudflare",
+      "title": "Pages: redirects (_redirects)",
+      "url": "https://developers.cloudflare.com/pages/configuration/redirects/",
+      "category": "hosting",
+      "cadence": "weekly"
     }
   ],
   "rules": [
@@ -421,24 +453,76 @@
     },
     {
       "id": "search.general",
-      "summary": "General search guidance tracked for future rules (Phase 8: Bing, IndexNow).",
+      "summary": "General search guidance tracked for future rules.",
       "behaviorChanging": false,
       "sources": [
         "google-search-essentials",
         "google-robots",
-        "bing-guidelines",
-        "indexnow"
+        "bing-guidelines"
       ],
       "implementedIn": []
+    },
+    {
+      "id": "indexnow.protocol",
+      "summary": "IndexNow submission: shared endpoint, up to 10,000 URLs per request, key 8-128 chars served at /<key>.txt; 200/202 accepted.",
+      "behaviorChanging": true,
+      "sources": [
+        "indexnow",
+        "indexnow-faq"
+      ],
+      "implementedIn": [
+        "src/integrations/indexnow.ts"
+      ],
+      "data": {
+        "endpoint": "https://api.indexnow.org/indexnow",
+        "maxUrls": 10000,
+        "keyPattern": "^[A-Za-z0-9-]{8,128}$"
+      }
+    },
+    {
+      "id": "clarity.consent",
+      "summary": "Clarity consent via consentv2 with ad_Storage / analytics_Storage.",
+      "behaviorChanging": true,
+      "sources": [
+        "clarity-consent"
+      ],
+      "implementedIn": [
+        "src/integrations/tags.ts"
+      ]
+    },
+    {
+      "id": "plausible.events",
+      "summary": "Plausible custom events: plausible(name, { props }).",
+      "behaviorChanging": false,
+      "sources": [
+        "plausible-events"
+      ],
+      "implementedIn": [
+        "src/integrations/tags.ts"
+      ]
+    },
+    {
+      "id": "cloudflare.redirects",
+      "summary": "_redirects format 'source destination status', up to 2,000 static rules.",
+      "behaviorChanging": true,
+      "sources": [
+        "cloudflare-redirects"
+      ],
+      "implementedIn": [
+        "src/deploy/cloudflare-pages.ts"
+      ],
+      "data": {
+        "maxStaticRules": 2000
+      }
     }
   ],
   "changelog": [
     {
       "version": "2026.10.0",
       "date": "2026-10-23",
-      "summary": "Initial rule pack. Facts checked against the cited sources on 2026-10-23 during implementation.",
+      "summary": "Initial rule pack (unreleased; extended during Phase 8 with IndexNow, Clarity, Plausible and Cloudflare Pages rules). Facts checked against the cited sources on 2026-10-23 during implementation.",
       "reviewedBy": "pending",
-      "contentHash": "043154701252fb1894a40968d975ee172d64c6b1eda6ed6eb05f4ab95dccbbe3"
+      "contentHash": "01d1da754769588e9a1f8a1842c7da1fa89037c8c7688cbfb6906737ed06ca22"
     }
   ]
 }

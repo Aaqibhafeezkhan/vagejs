@@ -182,27 +182,32 @@ function checkAnalytics(html: string, doc: HTMLElement, model: SiteModel, add: (
       message: `Page loads Google tags ${loaders.length} times (${loaders.join(", ")}); this double-counts. Remove the layout's tag or the integrations config.`,
     });
   }
-  const { ga4, gtm } = model.site.integrations;
-  const active = ga4?.measurementId ? ga4 : gtm?.containerId ? gtm : undefined;
+  const { ga4, gtm, plausible } = model.site.integrations;
+  // Each provider that receives events must declare them.
+  const receivers = [
+    ga4?.measurementId && { name: "ga4", events: ga4.events },
+    gtm?.containerId && { name: "gtm", events: gtm.events },
+    plausible && { name: "plausible", events: plausible.events },
+  ].filter((r): r is { name: string; events: Record<string, { params: string[] }> } => Boolean(r));
   for (const el of doc.querySelectorAll("[data-vage-event]")) {
     const name = el.getAttribute("data-vage-event")!;
-    if (!active) {
+    if (!receivers.length) {
       add({ rule: "analytics-event", severity: "warning", message: `data-vage-event="${name}" is used but no analytics integration is configured.` });
       continue;
     }
-    const declared = active.events[name];
-    if (!declared) {
+    const missing = receivers.filter((r) => !r.events[name]);
+    if (missing.length) {
       add({
         rule: "analytics-event",
         severity: "error",
-        message: `Event "${name}" is not declared. Add it to integrations.${active === ga4 ? "ga4" : "gtm"}.events in vage.config.ts.`,
+        message: `Event "${name}" is not declared. Add it to ${missing.map((r) => `integrations.${r.name}.events`).join(" and ")} in vage.config.ts.`,
       });
       continue;
     }
     const params = Object.keys(el.attributes)
       .filter((a) => a.startsWith("data-vage-param-"))
       .map((a) => a.slice("data-vage-param-".length).replace(/-/g, "_"));
-    for (const param of params.filter((p) => !declared.params.includes(p))) {
+    for (const param of params.filter((p) => receivers.some((r) => !r.events[name]!.params.includes(p)))) {
       add({ rule: "analytics-event", severity: "error", message: `Event "${name}" has undeclared parameter "${param}". Declare it in its params list.` });
     }
   }

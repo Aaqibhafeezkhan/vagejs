@@ -103,7 +103,10 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 
 - `npx vage deploy:github --dry-run`: runs check + build and lists exactly what would be committed and pushed.
 - `npx vage deploy:github --remote <git-url>`: commits and pushes after confirmation (`--yes` skips the prompt; use only with the owner's approval). Refuses secrets (`.env`, keys, token-like strings), `dist/`, `node_modules/`, and never force-pushes. If the push is rejected, pull/rebase manually.
-- `npx vage deploy`: GitHub Pages. Adds `.github/workflows/deploy.yml` (if missing), publishes, enables Pages via `gh` if needed, then waits for the Actions run. It says "deployed" only when GitHub reports success.
+- `npx vage deploy --target cloudflare-pages --project <name>` (or `deploy: { target: "cloudflare-pages", cloudflareProject }` in config): uploads `dist/` with Wrangler. Non-production branches get preview URLs. Config redirects become real 301s (`_redirects`). It reports success only when Wrangler succeeds and the URL responds. Needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` or `npx wrangler login`.
+- `npx vage deploy`: GitHub Pages (default target). Adds `.github/workflows/deploy.yml` (if missing), publishes, enables Pages via `gh` if needed, then waits for the Actions run. It says "deployed" only when GitHub reports success.
+
+After deploying, `npx vage indexnow --changed-since HEAD~1` (needs `integrations.indexNow.key`) tells IndexNow search engines about changed pages. It's a hint, not a guarantee of indexing; ask the owner first.
 
 GitHub Pages needs a custom domain or a `<user>.github.io` repository, because VAGE JS does not support base paths yet.
 `.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
@@ -112,9 +115,10 @@ GitHub Pages needs a custom domain or a `<user>.github.io` repository, because V
 
 Off unless configured in `vage.config.ts` under `integrations`. Ask the site owner before adding analytics; it has privacy and consent implications.
 
+- **Plausible** / **Microsoft Clarity**: `integrations.plausible.snippet` / `integrations.clarity.snippet` hold the exact snippet from the provider's dashboard, inserted verbatim. Don't invent or edit snippets.
 - **GA4** (`integrations.ga4.measurementId`) or **Tag Manager** (`integrations.gtm.containerId`): never both. Tags are added to production builds only (not `npm run dev`) and skip localhost.
-- **Consent**: `consentDefault` is `"denied"` unless changed. The site must provide its own consent UI that calls `window.vageConsent.update({ analytics_storage: "granted" })`.
-- **Events**: declare them, then mark elements: `<a href="/pricing/" data-vage-event="signup_click" data-vage-param-plan="pro">`. `vage check` fails on undeclared events/params and on duplicate Google tags.
+- **Consent**: Google's `consentDefault` is `"denied"` unless changed. The site must provide its own consent UI that calls `window.vageConsent.update({ analytics_storage: "granted", ad_storage: "denied" })`; this forwards to Google and Clarity (consentv2).
+- **Events**: declare them (for every configured provider that receives events: ga4/gtm/plausible), then mark elements: `<a href="/pricing/" data-vage-event="signup_click" data-vage-param-plan="pro">`. `vage check` fails on undeclared events/params and on duplicate Google tags.
 - **Reports**: `npx vage connect gsc|ga4` (browser OAuth, read-only scopes; token stored outside the repo), then `npx vage report search` / `npx vage report analytics`. `npx vage disconnect google` revokes access. Needs `GOOGLE_OAUTH_CLIENT_ID` (see `.env.example`).
 - Secrets go in `.env` (git-ignored) or the shell, never in `vage.config.ts` or committed files.
 
@@ -124,7 +128,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Not implemented yet
 
-Bing Webmaster Tools, IndexNow, Clarity, Plausible, other hosting providers (Cloudflare, Netlify, Vercel), per-PR preview deployments. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Safety
 

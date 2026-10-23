@@ -6,51 +6,64 @@ const CONSENT_TYPES = ruleData<{ types: string[] }>("consent.default-order").typ
 const LOCAL_HOST = String.raw`/^(localhost|127\.0\.0\.1|\[::1\])$/`;
 
 /**
- * Inline script that sends events for elements with data-vage-event (on click).
- * data-vage-param-plan="pro" becomes the event parameter plan: "pro".
- */
-const EVENT_LISTENER = (send: string) =>
-  `document.addEventListener("click",function(e){var el=e.target&&e.target.closest&&e.target.closest("[data-vage-event]");if(!el)return;var p={};for(var i=0;i<el.attributes.length;i++){var a=el.attributes[i];if(a.name.indexOf("data-vage-param-")===0)p[a.name.slice(16).replace(/-/g,"_")]=a.value}${send}});`;
-
-/**
- * Google tag snippets for production builds. Consent defaults are set before
- * any measurement command, as Google requires
- * (https://developers.google.com/tag-platform/security/guides/consent).
- * Nothing loads on localhost, so `vage preview` does not send hits.
- * Sites call window.vageConsent.update({ analytics_storage: "granted" }) from their own consent UI.
+ * Analytics tags for production builds.
+ *
+ * - Google (GA4 or GTM): consent defaults are set before any measurement command
+ *   (https://developers.google.com/tag-platform/security/guides/consent), and nothing
+ *   loads on localhost, so `vage preview` sends no hits.
+ * - Plausible / Clarity: the owner's dashboard snippet, inserted verbatim (VAGE JS
+ *   can't suppress those on localhost).
+ * - window.vageConsent.update({ analytics_storage, ad_storage }) forwards consent to
+ *   Google (consent update) and Clarity (consentv2). Sites provide their own consent UI.
+ * - One click listener sends data-vage-event / data-vage-param-* to every configured provider.
  */
 export function analyticsTags(site: SiteConfig): { head: string; bodyStart?: string } | undefined {
-  const { ga4, gtm } = site.integrations;
-  const setup = (consent: string) =>
-    `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}` +
-    `gtag("consent","default",${JSON.stringify(Object.fromEntries(CONSENT_TYPES.map((t) => [t, consent])))});` +
-    `window.vageConsent={update:function(c){gtag("consent","update",c)}};`;
+  const { ga4, gtm, plausible, clarity } = site.integrations;
+  const google = ga4?.measurementId ? { kind: "ga4" as const, id: ga4.measurementId, consent: ga4.consentDefault } : gtm?.containerId ? { kind: "gtm" as const, id: gtm.containerId, consent: gtm.consentDefault } : undefined;
+  if (!google && !plausible && !clarity) return undefined;
 
-  if (ga4?.measurementId) {
-    const id = JSON.stringify(ga4.measurementId);
-    const body =
-      setup(ga4.consentDefault) +
-      `gtag("js",new Date());gtag("config",${id});` +
-      `var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtag/js?id="+${id};document.head.appendChild(s);` +
-      EVENT_LISTENER(`gtag("event",el.getAttribute("data-vage-event"),p);`);
-    return { head: `<script>if(!${LOCAL_HOST}.test(location.hostname)){${body}}</script>` };
+  const parts: string[] = [];
+  let bodyStart: string | undefined;
+  const send: string[] = [];
+
+  if (google) {
+    const id = JSON.stringify(google.id);
+    let body =
+      `window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};` +
+      `gtag("consent","default",${JSON.stringify(Object.fromEntries(CONSENT_TYPES.map((t) => [t, google.consent])))});`;
+    if (google.kind === "ga4") {
+      body += `gtag("js",new Date());gtag("config",${id});` + loadScript(`"https://www.googletagmanager.com/gtag/js?id="+${id}`);
+      send.push(`if(window.gtag)gtag("event",n,p);`);
+    } else {
+      body += `dataLayer.push({"gtm.start":new Date().getTime(),event:"gtm.js"});` + loadScript(`"https://www.googletagmanager.com/gtm.js?id="+${id}`);
+      send.push(`if(window.dataLayer){var d={event:n};for(var k in p)d[k]=p[k];dataLayer.push(d)}`);
+      bodyStart = `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(google.id)}" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>`;
+    }
+    parts.push(`<script>if(!${LOCAL_HOST}.test(location.hostname)){${body}}</script>`);
   }
-  if (gtm?.containerId) {
-    const id = JSON.stringify(gtm.containerId);
-    const body =
-      setup(gtm.consentDefault) +
-      `dataLayer.push({"gtm.start":new Date().getTime(),event:"gtm.js"});` +
-      `var s=document.createElement("script");s.async=true;s.src="https://www.googletagmanager.com/gtm.js?id="+${id};document.head.appendChild(s);` +
-      EVENT_LISTENER(`p.event=el.getAttribute("data-vage-event");dataLayer.push(p);`);
-    return {
-      head: `<script>if(!${LOCAL_HOST}.test(location.hostname)){${body}}</script>`,
-      bodyStart: `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(gtm.containerId)}" height="0" width="0" style="display:none;visibility:hidden" title="Google Tag Manager"></iframe></noscript>`,
-    };
+  if (plausible) {
+    parts.push(plausible.snippet.trim());
+    send.push(`if(window.plausible)plausible(n,{props:p});`);
   }
-  return undefined;
+  if (clarity) parts.push(clarity.snippet.trim());
+
+  // Consent bridge and event listener; safe when a provider failed to load.
+  parts.push(
+    `<script>(function(){var s={};window.vageConsent={update:function(c){for(var k in c)s[k]=c[k];` +
+      `if(window.gtag)gtag("consent","update",c);` +
+      `if(window.clarity)clarity("consentv2",{ad_Storage:s.ad_storage||"denied",analytics_Storage:s.analytics_storage||"denied"})}};` +
+      `document.addEventListener("click",function(e){var el=e.target&&e.target.closest&&e.target.closest("[data-vage-event]");if(!el)return;` +
+      `var n=el.getAttribute("data-vage-event"),p={};for(var i=0;i<el.attributes.length;i++){var a=el.attributes[i];` +
+      `if(a.name.indexOf("data-vage-param-")===0)p[a.name.slice(16).replace(/-/g,"_")]=a.value}${send.join("")}})})();</script>`,
+  );
+  return { head: parts.join("\n    "), bodyStart };
 }
 
-/** Puts the tag first in <head> (before other scripts) and the GTM noscript right after <body>. */
+function loadScript(src: string): string {
+  return `var s=document.createElement("script");s.async=true;s.src=${src};document.head.appendChild(s);`;
+}
+
+/** Puts the tags first in <head> (before other scripts) and the GTM noscript right after <body>. */
 export function injectAnalytics(html: string, tags: { head: string; bodyStart?: string }, file: string): string {
   const head = /<head[^>]*>/i.exec(html);
   if (!head) throw new VageError("Layout output has no <head>; it is needed for analytics tags.", file);

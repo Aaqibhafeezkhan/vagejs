@@ -28,8 +28,7 @@ export function discoverRoutes(pagesDir: string): RouteEntry[] {
 
   for (const rel of walk(pagesDir)) {
     if (rel === NOT_FOUND_PAGE) continue;
-    const segments = rel.slice(0, -".md".length).split("/");
-    if (segments.at(-1) === "index") segments.pop();
+    const segments = routeSegments(rel);
     const route = segments.length ? `/${segments.join("/")}/` : "/";
     const file = path.join(pagesDir, rel);
 
@@ -44,6 +43,19 @@ export function discoverRoutes(pagesDir: string): RouteEntry[] {
   }
 
   return [...routes.values()].sort((a, b) => a.route.localeCompare(b.route));
+}
+
+function routeSegments(rel: string): string[] {
+  const segments = rel.slice(0, -".md".length).split("/");
+  if (segments.at(-1) === "index") segments.pop();
+  return segments;
+}
+
+/** Route for a page path relative to src/pages (works for deleted files too). */
+export function routeForPage(rel: string): string | undefined {
+  if (!rel.endsWith(".md") || rel === NOT_FOUND_PAGE || rel.split("/").some((s) => s.startsWith("_") || s.startsWith("."))) return undefined;
+  const segments = routeSegments(rel);
+  return segments.length ? `/${segments.join("/")}/` : "/";
 }
 
 export function findNotFoundPage(pagesDir: string): string | undefined {

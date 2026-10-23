@@ -136,10 +136,18 @@ describe("vage CLI (packed package)", () => {
     expect(run(["disconnect", "google"]).stdout).toMatch(/No Google connection was stored/);
   });
 
+  it("guards outward integrations behind configuration", () => {
+    const site = path.join(work, "site");
+    const npx = (args: string[]) => spawnSync("npx", ["vage", ...args], { cwd: site, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    expect(npx(["indexnow", "--all"]).stderr).toMatch(/IndexNow is not configured/);
+    expect(npx(["deploy", "--target", "cloudflare-pages", "--dry-run"]).stderr).toMatch(/No Cloudflare Pages project/);
+    expect(npx(["deploy", "--target", "netlify"]).stderr).toMatch(/Unknown --target "netlify"/);
+  }, 120_000);
+
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
-    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy", "connect", "disconnect", "report", "guidelines"]) expect(help.stdout).toContain(cmd);
+    for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy", "connect", "disconnect", "report", "guidelines", "indexnow"]) expect(help.stdout).toContain(cmd);
     expect(vage(["--version"], work).stdout).toContain("0.1.0");
   });
 });

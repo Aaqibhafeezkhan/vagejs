@@ -182,8 +182,10 @@ cli
   );
 
 cli
-  .command("deploy", "Deploy to GitHub Pages: adds the deploy workflow, publishes, and waits for GitHub to confirm")
+  .command("deploy", "Deploy: GitHub Pages (workflow + push, waits for GitHub) or Cloudflare Pages (wrangler upload, preview URL per branch)")
   .option("--root <dir>", "Project root", { default: "." })
+  .option("--target <host>", "github-pages or cloudflare-pages (default: deploy.target in config)")
+  .option("--project <name>", "Cloudflare Pages project (default: deploy.cloudflareProject)")
   .option("--remote <url>", "Git URL to add as origin if there is none")
   .option("--branch <name>", "Branch for a new repository (default: main)")
   .option("-m, --message <msg>", "Commit message")
@@ -191,8 +193,13 @@ cli
   .option("--dry-run", "Run check + build and show the plan; no git changes")
   .option("--yes", "Skip the confirmation prompt")
   .option("--json", "Print machine-readable JSON")
-  .action((opts: PublishFlags & { wait: boolean }) =>
+  .action((opts: PublishFlags & { wait: boolean; target?: string; project?: string }) =>
     run(opts, async () => {
+      const { loadProjectConfig } = await import("../core/project-config.js");
+      const config = await loadProjectConfig(path.resolve(opts.root));
+      const target = opts.target ?? config.deploy.target;
+      if (target === "cloudflare-pages") return deployToCloudflare(opts, config.deploy.cloudflareProject);
+      if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages or cloudflare-pages.`);
       const { publish } = await import("../deploy/publish.js");
       const pages = await import("../deploy/github-pages.js");
       const result = await publish(opts.root, {
@@ -328,6 +335,48 @@ cli
   );
 
 cli
+  .command("indexnow", "Notify IndexNow search engines about changed URLs (asks first)")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--changed-since <ref>", "Submit pages changed since a git ref (e.g. HEAD~1)")
+  .option("--urls <list>", "Comma-separated URLs or paths to submit")
+  .option("--all", "Submit every page listed in sitemap.xml")
+  .option("--dry-run", "Show the URLs without submitting")
+  .option("--yes", "Skip the confirmation prompt")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: CommonOptions & { changedSince?: string; urls?: string; all?: boolean; dryRun?: boolean; yes?: boolean }) =>
+    run(opts, async () => {
+      const root = path.resolve(opts.root);
+      const { createBuildLoader } = await import("../core/loader.js");
+      const { renderSite, listedPages } = await import("../core/site.js");
+      const loader = await createBuildLoader(root);
+      const model = await renderSite(root, loader.load).finally(() => loader.close());
+      const { site } = model;
+      const config = site.integrations.indexNow;
+      if (!config) throw new VageError('IndexNow is not configured. Add integrations: { indexNow: { key: "<8-128 letters, digits or dashes>" } } and deploy.');
+      if (!site.site) throw new VageError('"site" must be set in vage.config.ts to submit URLs.');
+      const abs = (p: string) => new URL(p, site.site).href;
+
+      let urls: string[];
+      if (opts.all) urls = listedPages(model).map((p) => p.meta.canonical!);
+      else if (opts.urls) urls = opts.urls.split(",").map((u) => abs(u.trim()));
+      else if (opts.changedSince) {
+        const { git } = await import("../deploy/git.js");
+        const { routeForPage } = await import("../core/routes.js");
+        const changed = (await git(root, ["diff", "--name-only", "--relative", opts.changedSince, "--", "src/pages"])).split("\n").filter(Boolean);
+        urls = changed.map((f) => routeForPage(f.replace(/^src\/pages\//, ""))).filter((r): r is string => Boolean(r)).map(abs);
+        if (!urls.length) return opts.json ? print({ ok: true, submitted: 0 }) : console.log(`No page changes since ${opts.changedSince}.`);
+      } else throw new VageError("Choose what to submit: --changed-since <ref>, --urls <list>, or --all.");
+
+      const lines = [`IndexNow: submit ${urls.length} URL(s) to ${config.endpoint}`, ...urls.slice(0, 20).map((u) => `  ${u}`), ...(urls.length > 20 ? [`  … ${urls.length - 20} more`] : [])];
+      if (!(await askConfirm(lines, opts))) return opts.json ? print({ ok: true, dryRun: Boolean(opts.dryRun), urls }) : console.log("Nothing submitted.");
+      const { submitIndexNow } = await import("../integrations/indexnow.js");
+      const result = await submitIndexNow({ site: site.site, key: config.key, endpoint: config.endpoint, urls });
+      if (opts.json) return print({ ok: true, ...result });
+      console.log(`${result.status === 202 ? "Received (key validation pending)" : "Accepted"}: ${result.submitted} URL(s). IndexNow is a hint; it doesn't guarantee crawling or indexing.`);
+    }),
+  );
+
+cli
   .command("guidelines", "Show the rule pack: provider facts in use, their official sources, and the changelog")
   .option("--json", "Print machine-readable JSON")
   .action((opts: { json?: boolean }) =>
@@ -386,18 +435,52 @@ function printFindings(findings: Finding[]) {
 
 type Plan = import("../deploy/publish.js").PublishPlan;
 
-async function confirmPlan(plan: Plan, opts: PublishFlags, extra?: string): Promise<boolean> {
-  if (!opts.json || opts.dryRun) {
-    const out = opts.json ? console.error : console.log;
-    out(`Publish plan for ${plan.root}`);
-    if (plan.initRepo) out(`  • git init (branch ${plan.branch})`);
-    if (plan.addRemote) out(`  • add origin ${plan.remote}`);
-    out(`  • commit ${plan.files.length} file(s) on ${plan.branch}: "${plan.message}"`);
-    for (const f of plan.files) out(`      ${f.status} ${f.path}`);
-    out(plan.remote ? `  • push to ${plan.remote} (${plan.branch}); never forced` : "  • no push (no remote)");
-    if (extra) out(`  • ${extra}`);
-    for (const w of plan.warnings) out(`  ! ${w}`);
+async function deployToCloudflare(opts: PublishFlags & { project?: string }, configuredProject?: string) {
+  const project = opts.project ?? configuredProject;
+  if (!project) throw new VageError("No Cloudflare Pages project. Pass --project <name> or set deploy.cloudflareProject.");
+  const root = path.resolve(opts.root);
+  const { check } = await import("../checks/check.js");
+  const checked = await check(root);
+  if (checked.errors) throw new VageError(`vage check found ${checked.errors} error(s). Fix them before deploying.`);
+  const result = await build(root);
+  const { gitRaw } = await import("../deploy/git.js");
+  const currentBranch = (await gitRaw(root, ["branch", "--show-current"])).stdout.trim();
+  const commit = (await gitRaw(root, ["rev-parse", "HEAD"])).stdout.trim() || undefined;
+  const branch = opts.branch ?? (currentBranch || "main");
+  const { deployCloudflarePages, WRANGLER } = await import("../deploy/cloudflare-pages.js");
+
+  const lines = [
+    `Deploy plan (Cloudflare Pages)`,
+    `  • upload ${result.outDir} (${result.pages.length} page(s), ${result.files.length} generated file(s)) to project "${project}"`,
+    `  • branch "${branch}": the production branch updates the live site; other branches get a preview URL`,
+    `  • runs: npx ${WRANGLER} pages deploy dist --project-name ${project} --branch ${branch}`,
+  ];
+  if (!(await askConfirm(lines, opts))) {
+    if (opts.dryRun) return opts.json ? print({ ok: true, dryRun: true, target: "cloudflare-pages", project, branch }) : console.log("Dry run: nothing deployed.");
+    return opts.json ? print({ ok: false, status: "aborted" }) : console.log("Nothing deployed.");
   }
+  const deployment = await deployCloudflarePages(root, { project, branch, commit });
+  if (opts.json) print({ ok: deployment.status !== "failure", target: "cloudflare-pages", project, deployment });
+  else if (deployment.status === "success") console.log(`Deployed and verified: ${deployment.deploymentUrl} (branch ${branch})`);
+  else console.log(`Deployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}`);
+  if (deployment.status === "failure") process.exit(1);
+}
+
+async function confirmPlan(plan: Plan, opts: PublishFlags, extra?: string): Promise<boolean> {
+  const lines = [`Publish plan for ${plan.root}`];
+  if (plan.initRepo) lines.push(`  • git init (branch ${plan.branch})`);
+  if (plan.addRemote) lines.push(`  • add origin ${plan.remote}`);
+  lines.push(`  • commit ${plan.files.length} file(s) on ${plan.branch}: "${plan.message}"`);
+  for (const f of plan.files) lines.push(`      ${f.status} ${f.path}`);
+  lines.push(plan.remote ? `  • push to ${plan.remote} (${plan.branch}); never forced` : "  • no push (no remote)");
+  if (extra) lines.push(`  • ${extra}`);
+  for (const w of plan.warnings) lines.push(`  ! ${w}`);
+  return askConfirm(lines, opts);
+}
+
+/** Shows the plan, then asks. --dry-run never proceeds; --yes skips the prompt; non-TTY without --yes refuses. */
+async function askConfirm(lines: string[], opts: { json?: boolean; dryRun?: boolean; yes?: boolean }): Promise<boolean> {
+  if (!opts.json || opts.dryRun) for (const line of lines) (opts.json ? console.error : console.log)(line);
   if (opts.dryRun) return false;
   if (opts.yes) return true;
   if (!process.stdin.isTTY) throw new VageError("Confirmation required. Review the plan with --dry-run, then re-run with --yes.");
