@@ -1,0 +1,1426 @@
+{
+  "packVersion": "2026.10.0",
+  "sources": {
+    "google-search-essentials": {
+      "id": "google-search-essentials",
+      "url": "https://developers.google.com/search/docs/essentials",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/search/docs/essentials",
+      "lastModified": "Wed, 10 Dec 2025 18:38:05 GMT",
+      "contentHash": "6dedde86f5aba239",
+      "sections": [
+        {
+          "heading": "Google Search Essentials",
+          "hash": "39b9b519ff747e65"
+        },
+        {
+          "heading": "Technical requirements",
+          "hash": "b60c829d47d0c451"
+        },
+        {
+          "heading": "Spam policies",
+          "hash": "43db5a0cff365c17"
+        },
+        {
+          "heading": "Key best practices",
+          "hash": "a6198812bb571fa6"
+        }
+      ]
+    },
+    "google-robots": {
+      "id": "google-robots",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/robots/intro",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/search/docs/crawling-indexing/robots/intro",
+      "lastModified": "Wed, 10 Dec 2025 18:38:05 GMT",
+      "contentHash": "572a18276686324e",
+      "sections": [
+        {
+          "heading": "Introduction to robots.txt",
+          "hash": "20e9c26814225a20"
+        },
+        {
+          "heading": "What is a robots.txt file used for?",
+          "hash": "34594b325da7bd6a"
+        },
+        {
+          "heading": "Understand the limitations of a robots.txt file",
+          "hash": "a470d9a6077975e4"
+        },
+        {
+          "heading": "Create or update a robots.txt file",
+          "hash": "d211004d96dcc5fe"
+        }
+      ]
+    },
+    "google-crawlers": {
+      "id": "google-crawlers",
+      "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers",
+      "lastModified": "Thu, 15 Oct 2026 19:21:28 GMT",
+      "contentHash": "32b4061caff49465",
+      "sections": [
+        {
+          "heading": "(intro)",
+          "hash": "c84c6594ccfe6dee"
+        },
+        {
+          "heading": "List of Google's common crawlers",
+          "hash": "a97451ab656ec0cb"
+        },
+        {
+          "heading": "Googlebot",
+          "hash": "86d980dcd203d000"
+        },
+        {
+          "heading": "Googlebot Image",
+          "hash": "40a56cfd06c9b5b5"
+        },
+        {
+          "heading": "Googlebot Video",
+          "hash": "783cbd961180699d"
+        },
+        {
+          "heading": "Googlebot News",
+          "hash": "d57aa797ae81581e"
+        },
+        {
+          "heading": "Google StoreBot",
+          "hash": "020b65e7866e151e"
+        },
+        {
+          "heading": "Google-InspectionTool",
+          "hash": "e0a99f1cb708e0cf"
+        },
+        {
+          "heading": "GoogleOther",
+          "hash": "4068f2bdaf452f07"
+        },
+        {
+          "heading": "GoogleOther-Image",
+          "hash": "73cfc9c4f44d6834"
+        },
+        {
+          "heading": "GoogleOther-Video",
+          "hash": "d29ce2bca9b90c18"
+        },
+        {
+          "heading": "Google-CloudVertexBot",
+          "hash": "25ad96e5296e31da"
+        },
+        {
+          "heading": "Google-Extended",
+          "hash": "cb7a22dfbc3ee9a1"
+        },
+        {
+          "heading": "A note about Chrome/W.X.Y.Z in user agents",
+          "hash": "d7348296a93163b7"
+        }
+      ]
+    },
+    "google-sitemaps": {
+      "id": "google-sitemaps",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap",
+      "lastModified": "Wed, 08 Jul 2026 15:47:49 GMT",
+      "contentHash": "26842788e53ab63d",
+      "sections": [
+        {
+          "heading": "Build and submit a sitemap",
+          "hash": "0a3e5489dbbb5056"
+        },
+        {
+          "heading": "Sitemap best practices",
+          "hash": "9de37193b14c50e0"
+        },
+        {
+          "heading": "XML sitemap",
+          "hash": "3d199e44451ee702"
+        },
+        {
+          "heading": "Additional notes about XML sitemaps",
+          "hash": "878350f10f7f61fe"
+        },
+        {
+          "heading": "RSS, mRSS, and Atom 1.0",
+          "hash": "02f79b0d91214495"
+        },
+        {
+          "heading": "Additional notes about RSS, mRSS, and Atom 1.0",
+          "hash": "5bf7ed95816e7e45"
+        },
+        {
+          "heading": "Text sitemap",
+          "hash": "c35b5a9d91b7c593"
+        },
+        {
+          "heading": "Additional notes for text file sitemaps",
+          "hash": "989e513b5d4938d9"
+        },
+        {
+          "heading": "How to create a sitemap",
+          "hash": "9fffbe8728fbbede"
+        },
+        {
+          "heading": "Let your CMS generate a sitemap for you",
+          "hash": "cb19b36b46575191"
+        },
+        {
+          "heading": "Manually create a sitemap",
+          "hash": "a6a0bfec16d32e7c"
+        },
+        {
+          "heading": "Automatically generate a sitemap with tools",
+          "hash": "6aabc3558392c89a"
+        },
+        {
+          "heading": "Submit your sitemap to Google",
+          "hash": "6aa44f503a664670"
+        },
+        {
+          "heading": "How to cross-submit sitemaps for multiple sites",
+          "hash": "2f1ecddd25763655"
+        },
+        {
+          "heading": "Sitemap cross-submission with Search Console",
+          "hash": "827fee1c663c4f1d"
+        },
+        {
+          "heading": "Sitemap cross-submission with robots.txt",
+          "hash": "02051404e64258e2"
+        },
+        {
+          "heading": "Troubleshooting sitemaps",
+          "hash": "18b43ebd27b5b7ae"
+        }
+      ]
+    },
+    "sitemaps-protocol": {
+      "id": "sitemaps-protocol",
+      "url": "https://www.sitemaps.org/protocol.html",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://www.sitemaps.org/protocol.html",
+      "lastModified": "Thu, 15 Dec 2022 10:54:02 GMT",
+      "contentHash": "c0d4ef68f20d60d9",
+      "sections": [
+        {
+          "heading": "sitemaps.org",
+          "hash": "ec9e51d28fc75116"
+        },
+        {
+          "heading": "Sitemaps XML format",
+          "hash": "4483331030d5044d"
+        },
+        {
+          "heading": "Sample XML Sitemap",
+          "hash": "fa1b3be9fbb430de"
+        },
+        {
+          "heading": "XML tag definitions",
+          "hash": "34dcf98b6ebfd1c8"
+        },
+        {
+          "heading": "Entity escaping",
+          "hash": "c867306944dc123c"
+        },
+        {
+          "heading": "Sample XML Sitemap",
+          "hash": "5c615e841786c336"
+        },
+        {
+          "heading": "Using Sitemap index files (to group multiple sitemap files)",
+          "hash": "e30a801fdd77b144"
+        },
+        {
+          "heading": "Sample XML Sitemap Index",
+          "hash": "78c240796e4bbb03"
+        },
+        {
+          "heading": "Sitemap Index XML Tag Definitions",
+          "hash": "5685cab1c48d077e"
+        },
+        {
+          "heading": "Other Sitemap formats",
+          "hash": "6682cad47b1ad0eb"
+        },
+        {
+          "heading": "Syndication feed",
+          "hash": "6b23ff6cb52b50fb"
+        },
+        {
+          "heading": "Text file",
+          "hash": "444beb9e04eaa9c5"
+        },
+        {
+          "heading": "Sitemap file location",
+          "hash": "638368dc0c6b6ddb"
+        },
+        {
+          "heading": "Sitemaps & Cross Submits",
+          "hash": "91541b8bcb1946c1"
+        },
+        {
+          "heading": "Validating your Sitemap",
+          "hash": "ba20c3f686daa373"
+        },
+        {
+          "heading": "Extending the Sitemaps protocol",
+          "hash": "d2d4eb28ab43c0fc"
+        },
+        {
+          "heading": "Informing search engine crawlers",
+          "hash": "29779d27a90a099d"
+        },
+        {
+          "heading": "Submitting your Sitemap via the search engine's submission interface",
+          "hash": "5c8a8b823ffa6e9e"
+        },
+        {
+          "heading": "Specifying the Sitemap location in your robots.txt file",
+          "hash": "5726d405c5ab4abe"
+        },
+        {
+          "heading": "Submitting your Sitemap via an HTTP request",
+          "hash": "24e5019158d503f0"
+        },
+        {
+          "heading": "Excluding content",
+          "hash": "485b1a4295e14236"
+        }
+      ]
+    },
+    "google-canonical": {
+      "id": "google-canonical",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
+      "lastModified": "Fri, 10 Jul 2026 10:12:15 GMT",
+      "contentHash": "1a01ed5fbad22224",
+      "sections": [
+        {
+          "heading": "How to specify a canonical URL with rel=\"canonical\" and other methods",
+          "hash": "9737e565b41cda5a"
+        },
+        {
+          "heading": "Reasons to specify a canonical URL",
+          "hash": "296b79080f8da684"
+        },
+        {
+          "heading": "Best practices",
+          "hash": "08cfe9f183de495a"
+        },
+        {
+          "heading": "Comparison of canonicalization methods",
+          "hash": "a6e2a1a780f4c075"
+        },
+        {
+          "heading": "Use rel=\"canonical\" link annotations",
+          "hash": "a7345c74f7a17958"
+        },
+        {
+          "heading": "The rel=\"canonical\" link element",
+          "hash": "1a474b043fe73328"
+        },
+        {
+          "heading": "The rel=\"canonical\" HTTP header",
+          "hash": "39b913e0fd3ecb2e"
+        },
+        {
+          "heading": "Use a sitemap",
+          "hash": "42419a148328a7a9"
+        },
+        {
+          "heading": "Use redirects",
+          "hash": "f9794b4eb549110d"
+        },
+        {
+          "heading": "Other signals",
+          "hash": "2130729934fab13f"
+        },
+        {
+          "heading": "Prefer HTTPS over HTTP for canonical URLs",
+          "hash": "09c891e29bb71854"
+        },
+        {
+          "heading": "Prefer URLs in hreflang clusters",
+          "hash": "6a8db7e3761b8f27"
+        }
+      ]
+    },
+    "google-sd-policies": {
+      "id": "google-sd-policies",
+      "url": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies",
+      "lastModified": "Fri, 10 Jul 2026 11:55:22 GMT",
+      "contentHash": "e9531c04227e92dc",
+      "sections": [
+        {
+          "heading": "General structured data guidelines",
+          "hash": "6f582f42aed59f74"
+        },
+        {
+          "heading": "Technical guidelines",
+          "hash": "1abfd936bd53c678"
+        },
+        {
+          "heading": "Format",
+          "hash": "148b047d1c6457ad"
+        },
+        {
+          "heading": "Access",
+          "hash": "94285ab0479d4670"
+        },
+        {
+          "heading": "Quality guidelines",
+          "hash": "07fc040c74d0a870"
+        },
+        {
+          "heading": "Content",
+          "hash": "a9dca3144212841c"
+        },
+        {
+          "heading": "Relevance",
+          "hash": "098de8f440898967"
+        },
+        {
+          "heading": "Completeness",
+          "hash": "49c96f285c7ce4e7"
+        },
+        {
+          "heading": "Location",
+          "hash": "608c7eed98d3fca3"
+        },
+        {
+          "heading": "Specificity",
+          "hash": "bf6fe132563459d0"
+        },
+        {
+          "heading": "Images",
+          "hash": "45439a1decdb5ac0"
+        },
+        {
+          "heading": "Multiple items on a page",
+          "hash": "d4c8a89047c1a42b"
+        },
+        {
+          "heading": "Nesting",
+          "hash": "c7ebf7499f4a388a"
+        },
+        {
+          "heading": "Individual items",
+          "hash": "6f4455680fbcc5ea"
+        }
+      ]
+    },
+    "google-article": {
+      "id": "google-article",
+      "url": "https://developers.google.com/search/docs/appearance/structured-data/article",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/search/docs/appearance/structured-data/article",
+      "lastModified": "Tue, 08 Sep 2026 11:00:29 GMT",
+      "contentHash": "745cb0f667542fe7",
+      "sections": [
+        {
+          "heading": "Article (Article, NewsArticle, BlogPosting) structured data",
+          "hash": "b00c552c8174bcf9"
+        },
+        {
+          "heading": "Example",
+          "hash": "04fc67e8abc079e0"
+        },
+        {
+          "heading": "How to add structured data",
+          "hash": "437807fe73558473"
+        },
+        {
+          "heading": "Guidelines",
+          "hash": "0cb9824d1ed14d9a"
+        },
+        {
+          "heading": "Technical guidelines",
+          "hash": "9684c977bd1bc2ee"
+        },
+        {
+          "heading": "Structured data type definitions",
+          "hash": "f61fc0ad6c43f256"
+        },
+        {
+          "heading": "Article objects",
+          "hash": "29d4e0ec7997ba4d"
+        },
+        {
+          "heading": "Author markup best practices",
+          "hash": "8f4395d53bad76ff"
+        },
+        {
+          "heading": "Include all authors in the markup",
+          "hash": "cc9b1ceb546fc3e7"
+        },
+        {
+          "heading": "Specifying multiple authors",
+          "hash": "9c106e360a0dd33c"
+        },
+        {
+          "heading": "Use additional fields",
+          "hash": "f3eceb233d3d91d6"
+        },
+        {
+          "heading": "Only specify the author's name in the author.name property",
+          "hash": "c9e7e068f6fdaa0c"
+        },
+        {
+          "heading": "Use the appropriate Type",
+          "hash": "96fcfe6dd0955748"
+        },
+        {
+          "heading": "Troubleshooting",
+          "hash": "42c966af3d09ac9a"
+        }
+      ]
+    },
+    "schema-org": {
+      "id": "schema-org",
+      "url": "https://schema.org/docs/documents.html",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://schema.org/docs/documents.html",
+      "contentHash": "08b6b38edbabb3c6",
+      "sections": [
+        {
+          "heading": "Documentation",
+          "hash": "f1461848fd007adc"
+        },
+        {
+          "heading": "Site information",
+          "hash": "fcbb1e519296424f"
+        },
+        {
+          "heading": "Schema information",
+          "hash": "99876947d83c2ef6"
+        },
+        {
+          "heading": "Extensions",
+          "hash": "1d1a5d0bca5d5b2c"
+        },
+        {
+          "heading": "Additional Resources",
+          "hash": "7d232c0466a04c48"
+        }
+      ]
+    },
+    "openai-bots": {
+      "id": "openai-bots",
+      "url": "https://developers.openai.com/api/docs/bots",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.openai.com/api/docs/bots",
+      "lastModified": "Fri, 23 Oct 2026 07:42:32 GMT",
+      "contentHash": "03b34c31f7aa6f47",
+      "sections": [
+        {
+          "heading": "(intro)",
+          "hash": "1dde1b83336d52ff"
+        }
+      ]
+    },
+    "anthropic-crawlers": {
+      "id": "anthropic-crawlers",
+      "url": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "contentHash": "a80b4a504127434d",
+      "sections": [
+        {
+          "heading": "(intro)",
+          "hash": "5584c3ef0270f417"
+        }
+      ]
+    },
+    "llms-txt": {
+      "id": "llms-txt",
+      "url": "https://llmstxt.org/",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://llmstxt.org/",
+      "lastModified": "Thu, 24 Sep 2026 18:21:40 GMT",
+      "contentHash": "2380690380ef91a2",
+      "sections": [
+        {
+          "heading": "Background",
+          "hash": "e581bdf42415d537"
+        },
+        {
+          "heading": "Proposal",
+          "hash": "ff287d86f92f0a19"
+        },
+        {
+          "heading": "Format",
+          "hash": "dbe4c34a8c8ef92f"
+        },
+        {
+          "heading": "Existing standards",
+          "hash": "495694911dde1ac4"
+        },
+        {
+          "heading": "Example",
+          "hash": "5b3311b62f4c250f"
+        },
+        {
+          "heading": "Directories",
+          "hash": "e435f3bcaf6ed659"
+        },
+        {
+          "heading": "Integrations",
+          "hash": "fd575dafff49588e"
+        },
+        {
+          "heading": "Next steps",
+          "hash": "a5599d598e1c2337"
+        }
+      ]
+    },
+    "web-vitals": {
+      "id": "web-vitals",
+      "url": "https://web.dev/articles/vitals",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://web.dev/articles/vitals",
+      "lastModified": "Thu, 31 Oct 2024 07:00:00 GMT",
+      "contentHash": "bb48eb217d8dd5e7",
+      "sections": [
+        {
+          "heading": "Web Vitals Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "12b8228bb6a770b9"
+        },
+        {
+          "heading": "Overview",
+          "hash": "66993bd3da3f520e"
+        },
+        {
+          "heading": "Core Web Vitals",
+          "hash": "7d2ed9c01a9b8faf"
+        },
+        {
+          "heading": "Lifecycle",
+          "hash": "6c0d4476c0ca574a"
+        },
+        {
+          "heading": "Tools to measure and report Core Web Vitals",
+          "hash": "cf796d8f34038d10"
+        },
+        {
+          "heading": "Recommendations for improving your scores",
+          "hash": "5a9f4705037fd08f"
+        },
+        {
+          "heading": "Other Web Vitals",
+          "hash": "1e42b09817db5f63"
+        },
+        {
+          "heading": "Changes to Web Vitals",
+          "hash": "f23e275c0fe207ae"
+        }
+      ]
+    },
+    "psi-api": {
+      "id": "psi-api",
+      "url": "https://developers.google.com/speed/docs/insights/v5/get-started",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/speed/docs/insights/v5/get-started",
+      "lastModified": "Thu, 28 Aug 2025 20:17:52 GMT",
+      "contentHash": "2042ce278cffd65e",
+      "sections": [
+        {
+          "heading": "Get Started with the PageSpeed Insights API Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "e02bd8bcccdde933"
+        },
+        {
+          "heading": "Page Summary",
+          "hash": "f319fb10ab79fee6"
+        },
+        {
+          "heading": "API Explorer",
+          "hash": "5457dfaf423df7e3"
+        },
+        {
+          "heading": "Acquiring and using an API key",
+          "hash": "dd46af23c0ae5064"
+        },
+        {
+          "heading": "curl",
+          "hash": "3de120ae4cac8e17"
+        },
+        {
+          "heading": "JavaScript",
+          "hash": "b79490d35848096d"
+        },
+        {
+          "heading": "Next steps",
+          "hash": "9457898c8b8d9f00"
+        },
+        {
+          "heading": "Feedback",
+          "hash": "37f3601e62e3607e"
+        }
+      ]
+    },
+    "crux-api": {
+      "id": "crux-api",
+      "url": "https://developer.chrome.com/docs/crux/api",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developer.chrome.com/docs/crux/api",
+      "lastModified": "Tue, 13 Oct 2026 07:00:00 GMT",
+      "contentHash": "217544bc71952ae1",
+      "sections": [
+        {
+          "heading": "CrUX API Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "5b72ca4bab96a64a"
+        },
+        {
+          "heading": "Common use case",
+          "hash": "9fd8815f3deacba8"
+        },
+        {
+          "heading": "CrUX API Key",
+          "hash": "ab3d23ffa2c09c23"
+        },
+        {
+          "heading": "Acquiring and using an API key",
+          "hash": "7cffc653554952b7"
+        },
+        {
+          "heading": "Data model",
+          "hash": "728e92f603202c7e"
+        },
+        {
+          "heading": "Record",
+          "hash": "24bab088ff4a9fd7"
+        },
+        {
+          "heading": "Identifiers",
+          "hash": "ca5f479622158f41"
+        },
+        {
+          "heading": "Origin",
+          "hash": "c3171f7fafceabca"
+        },
+        {
+          "heading": "URLs",
+          "hash": "4f61c1dd35daf49c"
+        },
+        {
+          "heading": "Dimensions",
+          "hash": "c7e056a57108704e"
+        },
+        {
+          "heading": "Metric",
+          "hash": "4e42b8f465ca25bc"
+        },
+        {
+          "heading": "Collection period",
+          "hash": "d33c7e7ca2951dc5"
+        },
+        {
+          "heading": "Example queries",
+          "hash": "5187928296375909"
+        },
+        {
+          "heading": "Data pipeline",
+          "hash": "ea05e1481a10d1f4"
+        },
+        {
+          "heading": "The rolling average",
+          "hash": "b9b8dbcd46e19cc8"
+        },
+        {
+          "heading": "Daily updates",
+          "hash": "873e88668d1efe7f"
+        },
+        {
+          "heading": "Schema",
+          "hash": "004f3d14e28ef3bc"
+        },
+        {
+          "heading": "HTTP request",
+          "hash": "deed00889eb1690a"
+        },
+        {
+          "heading": "Request body",
+          "hash": "731687d0014eec47"
+        },
+        {
+          "heading": "Response body",
+          "hash": "c9190a56d598f412"
+        },
+        {
+          "heading": "Rate limits",
+          "hash": "7a765fade2954588"
+        }
+      ]
+    },
+    "w3c-wai": {
+      "id": "w3c-wai",
+      "url": "https://www.w3.org/WAI/standards-guidelines/",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://www.w3.org/WAI/standards-guidelines/",
+      "lastModified": "Thu, 22 Oct 2026 17:18:43 GMT",
+      "contentHash": "ec3fa602d141ea02",
+      "sections": [
+        {
+          "heading": "Introduction",
+          "hash": "58329f97ba011fcb"
+        },
+        {
+          "heading": "Accessibility Guidelines",
+          "hash": "be9a40e1398c0078"
+        },
+        {
+          "heading": "Web Content Accessibility Guidelines (WCAG) 2",
+          "hash": "ad795203d0a03b15"
+        },
+        {
+          "heading": "Authoring Tool Accessibility Guidelines (ATAG)",
+          "hash": "c84bca0c194d32f1"
+        },
+        {
+          "heading": "User Agent Accessibility Guidelines (UAAG)",
+          "hash": "7d26f396d6c17241"
+        },
+        {
+          "heading": "W3C Accessibility Guidelines (WCAG) 3 Working Draft",
+          "hash": "50409b84759bf9cf"
+        },
+        {
+          "heading": "Technical Specifications",
+          "hash": "cf13be789ed3ec62"
+        },
+        {
+          "heading": "Accessible Rich Internet Applications (WAI-ARIA)",
+          "hash": "2dd6f5e8366f0cf9"
+        },
+        {
+          "heading": "Audio and Video",
+          "hash": "0fbe885c1e3834a5"
+        },
+        {
+          "heading": "Evaluation",
+          "hash": "d1aebc8504a5d630"
+        },
+        {
+          "heading": "WAI-Adapt",
+          "hash": "72abd4658a1cde42"
+        },
+        {
+          "heading": "Pronunciation",
+          "hash": "8420be0dafb852e3"
+        },
+        {
+          "heading": "Other Areas of W3C WAI work",
+          "hash": "790c81e1fc011830"
+        },
+        {
+          "heading": "Additional Information",
+          "hash": "f4142d20f6f35e24"
+        }
+      ]
+    },
+    "google-consent": {
+      "id": "google-consent",
+      "url": "https://developers.google.com/tag-platform/security/guides/consent",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/tag-platform/security/guides/consent",
+      "lastModified": "Tue, 13 Oct 2026 14:08:35 GMT",
+      "contentHash": "f3304342ea872f93",
+      "sections": [
+        {
+          "heading": "Set up consent mode on websites Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "96233fdb634e2938"
+        },
+        {
+          "heading": "Page Summary",
+          "hash": "e0c1e7bb60cc39b8"
+        },
+        {
+          "heading": "Before you begin",
+          "hash": "e48df8a92b90ce9e"
+        },
+        {
+          "heading": "Set up consent mode",
+          "hash": "1c2f3525351686f4"
+        },
+        {
+          "heading": "Set the default consent state",
+          "hash": "b6faa437d8f16a0a"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "b36cd2f4d34064fb"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "e728d89b6b105188"
+        },
+        {
+          "heading": "Optional: Integrate with asynchronous consent management platforms",
+          "hash": "643e598ed5171898"
+        },
+        {
+          "heading": "Update consent state",
+          "hash": "be8ed41368278f23"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "d1f005e8a564156d"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "3e1e30939199b50c"
+        },
+        {
+          "heading": "Change user consent choices",
+          "hash": "7d276849c0294626"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "baa9231d32aad376"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "05af25d59915e5e8"
+        },
+        {
+          "heading": "Implementation example",
+          "hash": "a533dab68d9278c3"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "30ddae6cb3818ee7"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "498777d0987f6ccc"
+        },
+        {
+          "heading": "Upgrade to consent mode v2",
+          "hash": "bbf2a2df6b68bff0"
+        },
+        {
+          "heading": "More consent mode features",
+          "hash": "a134d25ecf166b8b"
+        },
+        {
+          "heading": "Region-specific behavior",
+          "hash": "644299d3f4e490d1"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "9347d0e2b6324fe3"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "4f8572ad3a6f6c78"
+        },
+        {
+          "heading": "Pass through ad click, client ID, and session ID information in URLs",
+          "hash": "f017913e2007f692"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "832de0f6f747a52f"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "2e596267ea9329cb"
+        },
+        {
+          "heading": "Redact ads data",
+          "hash": "94080e7331ae5fec"
+        },
+        {
+          "heading": "Tag Manager",
+          "hash": "3fd659faa97cd3bc"
+        },
+        {
+          "heading": "gtag.js",
+          "hash": "66b965746f17ec8e"
+        },
+        {
+          "heading": "Common issues",
+          "hash": "ae5563655b469b48"
+        },
+        {
+          "heading": "Consent isn't updated on a transition page",
+          "hash": "7f6a4e4b0c9287d2"
+        },
+        {
+          "heading": "Consent updated immediately before page reload",
+          "hash": "2f85984253c1c5ca"
+        },
+        {
+          "heading": "Next steps",
+          "hash": "935e164c573b88bd"
+        },
+        {
+          "heading": "Legacy tag controls",
+          "hash": "c015076e405bfac5"
+        },
+        {
+          "heading": "Related links",
+          "hash": "2b039472a3e0ec16"
+        }
+      ]
+    },
+    "ga4-event-naming": {
+      "id": "ga4-event-naming",
+      "url": "https://support.google.com/analytics/answer/13316687",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://support.google.com/analytics/answer/13316687",
+      "contentHash": "842d9d5f531f8497",
+      "sections": [
+        {
+          "heading": "Event naming rules",
+          "hash": "f095088bbbf34ef8"
+        },
+        {
+          "heading": "Reserved prefixes and event names",
+          "hash": "9331414638816861"
+        },
+        {
+          "heading": "Reserved prefixes",
+          "hash": "46fb45f9dab94056"
+        },
+        {
+          "heading": "Reserved event names",
+          "hash": "d9d1941a66092ad4"
+        },
+        {
+          "heading": "Reserved event parameter names",
+          "hash": "a319f69ef86a54b4"
+        },
+        {
+          "heading": "Reserved user property names",
+          "hash": "dbe986a6a84a8fa8"
+        },
+        {
+          "heading": "Reserved item parameter names",
+          "hash": "d983dfb31b1ff141"
+        },
+        {
+          "heading": "Reserved event names",
+          "hash": "39b1b4bdc503064e"
+        },
+        {
+          "heading": "Reserved event parameter names",
+          "hash": "a319f69ef86a54b4"
+        },
+        {
+          "heading": "Reserved user property names",
+          "hash": "dbe986a6a84a8fa8"
+        },
+        {
+          "heading": "Reserved item parameter names",
+          "hash": "8530eefcefab1e90"
+        },
+        {
+          "heading": "Was this helpful?",
+          "hash": "99de6f893dec0af9"
+        }
+      ]
+    },
+    "ga4-limits": {
+      "id": "ga4-limits",
+      "url": "https://support.google.com/analytics/answer/9267744",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://support.google.com/analytics/answer/9267744",
+      "contentHash": "fee527dd15e80c31",
+      "sections": [
+        {
+          "heading": "Event collection limits",
+          "hash": "eb221579893c26ad"
+        },
+        {
+          "heading": "Collection limits",
+          "hash": "8785222db629df4f"
+        },
+        {
+          "heading": "Character limits",
+          "hash": "56b9d3de5a7765c1"
+        },
+        {
+          "heading": "Was this helpful?",
+          "hash": "99de6f893dec0af9"
+        }
+      ]
+    },
+    "ga4-runreport": {
+      "id": "ga4-runreport",
+      "url": "https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport",
+      "lastModified": "Thu, 23 Apr 2026 21:03:37 GMT",
+      "contentHash": "b2f8a530a260a70f",
+      "sections": [
+        {
+          "heading": "(intro)",
+          "hash": "07605ff3090421d3"
+        },
+        {
+          "heading": "Method: properties.runReport Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "6a99cdc5407d7b83"
+        },
+        {
+          "heading": "Page Summary",
+          "hash": "d7fd31b3d07f21b0"
+        },
+        {
+          "heading": "HTTP request",
+          "hash": "0c9311bb70756e36"
+        },
+        {
+          "heading": "Path parameters",
+          "hash": "84b202dc2cfd6316"
+        },
+        {
+          "heading": "Request body",
+          "hash": "456c545b1df2ec2e"
+        },
+        {
+          "heading": "Response body",
+          "hash": "f95758c27dfc1d13"
+        },
+        {
+          "heading": "Authorization scopes",
+          "hash": "269376272b800bbe"
+        }
+      ]
+    },
+    "gsc-searchanalytics": {
+      "id": "gsc-searchanalytics",
+      "url": "https://developers.google.com/webmaster-tools/v1/searchanalytics/query",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/webmaster-tools/v1/searchanalytics/query",
+      "lastModified": "Tue, 11 Aug 2026 11:38:41 GMT",
+      "contentHash": "3dd811e6aa2cfbfa",
+      "sections": [
+        {
+          "heading": "Search Analytics: query Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "d68a84c8bfa61a34"
+        },
+        {
+          "heading": "Page Summary",
+          "hash": "629adb99f6ca8e2a"
+        },
+        {
+          "heading": "Request",
+          "hash": "c6fd3d77f60862ad"
+        },
+        {
+          "heading": "HTTP request",
+          "hash": "05b0bfc2d6af316f"
+        },
+        {
+          "heading": "Parameters",
+          "hash": "9d9181549ea02c10"
+        },
+        {
+          "heading": "Authorization",
+          "hash": "cde3db10f2859111"
+        },
+        {
+          "heading": "Request body",
+          "hash": "82ac4fd1a363db3e"
+        },
+        {
+          "heading": "Response",
+          "hash": "ddb6c83004509255"
+        },
+        {
+          "heading": "Try it!",
+          "hash": "763a492c894437ec"
+        }
+      ]
+    },
+    "google-oauth-native": {
+      "id": "google-oauth-native",
+      "url": "https://developers.google.com/identity/protocols/oauth2/native-app",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://developers.google.com/identity/protocols/oauth2/native-app",
+      "lastModified": "Fri, 16 Oct 2026 20:15:08 GMT",
+      "contentHash": "58041debdcd300d3",
+      "sections": [
+        {
+          "heading": "OAuth 2.0 for Desktop Apps Stay organized with collections Save and categorize content based on your preferences.",
+          "hash": "7f4683a2b282fd5d"
+        },
+        {
+          "heading": "Page Summary",
+          "hash": "4283f0e863d9f004"
+        },
+        {
+          "heading": "Libraries and samples",
+          "hash": "dea0bd422cc5b317"
+        },
+        {
+          "heading": "Prerequisites",
+          "hash": "f35dca3606075731"
+        },
+        {
+          "heading": "Enable APIs for your project",
+          "hash": "d171fde51b3dff75"
+        },
+        {
+          "heading": "Create authorization credentials",
+          "hash": "6a372e2b38caa90b"
+        },
+        {
+          "heading": "Identify access scopes",
+          "hash": "bb2fa7d25a6f1020"
+        },
+        {
+          "heading": "Obtaining OAuth 2.0 access tokens",
+          "hash": "b83248263b45639b"
+        },
+        {
+          "heading": "Step 1: Generate a code verifier and challenge",
+          "hash": "bffdd9b869118bc8"
+        },
+        {
+          "heading": "Step 2: Send a request to Google's OAuth 2.0 server",
+          "hash": "24546ba0638173cc"
+        },
+        {
+          "heading": "Custom URI scheme",
+          "hash": "e094aef81d5ff9eb"
+        },
+        {
+          "heading": "Loopback IP address",
+          "hash": "1ff5286160efc560"
+        },
+        {
+          "heading": "Step 3: Google prompts user for consent",
+          "hash": "768256cf8948932b"
+        },
+        {
+          "heading": "Step 4: Handle the OAuth 2.0 server response",
+          "hash": "5fdabc7e41d2c3e9"
+        },
+        {
+          "heading": "Step 5: Exchange authorization code for refresh and access tokens",
+          "hash": "29e8d2be5a98dd16"
+        },
+        {
+          "heading": "Step 6: Check which scopes users granted",
+          "hash": "adb63ad62fade7a1"
+        },
+        {
+          "heading": "Call Google APIs",
+          "hash": "fe156df7c1698557"
+        },
+        {
+          "heading": "Refresh an access token",
+          "hash": "8ceabd699bfeb48c"
+        },
+        {
+          "heading": "Token revocation",
+          "hash": "bb18f6acc8711e4b"
+        },
+        {
+          "heading": "App redirect methods",
+          "hash": "9f680cb9ba1e338a"
+        },
+        {
+          "heading": "Custom URI scheme",
+          "hash": "e78ecad6f5850ef6"
+        },
+        {
+          "heading": "Loopback IP address (macOS, Linux, Windows desktop)",
+          "hash": "ecaff44d3b0461d2"
+        },
+        {
+          "heading": "Manual copy/paste (Deprecated)",
+          "hash": "119e39b43f4e5f7d"
+        },
+        {
+          "heading": "Protect your apps",
+          "hash": "aaca78f000d3ced4"
+        },
+        {
+          "heading": "Verify app ownership for Chrome",
+          "hash": "572cf416dea7efa5"
+        },
+        {
+          "heading": "Time-based access",
+          "hash": "68031d8593153e40"
+        },
+        {
+          "heading": "Further Reading",
+          "hash": "cb617f65d9f563cc"
+        },
+        {
+          "heading": "Implement Cross-Account Protection",
+          "hash": "e4aaf1a48de2e0f6"
+        }
+      ]
+    },
+    "gh-pages-workflows": {
+      "id": "gh-pages-workflows",
+      "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages",
+      "contentHash": "c9dbf1f2585a19c4",
+      "sections": [
+        {
+          "heading": "Using custom workflows with GitHub Pages",
+          "hash": "58bf67b982e92bcb"
+        },
+        {
+          "heading": "Who can use this feature?",
+          "hash": "5302cc64b6d5e13c"
+        },
+        {
+          "heading": "In this article",
+          "hash": "951f8c4d5f049f9f"
+        },
+        {
+          "heading": "About custom workflows",
+          "hash": "6c3a1e983efd8178"
+        },
+        {
+          "heading": "Configuring the configure-pages action",
+          "hash": "b151521e87785b23"
+        },
+        {
+          "heading": "Configuring the upload-pages-artifact action",
+          "hash": "7d573a4808536323"
+        },
+        {
+          "heading": "Deploying GitHub Pages artifacts",
+          "hash": "37abe6192cd1346c"
+        },
+        {
+          "heading": "Linking separate build and deploy jobs",
+          "hash": "56f6257bf1245642"
+        }
+      ]
+    },
+    "gh-pages-custom-domain": {
+      "id": "gh-pages-custom-domain",
+      "url": "https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site",
+      "contentHash": "ef1adbf62fc61baa",
+      "sections": [
+        {
+          "heading": "Managing a custom domain for your GitHub Pages site",
+          "hash": "2ae4f43eac73b71d"
+        },
+        {
+          "heading": "Who can use this feature?",
+          "hash": "5302cc64b6d5e13c"
+        },
+        {
+          "heading": "Platform navigation",
+          "hash": "62813dc5aefe371f"
+        },
+        {
+          "heading": "In this article",
+          "hash": "bc71d2914f40a285"
+        },
+        {
+          "heading": "About custom domain configuration",
+          "hash": "473936c2d1f159f0"
+        },
+        {
+          "heading": "Configuring an apex domain",
+          "hash": "a9058fb099f8b6d6"
+        },
+        {
+          "heading": "Configuring an apex domain and the www subdomain variant",
+          "hash": "53ef662934489b2c"
+        },
+        {
+          "heading": "Configuring a subdomain",
+          "hash": "67644af9d20177f8"
+        },
+        {
+          "heading": "DNS records for your custom domain",
+          "hash": "ca9f6ed7079626cf"
+        },
+        {
+          "heading": "Removing a custom domain",
+          "hash": "63e08eb6b85dc169"
+        },
+        {
+          "heading": "Securing your custom domain",
+          "hash": "210d45309163ef72"
+        },
+        {
+          "heading": "Further reading",
+          "hash": "78243f58b5ea252e"
+        }
+      ]
+    },
+    "indexnow": {
+      "id": "indexnow",
+      "url": "https://www.indexnow.org/documentation",
+      "fetchedAt": "2026-10-23T08:09:31.904Z",
+      "status": 200,
+      "finalUrl": "https://www.indexnow.org/documentation",
+      "lastModified": "Wed, 11 Feb 2026 09:33:52 GMT",
+      "contentHash": "8548a0fb2979d99c",
+      "sections": [
+        {
+          "heading": "(intro)",
+          "hash": "6febff0b827506f9"
+        },
+        {
+          "heading": "Documentation",
+          "hash": "f1461848fd007adc"
+        },
+        {
+          "heading": "Submitting One URL",
+          "hash": "93e47e7053f113b6"
+        },
+        {
+          "heading": "Submitting set of URLs",
+          "hash": "3a05a606fa072fe0"
+        },
+        {
+          "heading": "Verifying ownership via the key",
+          "hash": "acebda2ba1cccde8"
+        },
+        {
+          "heading": "Response format",
+          "hash": "a1d8376b671b0431"
+        },
+        {
+          "heading": "Requirement for search engines",
+          "hash": "27ed7e9929816fe5"
+        }
+      ]
+    }
+  }
+}

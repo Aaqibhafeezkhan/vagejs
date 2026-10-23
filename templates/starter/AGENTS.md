@@ -118,6 +118,10 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 - **Reports**: `npx vage connect gsc|ga4` (browser OAuth, read-only scopes; token stored outside the repo), then `npx vage report search` / `npx vage report analytics`. `npx vage disconnect google` revokes access. Needs `GOOGLE_OAUTH_CLIENT_ID` (see `.env.example`).
 - Secrets go in `.env` (git-ignored) or the shell, never in `vage.config.ts` or committed files.
 
+## Provider rules
+
+`npx vage guidelines` lists the provider facts VAGE JS uses (AI crawler tokens, Web Vitals thresholds, GA4 limits) with their official sources. Pin a version with `guidelines: { rulePack: "<version>" }` so an upgrade can't silently change output.
+
 ## Not implemented yet
 
 Bing Webmaster Tools, IndexNow, Clarity, Plausible, other hosting providers (Cloudflare, Netlify, Vercel), per-PR preview deployments. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.

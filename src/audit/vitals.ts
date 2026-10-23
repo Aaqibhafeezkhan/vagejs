@@ -1,11 +1,16 @@
+import { ruleData } from "../guidelines/pack.js";
+
+type Thresholds = Record<"lcp" | "inp" | "cls", { good: number; poor: number }>;
+const T = ruleData<Thresholds>("vitals.thresholds");
+
 /**
  * Core Web Vitals thresholds, assessed at the 75th percentile of real-user
- * page loads. Source: https://web.dev/articles/vitals (good / needs improvement / poor).
+ * page loads (rule pack "vitals.thresholds", source: https://web.dev/articles/vitals).
  */
 export const VITALS = {
-  lcp: { label: "LCP", unit: "ms", good: 2500, poor: 4000 },
-  inp: { label: "INP", unit: "ms", good: 200, poor: 500 },
-  cls: { label: "CLS", unit: "", good: 0.1, poor: 0.25 },
+  lcp: { label: "LCP", unit: "ms", ...T.lcp },
+  inp: { label: "INP", unit: "ms", ...T.inp },
+  cls: { label: "CLS", unit: "", ...T.cls },
 } as const;
 
 export type VitalName = keyof typeof VITALS;

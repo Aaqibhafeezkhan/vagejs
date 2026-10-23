@@ -1,0 +1,444 @@
+{
+  "version": "2026.10.0",
+  "released": "2026-10-23",
+  "sources": [
+    {
+      "id": "google-search-essentials",
+      "provider": "Google",
+      "title": "Google Search Essentials",
+      "url": "https://developers.google.com/search/docs/essentials",
+      "category": "search",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-robots",
+      "provider": "Google",
+      "title": "Introduction to robots.txt",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/robots/intro",
+      "category": "crawling",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-crawlers",
+      "provider": "Google",
+      "title": "Google's common crawlers (incl. Google-Extended)",
+      "url": "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers",
+      "category": "ai-crawlers",
+      "cadence": "daily"
+    },
+    {
+      "id": "google-sitemaps",
+      "provider": "Google",
+      "title": "Build and submit a sitemap",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap",
+      "category": "crawling",
+      "cadence": "weekly"
+    },
+    {
+      "id": "sitemaps-protocol",
+      "provider": "sitemaps.org",
+      "title": "Sitemaps XML format",
+      "url": "https://www.sitemaps.org/protocol.html",
+      "category": "crawling",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-canonical",
+      "provider": "Google",
+      "title": "Consolidate duplicate URLs",
+      "url": "https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls",
+      "category": "search",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-sd-policies",
+      "provider": "Google",
+      "title": "Structured data general guidelines",
+      "url": "https://developers.google.com/search/docs/appearance/structured-data/sd-policies",
+      "category": "structured-data",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-article",
+      "provider": "Google",
+      "title": "Article structured data",
+      "url": "https://developers.google.com/search/docs/appearance/structured-data/article",
+      "category": "structured-data",
+      "cadence": "weekly"
+    },
+    {
+      "id": "schema-org",
+      "provider": "Schema.org",
+      "title": "Schema.org documents",
+      "url": "https://schema.org/docs/documents.html",
+      "category": "structured-data",
+      "cadence": "weekly"
+    },
+    {
+      "id": "openai-bots",
+      "provider": "OpenAI",
+      "title": "Overview of OpenAI crawlers",
+      "url": "https://developers.openai.com/api/docs/bots",
+      "category": "ai-crawlers",
+      "cadence": "daily"
+    },
+    {
+      "id": "anthropic-crawlers",
+      "provider": "Anthropic",
+      "title": "Does Anthropic crawl data from the web?",
+      "url": "https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler",
+      "category": "ai-crawlers",
+      "cadence": "daily"
+    },
+    {
+      "id": "llms-txt",
+      "provider": "llmstxt.org",
+      "title": "The /llms.txt file (proposal)",
+      "url": "https://llmstxt.org/",
+      "category": "ai-discovery",
+      "cadence": "weekly"
+    },
+    {
+      "id": "web-vitals",
+      "provider": "Google (web.dev)",
+      "title": "Web Vitals",
+      "url": "https://web.dev/articles/vitals",
+      "category": "performance",
+      "cadence": "weekly"
+    },
+    {
+      "id": "psi-api",
+      "provider": "Google",
+      "title": "PageSpeed Insights API: get started",
+      "url": "https://developers.google.com/speed/docs/insights/v5/get-started",
+      "category": "performance",
+      "cadence": "weekly"
+    },
+    {
+      "id": "crux-api",
+      "provider": "Google (Chrome)",
+      "title": "CrUX API",
+      "url": "https://developer.chrome.com/docs/crux/api",
+      "category": "performance",
+      "cadence": "weekly"
+    },
+    {
+      "id": "w3c-wai",
+      "provider": "W3C",
+      "title": "W3C Accessibility Standards Overview",
+      "url": "https://www.w3.org/WAI/standards-guidelines/",
+      "category": "accessibility",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-consent",
+      "provider": "Google",
+      "title": "Set up consent mode on websites",
+      "url": "https://developers.google.com/tag-platform/security/guides/consent",
+      "category": "privacy",
+      "cadence": "weekly"
+    },
+    {
+      "id": "ga4-event-naming",
+      "provider": "Google",
+      "title": "[GA4] Event naming rules",
+      "url": "https://support.google.com/analytics/answer/13316687",
+      "category": "analytics",
+      "cadence": "weekly"
+    },
+    {
+      "id": "ga4-limits",
+      "provider": "Google",
+      "title": "[GA4] Event collection limits",
+      "url": "https://support.google.com/analytics/answer/9267744",
+      "category": "analytics",
+      "cadence": "weekly"
+    },
+    {
+      "id": "ga4-runreport",
+      "provider": "Google",
+      "title": "GA4 Data API: properties.runReport",
+      "url": "https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/properties/runReport",
+      "category": "analytics",
+      "cadence": "weekly"
+    },
+    {
+      "id": "gsc-searchanalytics",
+      "provider": "Google",
+      "title": "Search Console API: searchanalytics.query",
+      "url": "https://developers.google.com/webmaster-tools/v1/searchanalytics/query",
+      "category": "search-console",
+      "cadence": "weekly"
+    },
+    {
+      "id": "google-oauth-native",
+      "provider": "Google",
+      "title": "OAuth 2.0 for iOS & desktop apps",
+      "url": "https://developers.google.com/identity/protocols/oauth2/native-app",
+      "category": "auth",
+      "cadence": "weekly"
+    },
+    {
+      "id": "gh-pages-workflows",
+      "provider": "GitHub",
+      "title": "Using custom workflows with GitHub Pages",
+      "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages",
+      "category": "hosting",
+      "cadence": "weekly"
+    },
+    {
+      "id": "gh-pages-custom-domain",
+      "provider": "GitHub",
+      "title": "Managing a custom domain for your GitHub Pages site",
+      "url": "https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site",
+      "category": "hosting",
+      "cadence": "weekly"
+    },
+    {
+      "id": "bing-guidelines",
+      "provider": "Microsoft",
+      "title": "Bing Webmaster Guidelines",
+      "url": "https://www.bing.com/webmasters/help/webmaster-guidelines-30fba23a",
+      "category": "search",
+      "cadence": "weekly",
+      "monitor": "manual"
+    },
+    {
+      "id": "indexnow",
+      "provider": "IndexNow",
+      "title": "IndexNow documentation",
+      "url": "https://www.indexnow.org/documentation",
+      "category": "search",
+      "cadence": "weekly"
+    }
+  ],
+  "rules": [
+    {
+      "id": "robots.ai-crawlers",
+      "summary": "robots.txt tokens for AI crawlers, split into training vs search. Only documented robots.txt-honoring tokens; user-initiated fetchers excluded.",
+      "behaviorChanging": true,
+      "sources": [
+        "openai-bots",
+        "anthropic-crawlers",
+        "google-crawlers"
+      ],
+      "implementedIn": [
+        "src/discovery/crawlers.ts",
+        "src/discovery/robots.ts"
+      ],
+      "data": {
+        "crawlers": [
+          {
+            "token": "GPTBot",
+            "provider": "OpenAI",
+            "purpose": "training",
+            "source": "openai-bots"
+          },
+          {
+            "token": "OAI-SearchBot",
+            "provider": "OpenAI",
+            "purpose": "search",
+            "source": "openai-bots"
+          },
+          {
+            "token": "ClaudeBot",
+            "provider": "Anthropic",
+            "purpose": "training",
+            "source": "anthropic-crawlers"
+          },
+          {
+            "token": "Claude-SearchBot",
+            "provider": "Anthropic",
+            "purpose": "search",
+            "source": "anthropic-crawlers"
+          },
+          {
+            "token": "Google-Extended",
+            "provider": "Google",
+            "purpose": "training",
+            "source": "google-crawlers"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sitemap.limits",
+      "summary": "Maximum URLs per sitemap file.",
+      "behaviorChanging": true,
+      "sources": [
+        "google-sitemaps",
+        "sitemaps-protocol"
+      ],
+      "implementedIn": [
+        "src/discovery/sitemap.ts"
+      ],
+      "data": {
+        "maxUrls": 50000
+      }
+    },
+    {
+      "id": "vitals.thresholds",
+      "summary": "Core Web Vitals good / poor thresholds at the 75th percentile.",
+      "behaviorChanging": true,
+      "sources": [
+        "web-vitals"
+      ],
+      "implementedIn": [
+        "src/audit/vitals.ts"
+      ],
+      "data": {
+        "lcp": {
+          "good": 2500,
+          "poor": 4000
+        },
+        "inp": {
+          "good": 200,
+          "poor": 500
+        },
+        "cls": {
+          "good": 0.1,
+          "poor": 0.25
+        }
+      }
+    },
+    {
+      "id": "ga4.naming",
+      "summary": "GA4 event and parameter naming rules and length limits.",
+      "behaviorChanging": true,
+      "sources": [
+        "ga4-event-naming",
+        "ga4-limits"
+      ],
+      "implementedIn": [
+        "src/core/config.ts"
+      ],
+      "data": {
+        "maxNameLength": 40,
+        "reservedParamPrefixes": [
+          "_",
+          "firebase_",
+          "ga_",
+          "google_",
+          "gtag."
+        ]
+      }
+    },
+    {
+      "id": "consent.default-order",
+      "summary": "Consent defaults are set before any measurement command; four consent types.",
+      "behaviorChanging": true,
+      "sources": [
+        "google-consent"
+      ],
+      "implementedIn": [
+        "src/integrations/tags.ts"
+      ],
+      "data": {
+        "types": [
+          "ad_storage",
+          "ad_user_data",
+          "ad_personalization",
+          "analytics_storage"
+        ]
+      }
+    },
+    {
+      "id": "seo.canonical-and-structured-data",
+      "summary": "Absolute canonical URLs; structured data must match visible content; Article recommended properties.",
+      "behaviorChanging": false,
+      "sources": [
+        "google-canonical",
+        "google-sd-policies",
+        "google-article",
+        "schema-org"
+      ],
+      "implementedIn": [
+        "src/seo/head.ts",
+        "src/checks/check.ts"
+      ]
+    },
+    {
+      "id": "llms-txt.format",
+      "summary": "llms.txt layout (H1 title, blockquote summary, link sections). An emerging convention.",
+      "behaviorChanging": false,
+      "sources": [
+        "llms-txt"
+      ],
+      "implementedIn": [
+        "src/discovery/llms.ts"
+      ]
+    },
+    {
+      "id": "audit.field-data-source",
+      "summary": "Field data from the CrUX API (PSI field data is planned for discontinuation); lab data from PageSpeed Insights.",
+      "behaviorChanging": false,
+      "sources": [
+        "psi-api",
+        "crux-api"
+      ],
+      "implementedIn": [
+        "src/audit/remote.ts"
+      ]
+    },
+    {
+      "id": "accessibility.baseline",
+      "summary": "Automated accessibility rules (axe-core) as a baseline, not WCAG conformance.",
+      "behaviorChanging": false,
+      "sources": [
+        "w3c-wai"
+      ],
+      "implementedIn": [
+        "src/audit/a11y.ts",
+        "src/checks/check.ts"
+      ]
+    },
+    {
+      "id": "google-apis.reporting",
+      "summary": "Desktop OAuth (loopback + PKCE) with read-only scopes; Search Analytics and GA4 runReport request shapes.",
+      "behaviorChanging": false,
+      "sources": [
+        "google-oauth-native",
+        "gsc-searchanalytics",
+        "ga4-runreport"
+      ],
+      "implementedIn": [
+        "src/integrations/google-auth.ts",
+        "src/integrations/search-console.ts",
+        "src/integrations/ga4-data.ts"
+      ]
+    },
+    {
+      "id": "hosting.github-pages",
+      "summary": "GitHub Pages via Actions: permissions, environment, artifact; CNAME not required.",
+      "behaviorChanging": true,
+      "sources": [
+        "gh-pages-workflows",
+        "gh-pages-custom-domain"
+      ],
+      "implementedIn": [
+        "src/deploy/github-pages.ts"
+      ]
+    },
+    {
+      "id": "search.general",
+      "summary": "General search guidance tracked for future rules (Phase 8: Bing, IndexNow).",
+      "behaviorChanging": false,
+      "sources": [
+        "google-search-essentials",
+        "google-robots",
+        "bing-guidelines",
+        "indexnow"
+      ],
+      "implementedIn": []
+    }
+  ],
+  "changelog": [
+    {
+      "version": "2026.10.0",
+      "date": "2026-10-23",
+      "summary": "Initial rule pack. Facts checked against the cited sources on 2026-10-23 during implementation.",
+      "reviewedBy": "pending",
+      "contentHash": "043154701252fb1894a40968d975ee172d64c6b1eda6ed6eb05f4ab95dccbbe3"
+    }
+  ]
+}

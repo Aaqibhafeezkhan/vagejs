@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { VageError } from "./errors.js";
+import { ruleData } from "../guidelines/pack.js";
 
 export const CONFIG_FILES = ["vage.config.ts", "vage.config.js", "vage.config.mjs"];
 
@@ -86,13 +87,13 @@ const performanceSchema = z.strictObject({
     .default({ enabled: false, pages: ["/"] }),
 });
 
-// GA4 naming rules: https://support.google.com/analytics/answer/13316687
-// Length limits (40 chars): https://support.google.com/analytics/answer/9267744
+// GA4 naming rules and limits: rule pack "ga4.naming".
+const GA4 = ruleData<{ maxNameLength: number; reservedParamPrefixes: string[] }>("ga4.naming");
 const ga4Name = z
   .string()
-  .max(40)
+  .max(GA4.maxNameLength)
   .regex(/^[A-Za-z][A-Za-z0-9_]*$/, "must start with a letter and use only letters, numbers and underscores");
-const ga4Param = ga4Name.refine((p) => !/^(_|firebase_|ga_|google_|gtag\.)/.test(p), "uses a reserved prefix");
+const ga4Param = ga4Name.refine((p) => !GA4.reservedParamPrefixes.some((prefix) => p.startsWith(prefix)), "uses a reserved prefix");
 
 /** Event map whose keys are validated with GA4 naming rules (record keys alone give unhelpful errors). */
 const ga4Events = z.record(z.string(), z.strictObject({ params: z.array(ga4Param).default([]) })).superRefine((events, ctx) => {
@@ -156,6 +157,15 @@ export const configSchema = z.strictObject({
   lang: z.string().min(1).default("en").describe("<html lang> value."),
   seo: seoSchema.default(() => seoSchema.parse({})),
   performance: performanceSchema.default(() => performanceSchema.parse({})),
+  guidelines: z
+    .strictObject({
+      rulePack: z
+        .string()
+        .regex(/^\d{4}\.\d{1,2}\.\d+$/)
+        .optional()
+        .describe("Pin the rule-pack version. Builds fail when the installed vagejs ships a different pack, until you review its changelog and update the pin."),
+    })
+    .default({}),
   integrations: integrationsSchema.default({}).describe("Optional analytics and search integrations. All off unless configured."),
   redirects: z
     .record(urlPath, z.string().min(1))

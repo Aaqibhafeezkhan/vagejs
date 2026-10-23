@@ -101,6 +101,18 @@ Brand (VAGE JS), npm name (`vagejs`), CLI (`vage`), repo name and domain remain 
 
 - Tag output, consent ordering, event checks, and the OAuth flow (a real loopback server with a simulated browser redirect) are tested; Google's token, revoke, Search Console and GA4 endpoints are mocked using their documented shapes. **Not run against real Google accounts**: that needs your OAuth client and consent.
 
+## Phase 7: guideline monitoring
+
+See `docs/GUIDELINES.md` for the process.
+
+- **The rule pack is the single source for provider facts**: crawler tokens, CWV thresholds, GA4 limits, consent types and the sitemap limit are read from `src/guidelines/rule-pack.json` at runtime, each with source links. Integrity tests require registered sources, existing `implementedIn` files, and a changelog entry whose `contentHash` matches. Any data change without a version bump and a named `reviewedBy` fails CI.
+- **Golden-output tests** (`tests/golden/basic`) make any change to generated robots/sitemap/llms/HTML visible in review.
+- **Pinning**: `guidelines.rulePack` turns a rule-pack change into an explicit, owner-reviewed step per project.
+- **Snapshots keep headings and hashes only**, not page text, to avoid storing copyrighted documents; reports link to the live pages.
+- **The LLM is a drafting aid**: the official Anthropic SDK (`@anthropic-ai/sdk`, devDependency only, maintainer script only), `claude-opus-5-5` with structured output via `betaZodOutputFormat`, effort `low` (a classification route), and **server-side refusal fallback enabled** (`fallbacks: "default"`). Refusals or unparsable output become "unclear". Sections over 20,000 characters are truncated and flagged as such.
+- **Monitor robustness, found on the first live run (2026-10-23)**: Google served random localized pages without `Accept-Language` (now sent as English); Google's common-crawlers doc had moved to `/crawling/docs/crawlers-fetchers/…` (registry updated); Bing's guidelines page is client-rendered with no readable text (marked `monitor: manual`; empty pages are reported as "unreadable", never silently accepted). A second full run reported zero changes.
+- **The initial pack (2026.10.0) has `reviewedBy: "pending"`**: its facts were checked against the cited sources during implementation, but the owner has not signed it off. Later versions need a named reviewer.
+
 ## Not implemented (planned in later phases)
 
-Guideline monitoring (Phase 7); Bing Webmaster Tools, IndexNow, Clarity, Plausible, more hosting adapters (Phase 8); MCP server.
+Bing Webmaster Tools, IndexNow, Clarity, Plausible, more hosting adapters (Phase 8); MCP server.

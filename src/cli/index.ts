@@ -327,6 +327,24 @@ cli
     }),
   );
 
+cli
+  .command("guidelines", "Show the rule pack: provider facts in use, their official sources, and the changelog")
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: { json?: boolean }) =>
+    run(opts, async () => {
+      const { rulePack } = await import("../guidelines/pack.js");
+      if (opts.json) return print(rulePack);
+      console.log(`Rule pack ${rulePack.version} (released ${rulePack.released})\n`);
+      for (const r of rulePack.rules) {
+        console.log(`  ${r.id}${r.behaviorChanging ? " [changes output]" : ""}\n    ${r.summary}`);
+        for (const id of r.sources) console.log(`    - ${rulePack.sources.find((s) => s.id === id)?.url}`);
+      }
+      console.log("\nChangelog:");
+      for (const c of rulePack.changelog) console.log(`  ${c.version} (${c.date}, reviewed by ${c.reviewedBy}): ${c.summary}`);
+      console.log('\nPin this version with guidelines: { rulePack: "' + rulePack.version + '" } in vage.config.ts.');
+    }),
+  );
+
 cli.help();
 cli.version(version);
 

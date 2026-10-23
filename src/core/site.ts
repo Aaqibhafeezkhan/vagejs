@@ -3,6 +3,7 @@ import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
+import { rulePack } from "../guidelines/pack.js";
 import { absoluteUrl } from "../seo/urls.js";
 import { loadConfig, type ModuleLoader, type SiteConfig } from "./config.js";
 import { VageError } from "./errors.js";
@@ -45,6 +46,13 @@ export async function renderSite(root: string, load: ModuleLoader): Promise<Site
     throw new VageError(`No src/pages directory found in ${root}. Is this a VAGE JS project?`);
   }
   const site = await loadConfig(root, load);
+  const pinned = site.guidelines.rulePack;
+  if (pinned && pinned !== rulePack.version) {
+    throw new VageError(
+      `This project pins rule pack ${pinned}, but the installed vagejs ships ${rulePack.version}. ` +
+        `Review what changed with "vage guidelines", then update guidelines.rulePack in vage.config.ts.`,
+    );
+  }
   const model: SiteModel = { site, pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
 
   for (const entry of discoverRoutes(pagesDir)) {

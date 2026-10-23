@@ -1,7 +1,7 @@
 {
   "name": "vagejs",
   "version": "0.1.0",
-  "description": "VAGE JS — an AI-native, static-first web framework (pre-release, unpublished).",
+  "description": "VAGE JS \u2014 an AI-native, static-first web framework (pre-release, unpublished).",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -25,7 +25,8 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --exclude tests/e2e.test.ts",
-    "test:e2e": "npm run build && vitest run tests/e2e.test.ts"
+    "test:e2e": "npm run build && vitest run tests/e2e.test.ts",
+    "guidelines:monitor": "npm run build && node scripts/guidelines-monitor.mjs"
   },
   "dependencies": {
     "axe-core": "^4.14.0",
@@ -38,6 +39,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^1.1.0",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^26.6.5",
     "lighthouse": "^13.5.0",

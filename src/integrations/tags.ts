@@ -1,7 +1,8 @@
 import type { SiteConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
+import { ruleData } from "../guidelines/pack.js";
 
-const CONSENT_TYPES = ["ad_storage", "ad_user_data", "ad_personalization", "analytics_storage"];
+const CONSENT_TYPES = ruleData<{ types: string[] }>("consent.default-order").types;
 const LOCAL_HOST = String.raw`/^(localhost|127\.0\.0\.1|\[::1\])$/`;
 
 /**

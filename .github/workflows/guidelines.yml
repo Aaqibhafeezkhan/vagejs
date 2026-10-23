@@ -1,0 +1,38 @@
+name: Guideline sources
+
+# Detects changes in the official documentation behind the rule pack and opens an
+# issue for human review. It never edits the rule pack or commits anything.
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily; weekly sources are checked on Mondays
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - id: monitor
+        run: |
+          set +e
+          if [ -n "$ANTHROPIC_API_KEY" ]; then CLASSIFY=--classify; fi
+          node scripts/guidelines-monitor.mjs $CLASSIFY
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - if: steps.monitor.outputs.code == '2'
+        run: gh issue create --title "Guideline sources changed ($(date -u +%F))" --body-file "guidelines/reports/$(date -u +%F).md" --label guidelines || gh issue create --title "Guideline sources changed ($(date -u +%F))" --body-file "guidelines/reports/$(date -u +%F).md"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - if: steps.monitor.outputs.code == '1'
+        run: exit 1

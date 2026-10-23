@@ -1,3 +1,5 @@
+import { ruleData } from "../guidelines/pack.js";
+
 export interface SitemapEntry {
   url: string;
   /** Only set from frontmatter dates; file timestamps are not trustworthy after a git checkout. */
@@ -15,4 +17,4 @@ export function sitemapXml(entries: SitemapEntry[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
-export const SITEMAP_URL_LIMIT = 50_000;
+export const SITEMAP_URL_LIMIT = ruleData<{ maxUrls: number }>("sitemap.limits").maxUrls;
