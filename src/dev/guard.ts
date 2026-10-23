@@ -41,6 +41,7 @@ export function allowed(url: string, publicDir: string, allowedFiles: Set<string
   const ext = path.posix.extname(pathname);
   if (!ext || ext === ".html") return true; // rendered pages (our middleware decides 200/404)
   if (allowedFiles.has(pathname)) return true;
+  if (/^\/(?:[\w.-]+\/)*feed\.xml$/.test(pathname) && !pathname.includes("..")) return true; // section feeds (seo.feeds)
   const file = path.resolve(publicDir, `.${pathname}`);
   if (!file.startsWith(publicDir + path.sep)) return false;
   try {

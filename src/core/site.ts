@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
+import { feedPath, rssFeed } from "../discovery/feed.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
 import { headersFile } from "../deploy/headers.js";
@@ -143,6 +144,13 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
     generate("sitemap.xml", () =>
       sitemapXml(listed.map((p) => ({ url: p.meta.canonical!, lastmod: p.frontmatter.dateModified ?? p.frontmatter.datePublished }))),
     );
+  }
+  for (const feed of site.seo.feeds) {
+    if (!site.site) {
+      warnings.push(`seo.feeds: the feed for ${feed.under} needs "site" in vage.config.ts and was skipped.`);
+      continue;
+    }
+    generate(feedPath(feed.under), () => rssFeed(site, feed, listed, site.site!));
   }
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);

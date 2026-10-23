@@ -2,16 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
-import { collection, type PageSummary } from "../src/core/pages.js";
+import { breadcrumbs, collection, neighbors, tree, type PageSummary } from "../src/core/pages.js";
 import { copyFixture, write } from "./helpers.js";
 
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dist", rel), "utf8");
 
-const page = (route: string, title: string, datePublished?: string): PageSummary => ({
+const page = (route: string, title: string, datePublished?: string, order?: number): PageSummary => ({
   route,
   title,
+  label: title,
   source: `src/pages${route}index.md`,
-  frontmatter: { title, draft: false, noindex: false, type: "website", ...(datePublished ? { datePublished } : {}) },
+  frontmatter: { title, draft: false, noindex: false, type: "website", ...(datePublished ? { datePublished } : {}), ...(order !== undefined ? { order } : {}) },
 });
 
 describe("collection()", () => {
@@ -74,5 +75,41 @@ export default ({ content, page, pages }) => \`<!doctype html><html lang="en"><h
     expect(all).not.toContain("wip"); // draft
     expect(all).not.toContain("404");
     expect(/<ul id="blog">(.*?)<\/ul>/.exec(html)![1]).not.toContain("<li>Blog</li>"); // the index itself
+  });
+});
+
+describe("navigation helpers", () => {
+  const docs = [
+    page("/", "Home"),
+    page("/docs/", "Docs", undefined, 0),
+    page("/docs/install/", "Install", undefined, 2),
+    page("/docs/start/", "Start", undefined, 1),
+    page("/docs/guides/", "Guides", undefined, 3),
+    page("/docs/guides/b/", "B guide"),
+    page("/docs/guides/a/", "A guide", undefined, 1),
+    page("/docs/orphan/deep/", "Deep", undefined, 5),
+    page("/docs/zeta/", "Zeta"),
+  ];
+
+  it('sorts by "order", unordered pages last by title', () => {
+    expect(collection(docs, { under: "/docs/", sort: "order" }).map((p) => p.title)).toEqual(["A guide", "Start", "Install", "Guides", "Deep", "B guide", "Zeta"]);
+  });
+
+  it("builds a sidebar tree with levels from folders", () => {
+    const t = tree(docs, "/docs/");
+    expect(t.map((n) => n.page.title)).toEqual(["Start", "Install", "Guides", "Deep", "Zeta"]);
+    expect(t.find((n) => n.page.title === "Guides")!.children.map((n) => n.page.title)).toEqual(["A guide", "B guide"]);
+    expect(() => tree(docs, "docs")).toThrow(/under/);
+  });
+
+  it("finds previous and next pages in an ordered list", () => {
+    const list = collection(docs, { under: "/docs/", sort: "order" });
+    expect(neighbors(list, "/docs/start/")).toMatchObject({ prev: { title: "A guide" }, next: { title: "Install" } });
+    expect(neighbors(list, "/nowhere/")).toEqual({});
+  });
+
+  it("builds breadcrumbs from the pages that exist at each level", () => {
+    expect(breadcrumbs(docs, "/docs/guides/a/").map((p) => p.label)).toEqual(["Home", "Docs", "Guides", "A guide"]);
+    expect(breadcrumbs(docs, "/docs/orphan/deep/").map((p) => p.label)).toEqual(["Home", "Docs", "Deep"]);
   });
 });

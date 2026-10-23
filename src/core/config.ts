@@ -46,6 +46,17 @@ const robotsSchema = z.strictObject({
 
 const seoSchema = z.strictObject({
   robots: toggle(robotsSchema).describe("Generate robots.txt (true/false or options)."),
+  feeds: z
+    .array(
+      z.strictObject({
+        under: z.string().regex(/^\/(?:[\w.-]+\/)*$/, 'must be a section path like "/blog/"').describe("Section whose pages the feed lists."),
+        title: z.string().min(1).optional().describe("Feed title. Defaults to the section page's title."),
+        description: z.string().min(1).optional().describe("Feed description. Defaults to the section page's description."),
+        limit: z.number().int().min(1).max(500).default(20).describe("Most recent pages to include."),
+      }),
+    )
+    .default([])
+    .describe('RSS feeds, e.g. [{ under: "/blog/" }] writes /blog/feed.xml (needs `site`). Pages in the section link to it.'),
   sitemap: z.boolean().default(true).describe("Generate sitemap.xml (needs `site`)."),
   llmsTxt: toggle(
     z.strictObject({

@@ -54,6 +54,16 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
   if (image) tags.push(meta("property", "og:image", image));
   tags.push(meta("name", "twitter:card", image ? "summary_large_image" : "summary"));
 
+  // Feed discovery: pages in a section with a feed point readers to it.
+  for (const feed of site.site ? site.seo.feeds : []) {
+    if (!m.route.startsWith(feed.under)) continue;
+    const href = `${site.site}${feed.under}feed.xml`;
+    tags.push({
+      exists: /<link[^>]+application\/rss\+xml/i,
+      html: `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(feed.title ?? site.title ?? "Feed")}" href="${escapeHtml(href)}" />`,
+    });
+  }
+
   const schemas = structuredData(site, m, description, image);
   if (schemas.length) {
     tags.push({ exists: /<script[^>]+application\/ld\+json/i, html: jsonLdScript(schemas.length === 1 ? schemas[0]! : schemas) });

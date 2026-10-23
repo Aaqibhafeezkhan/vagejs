@@ -45,11 +45,12 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
     const urlPath = req.url ?? "/";
     const pathname = urlPath.split(/[?#]/)[0]!;
     try {
-      if (DISCOVERY_FILES[pathname]) {
+      const isFeed = /^\/(?:[\w.-]+\/)*feed\.xml$/.test(pathname) && !pathname.includes("..");
+      if (DISCOVERY_FILES[pathname] || isFeed) {
         // Built from the whole site (drafts excluded), exactly as `vage build` would write it.
         const content = (await renderSite(root, load)).files.get(pathname.slice(1));
         if (content === undefined) return next();
-        res.setHeader("Content-Type", DISCOVERY_FILES[pathname]);
+        res.setHeader("Content-Type", DISCOVERY_FILES[pathname] ?? "application/rss+xml; charset=utf-8");
         return res.end(content);
       }
       // Leave asset requests (any extension other than .html) to Vite.

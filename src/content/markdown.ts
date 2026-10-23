@@ -34,6 +34,8 @@ export const frontmatterSchema = z.looseObject({
   author: singleLine.min(1).optional().describe("Article author name. Only use a real author."),
   datePublished: isoDate.optional().describe("ISO date or datetime. Only use a real date."),
   dateModified: isoDate.optional().describe("ISO date or datetime; also the sitemap <lastmod>."),
+  order: z.number().finite().optional().describe('Position in navigation lists (lower first). Used by collection(pages, { sort: "order" }) and tree().'),
+  navTitle: singleLine.min(1).optional().describe("Shorter title for menus and breadcrumbs. Defaults to the title."),
 });
 
 export type Frontmatter = z.output<typeof frontmatterSchema>;
