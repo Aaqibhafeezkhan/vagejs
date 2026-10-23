@@ -24,7 +24,6 @@ Publishing is **public and permanent**: a version number can never be reused, ev
    (cd packages/create-vagejs && npm pkg set repository.type=git repository.url="git+$REPO.git" repository.directory=packages/create-vagejs bugs.url="$REPO/issues")
    ```
 4. **Open items to settle first:**
-   - Rule pack `2026.10.0` is marked `reviewedBy: "pending"`. Review it (`vage guidelines`) and put your name in `src/guidelines/rule-pack.json` (`npm test` prints the hash to update if needed).
    - `SECURITY.md`: turn on GitHub private vulnerability reporting (repo Settings → Security), and optionally add a vagejs.com contact address.
 
 ## First release (manual, from your machine)

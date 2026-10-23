@@ -26,5 +26,13 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agevenkat/vagejs.git",
+    "directory": "packages/create-vagejs"
+  },
+  "bugs": {
+    "url": "https://github.com/agevenkat/vagejs/issues"
   }
 }

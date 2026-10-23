@@ -111,7 +111,7 @@ See `docs/GUIDELINES.md` for the process.
 - **Snapshots keep headings and hashes only**, not page text, to avoid storing copyrighted documents; reports link to the live pages.
 - **The LLM is a drafting aid**: the official Anthropic SDK (`@anthropic-ai/sdk`, devDependency only, maintainer script only), `claude-opus-5-5` with structured output via `betaZodOutputFormat`, effort `low` (a classification route), and **server-side refusal fallback enabled** (`fallbacks: "default"`). Refusals or unparsable output become "unclear". Sections over 20,000 characters are truncated and flagged as such.
 - **Monitor robustness, found on the first live run (2026-10-23)**: Google served random localized pages without `Accept-Language` (now sent as English); Google's common-crawlers doc had moved to `/crawling/docs/crawlers-fetchers/…` (registry updated); Bing's guidelines page is client-rendered with no readable text (marked `monitor: manual`; empty pages are reported as "unreadable", never silently accepted). A second full run reported zero changes.
-- **The initial pack (2026.10.0) has `reviewedBy: "pending"`**: its facts were checked against the cited sources during implementation, but the owner has not signed it off. Later versions need a named reviewer.
+- **The initial pack (2026.10.0) was reviewed and signed off by the owner (A G E Venkatesh) on 2026-10-23**, after its facts were checked against the cited sources during implementation. Every later version needs a named reviewer.
 
 ## Phase 8: additional integrations (scoped to real gaps)
 
