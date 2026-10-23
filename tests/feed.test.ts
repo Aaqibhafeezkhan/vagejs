@@ -60,3 +60,18 @@ describe("feeds in the dev server", () => {
     expect(await res.text()).toContain("/blog/post/");
   });
 });
+
+describe("feed review fixes", () => {
+  it("orders by instant, warns on an empty section, and uses one title everywhere", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { feeds: [{ under: "/blog/" }, { under: "/news/" }] } };');
+    write(root, "src/pages/blog/late.md", "---\ntitle: Late evening\ndescription: Late.\ndatePublished: 2026-10-23T23:00:00-05:00\n---\n# Late\n");
+    write(root, "src/pages/blog/next.md", "---\ntitle: Next morning\ndescription: Next.\ndatePublished: 2026-10-24\n---\n# Next\n");
+    const result = await build(root);
+    const xml = read(root, "blog/feed.xml");
+    expect(xml.indexOf("Late evening")).toBeLessThan(xml.indexOf("Next morning")); // 04:00Z on the 24th is later
+    expect(result.warnings.join()).toMatch(/no published pages under \/news\//);
+    expect(xml).toContain("<title>Fixture Site</title>");
+    expect(read(root, "blog/post/index.html")).toContain('title="Fixture Site" href="https://fixture.example/blog/feed.xml"');
+  });
+});

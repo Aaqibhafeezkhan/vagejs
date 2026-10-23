@@ -2,6 +2,7 @@ import type { Frontmatter } from "../content/markdown.js";
 import type { SiteConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
+import { feedTitle } from "../discovery/feed.js";
 import { article, jsonLdScript, organization, website, type Thing } from "./jsonld.js";
 import { absoluteUrl } from "./urls.js";
 
@@ -66,7 +67,7 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
     const href = `${site.site}${feed.under}feed.xml`;
     tags.push({
       exists: /<link[^>]+application\/rss\+xml/i,
-      html: `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(feed.title ?? site.title ?? "Feed")}" href="${escapeHtml(href)}" />`,
+      html: `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(feedTitle(site, feed))}" href="${escapeHtml(href)}" />`,
     });
   }
 

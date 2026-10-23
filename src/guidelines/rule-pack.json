@@ -608,7 +608,7 @@
     },
     {
       "id": "crawlers.probes",
-      "summary": "Crawlers `vage verify` impersonates to test that a live site lets search and AI crawlers in. Full user-agent strings only where the provider documents them (W.X.Y.Z = current Chrome version); otherwise the documented token, which is what CDN bot rules match. A user-agent probe can't detect blocks based on the real crawlers' IP addresses.",
+      "summary": "Crawlers `vage verify` impersonates to test that a live site lets search and AI crawlers in. Full user-agent strings only where we could copy them verbatim from the provider's page (W.X.Y.Z = current Chrome version); otherwise the documented token, which is what CDN bot rules match. A user-agent probe can't detect blocks based on the real crawlers' IP addresses.",
       "behaviorChanging": true,
       "sources": [
         "google-crawlers",
@@ -702,9 +702,9 @@
     {
       "version": "2026.10.1",
       "date": "2026-10-23",
-      "summary": "Add crawlers.probes (search and AI crawler user agents and tokens for vage verify's crawlability check) and the Perplexity crawler source. User-agent strings copied from each provider's page on 2026-10-23; Anthropic and Bing are recorded by token only because their pages don't list full strings (Bing's page couldn't be read). No existing rule changed.",
+      "summary": "Add crawlers.probes (search and AI crawler user agents and tokens for vage verify's crawlability check) and the Perplexity crawler source. Full user-agent strings copied verbatim on 2026-10-23 for Googlebot, GPTBot, ChatGPT-User, PerplexityBot and Perplexity-User; OAI-SearchBot, Anthropic's crawlers and bingbot are recorded by token (Anthropic's page lists only tokens, Bing's page couldn't be read, and OAI-SearchBot's full string couldn't be copied verbatim). No existing rule changed.",
       "reviewedBy": "Venkatesh A G E",
-      "contentHash": "116311eb2fce8f523fd8247ef183f74ef8619d0466a33765c8a0538f4ace8e89"
+      "contentHash": "4d88418eb0b5425da970a1a30218a097783e117ce65376171d9a7f3ab7d9f658"
     }
   ]
 }

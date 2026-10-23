@@ -122,3 +122,27 @@ describe("Markdown copies are safe to publish (review findings)", () => {
     await expect(build(root)).rejects.toThrow(/Two generated files would be written to index\.md/);
   });
 });
+
+describe("git dates review fixes", () => {
+  it("dates pages with non-ASCII file names, and names the real problem outside a repository", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { lastmod: "git" } };');
+    write(root, "src/pages/café.md", "---\ntitle: Café\ndescription: Coffee.\n---\n# Café\n");
+    git(root, ["init", "-q", "-b", "main"]);
+    git(root, ["add", "-A"]);
+    git(root, ["commit", "-q", "-m", "one"], "2026-03-04T05:06:07Z");
+    await build(root);
+    expect(read(root, "sitemap.xml")).toMatch(/caf%C3%A9\/<\/loc>\s*<lastmod>2026-03-04T05:06:07Z<\/lastmod>/i);
+
+    const plain = fs.mkdtempSync(path.join(os.tmpdir(), "vage-nogit-"));
+    fs.cpSync(copyFixture(), plain, { recursive: true });
+    write(plain, "vage.config.ts", 'export default { site: "https://fixture.example", seo: { lastmod: "git" } };');
+    expect((await build(plain)).warnings.join()).toMatch(/isn't a git repository/);
+  });
+
+  it("generated GitHub workflows fetch full history", async () => {
+    const { pagesWorkflow } = await import("../src/deploy/github-pages.js");
+    expect(pagesWorkflow("main")).toContain("fetch-depth: 0");
+    expect(fs.readFileSync(path.resolve("templates/starter/.github/workflows/ci.yml"), "utf8")).toContain("fetch-depth: 0");
+  });
+});

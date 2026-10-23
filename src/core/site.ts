@@ -162,6 +162,9 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
       warnings.push(`seo.feeds: the feed for ${feed.under} needs "site" in vage.config.ts and was skipped.`);
       continue;
     }
+    if (!listed.some((p) => p.route.startsWith(feed.under) && p.route !== feed.under)) {
+      warnings.push(`seo.feeds: no published pages under ${feed.under}, so its feed is empty.`);
+    }
     generate(feedPath(feed.under), () => rssFeed(site, feed, listed, site.site!));
   }
   const keepHtml = site.markdown.html === "allow";

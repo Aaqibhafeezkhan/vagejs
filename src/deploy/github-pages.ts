@@ -27,6 +27,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # full history, so seo.lastmod: "git" can date pages
       - uses: actions/setup-node@v7
         with:
           node-version: 22

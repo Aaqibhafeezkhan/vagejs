@@ -45,7 +45,7 @@ export function frameworkInfo(cli: CAC, version: string) {
         content: "the page's rendered, sanitized HTML: insert with raw(content)",
         page: "{ route, title, description, url (absolute canonical, when indexable), frontmatter }",
         site: "the resolved vage.config.ts",
-        pages: "every published page { route, url, title, description, source, frontmatter }, sorted by route, read-only",
+        pages: "every published page { route, url, title, label, description, source, frontmatter }, sorted by route, read-only (label = navTitle or title)",
       },
       helpers: {
         html: "template tag from vagejs: escapes every ${value}; arrays are joined; null/undefined/false render nothing",
@@ -54,7 +54,8 @@ export function frameworkInfo(cli: CAC, version: string) {
         collection: "collection(pages, { under?: '/blog/', includeIndex?: false, sort?: 'date' | 'order' | 'title' | 'route' | compareFn, limit?: n }); 'date' = newest datePublished first; 'order' = frontmatter order, lowest first",
         tree: "tree(pages, '/docs/') -> nested { page, children } sorted by order then title, for sidebars",
         breadcrumbs: "breadcrumbs(pages, route) -> pages from / down to route (pages that exist at each level); pair with breadcrumbList() for JSON-LD",
-        neighbors: "neighbors(orderedList, route) -> { prev, next } for previous/next links",
+        neighbors: "neighbors(orderedList, route) -> { prev, next } for previous/next links; for nested docs use neighbors(flatten(tree(pages, '/docs/')), route)",
+        flatten: "flatten(tree(...)) -> pages in sidebar reading order",
         jsonLd: "jsonLdScript, website, organization, article, breadcrumbList",
       },
       fieldSchema:
@@ -92,6 +93,9 @@ export function frameworkInfo(cli: CAC, version: string) {
       "redirect pages",
       "<indexnow-key>.txt (opt-in)",
       "_redirects and _headers (cloudflare-workers and cloudflare-pages targets)",
+      "<section>/feed.xml (seo.feeds)",
+      "/<path>.md Markdown copies of listed pages (seo.markdownCopies)",
+      "/_vage/img/*.webp resized images (images.optimize)",
     ],
     environment: {
       PAGESPEED_API_KEY: "your own key; required for `vage audit --url` (or save it with `vage connect pagespeed`)",

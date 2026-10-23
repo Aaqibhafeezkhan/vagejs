@@ -68,13 +68,13 @@ Our plans start at …
 
 Save it as `src/pages/pricing.md` and it's served at `/pricing/`. `title` is required. `description`, `draft`, `noindex`, `canonical`, `image`, `type: article`, `author`, `datePublished` and `dateModified` are optional; see [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md).
 
-Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading. With `images: { optimize: true }` (and `npm install --save-dev sharp`), vagejs also makes resized WebP copies and offers them with `srcset`.
+Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading. With `images: { optimize: true }` (and `npm install --save-dev sharp`), vagejs also makes resized WebP copies of images in page content and offers them with `srcset`.
 
 ### Navigation, feeds and AI extras
 
 - `order:` and `navTitle:` in frontmatter, with `tree()`, `breadcrumbs()` and `neighbors()` in layouts, build sidebars, breadcrumbs and previous/next links.
 - `seo: { feeds: [{ under: "/blog/" }] }` writes an RSS feed at `/blog/feed.xml`.
-- `seo: { markdownCopies: true }` publishes a Markdown copy of every page (`/docs/cli.md`) for AI tools; `seo: { lastmod: "git" }` dates the sitemap from git history.
+- `seo: { markdownCopies: true }` publishes a Markdown copy of every listed page (`/docs/cli.md`) for AI tools, without comments or raw HTML; `seo: { lastmod: "git" }` dates the sitemap from git history (CI needs `fetch-depth: 0`).
 
 ### Write a layout
 

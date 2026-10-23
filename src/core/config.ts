@@ -49,7 +49,7 @@ const seoSchema = z.strictObject({
   feeds: z
     .array(
       z.strictObject({
-        under: z.string().regex(/^\/(?:[\w.-]+\/)*$/, 'must be a section path like "/blog/"').describe("Section whose pages the feed lists."),
+        under: z.string().regex(/^\/(?:[\w-]+\/)*$/, 'must be a section path like "/blog/" (letters, digits, "_" and "-")').describe("Section whose pages the feed lists."),
         title: z.string().min(1).optional().describe("Feed title. Defaults to the section page's title."),
         description: z.string().min(1).optional().describe("Feed description. Defaults to the section page's description."),
         limit: z.number().int().min(1).max(500).default(20).describe("Most recent pages to include."),

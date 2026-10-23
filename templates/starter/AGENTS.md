@@ -26,9 +26,10 @@ Run `npm run check` after every change and fix all errors before finishing.
 - **Add a layout:** `src/layouts/<name>.ts`, then `layout: <name>` in frontmatter. Keep `<html lang>`, one `<title>` and `</head>`.
 - **List pages (blog index, "latest posts", a sidebar):** in a layout, `collection(pages, { under: "/blog/", sort: "date" })` from `vagejs`. Never keep a hand-written list of pages.
 - **Give a layout its own frontmatter fields:** `export const frontmatter = z.object({ ... })` in the layout (`import { z } from "vagejs"`). Pages using it are then checked strictly: unknown or mistyped fields fail the build.
-- **Add an image:** put it in `public/images/` and write `![Describe the image](/images/name.jpg)`. Width and height are filled in from the file; write real alt text. For resized WebP copies, the owner can turn on `images: { optimize: true }` (needs `npm install --save-dev sharp`).
-- **Order a menu or sidebar:** set `order:` (lower first) and optionally a short `navTitle:` in each page's frontmatter, then build the menu in a layout with `tree(pages, "/docs/")` or `collection(pages, { under: "/docs/", sort: "order" })`. `breadcrumbs(pages, page.route)` and `neighbors(list, page.route)` give breadcrumbs and previous/next links.
-- **Add an RSS feed for the blog:** `seo: { feeds: [{ under: "/blog/" }] }` in `vage.config.ts` writes `/blog/feed.xml` from the posts' `datePublished`.
+- **Add an image:** put it in `public/images/` and write `![Describe the image](/images/name.jpg)`. Width and height are filled in from the file; write real alt text. For resized WebP copies, the owner can turn on `images: { optimize: true }` (needs `npm install --save-dev sharp`). Only images in page content are optimized, not images a layout writes.
+- **Order a menu or sidebar:** set `order:` (lower first) and optionally a short `navTitle:` in each page's frontmatter (shown as `p.label`), then build the menu in a layout with `tree(pages, "/docs/")`. For previous/next links in the same order use `neighbors(flatten(tree(pages, "/docs/")), page.route)`. For a flat section, `collection(pages, { under: "/docs/", sort: "order", includeIndex: true })` works too. `breadcrumbs(pages, page.route)` gives the trail from the home page.
+- **Add an RSS feed for the blog:** `seo: { feeds: [{ under: "/blog/" }] }` in `vage.config.ts` writes `/blog/feed.xml`, newest `datePublished` first (undated posts last, without a date).
+- **Help AI tools read the site:** `seo: { markdownCopies: true }` publishes a Markdown copy of every listed page (`/docs/cli/` becomes `/docs/cli.md`; comments and raw HTML are removed), and `llms.txt` links to them. `seo: { lastmod: "git" }` dates the sitemap from git history (needs full history in CI: `fetch-depth: 0`).
 - **Rename a page:** move the file, then add `redirects: { "/old-slug/": "/new-slug/" }` to `vage.config.ts`.
 - **Hide a page from search:** `noindex: true` (it stays published). To unpublish, use `draft: true` or delete it.
 - **AI crawler policy:** set `seo.robots.aiTraining` / `aiSearch` only on the owner's instruction.
@@ -63,7 +64,9 @@ image: /images/og.png    # og:image (made absolute using `site`)
 type: article            # og:type + Article JSON-LD (default: website)
 author: Jane Doe         # Article author
 datePublished: 2026-01-31
-dateModified: 2026-02-15 # also used as sitemap <lastmod>
+dateModified: 2026-02-15 # also the sitemap <lastmod> (otherwise datePublished, or git with seo.lastmod: "git")
+order: 2                 # position in menus built with tree() or sort: "order" (lower first)
+navTitle: Pricing        # shorter label for menus and breadcrumbs (PageSummary.label)
 ---
 ```
 
@@ -109,13 +112,16 @@ From the published pages and config (never from `public/`; a hand-written `publi
 - `sitemap.xml`: indexable, self-canonical, non-draft pages. Needs `site`.
 - `llms.txt` (+ `llms-full.txt` with `llmsTxt: { full: true }`): same pages. An emerging convention; not a guarantee that AI tools use it.
 - Redirects: `redirects: { "/old/": "/new/" }` become noindex meta-refresh pages (dev server answers 301).
+- With `seo.feeds`: `<section>/feed.xml` (RSS). With `seo.markdownCopies`: `/<path>.md` copies of listed pages. With `images.optimize`: resized images in `/_vage/img/`.
+
 
 ## Config
 
 `vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`,
-`seo: { robots, sitemap, llmsTxt, structuredData }`, `redirects`, `markdown`, `performance`,
-`deploy: { target, cloudflareWorker, cloudflareProject }`, `security: { headers, csp, cspSources }`,
-`integrations`, `guidelines`. Unknown keys are an error; `npx vage info --json` has the full schema.
+`seo: { robots, sitemap, llmsTxt, structuredData, feeds, markdownCopies, lastmod }`, `redirects`, `markdown`,
+`images: { optimize, widths, quality, sizes }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject }`,
+`security: { headers, csp, cspSources, outboundLinks, spamPatterns }`, `integrations`, `guidelines`.
+Keys not in this list are an error; `npx vage info --json` has the full schema.
 
 ## Performance and accessibility
 

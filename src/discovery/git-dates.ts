@@ -9,9 +9,19 @@ import path from "node:path";
  * the latest commit.
  */
 export function gitPageDates(root: string): { dates?: Map<string, string>; problem?: string } {
-  const git = (args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+  // core.quotepath=off: print non-ASCII file names as-is (default would quote "caf\303\251.md").
+  const git = (args: string[]) => execFileSync("git", ["-c", "core.quotepath=off", ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+  try {
+    git(["--version"]);
+  } catch {
+    return { problem: "git isn't available" };
+  }
   try {
     if (git(["rev-parse", "--is-inside-work-tree"]).trim() !== "true") return { problem: "the project isn't a git repository" };
+  } catch {
+    return { problem: "the project isn't a git repository" };
+  }
+  try {
     if (git(["rev-parse", "--is-shallow-repository"]).trim() === "true") {
       return { problem: "this is a shallow git clone, so every page would get the latest commit's date (in GitHub Actions, use actions/checkout with fetch-depth: 0)" };
     }
@@ -29,7 +39,7 @@ export function gitPageDates(root: string): { dates?: Map<string, string>; probl
       }
     }
     return { dates };
-  } catch {
-    return { problem: "git isn't available" };
+  } catch (err) {
+    return { problem: `reading the git history failed (${(err as Error).message.split("\n")[0]})` };
   }
 }

@@ -11,6 +11,11 @@ export interface FeedConfig {
 const XML_ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
 const xml = (s: string) => s.replace(/[&<>"']/g, (c) => XML_ESCAPES[c]!);
 
+/** The feed's title: configured, else the site title. Used for the channel and the page links. */
+export function feedTitle(site: SiteConfig, feed: { title?: string; under: string }): string {
+  return feed.title ?? site.title ?? feed.under;
+}
+
 /** Where a section's feed is published: "/blog/" -> "blog/feed.xml". */
 export function feedPath(under: string): string {
   return `${under.replace(/^\/+/, "")}feed.xml`;
@@ -30,16 +35,19 @@ export function rssFeed(site: SiteConfig, feed: FeedConfig, pages: SitePage[], o
   const items = pages
     .filter((p) => p.route.startsWith(feed.under) && p.route !== feed.under)
     .sort((a, b) => {
-      const da = a.frontmatter.datePublished ?? "";
-      const db = b.frontmatter.datePublished ?? "";
-      return da === db ? a.frontmatter.title.localeCompare(b.frontmatter.title) : da && db ? db.localeCompare(da) : da ? -1 : 1;
+      // Compare as instants: "2026-10-23T23:00:00-05:00" is after "2026-10-24".
+      const ta = a.frontmatter.datePublished ? Date.parse(a.frontmatter.datePublished.length === 10 ? `${a.frontmatter.datePublished}T00:00:00Z` : a.frontmatter.datePublished) : NaN;
+      const tb = b.frontmatter.datePublished ? Date.parse(b.frontmatter.datePublished.length === 10 ? `${b.frontmatter.datePublished}T00:00:00Z` : b.frontmatter.datePublished) : NaN;
+      if (ta === tb || (Number.isNaN(ta) && Number.isNaN(tb))) return a.frontmatter.title.localeCompare(b.frontmatter.title);
+      return Number.isNaN(ta) ? 1 : Number.isNaN(tb) ? -1 : tb - ta;
     })
     .slice(0, feed.limit);
   const section = pages.find((p) => p.route === feed.under);
-  const title = feed.title ?? (section ? `${section.frontmatter.title}${site.title ? ` | ${site.title}` : ""}` : (site.title ?? feed.under));
+  // Same default as the <link rel="alternate"> title on the pages.
+  const title = feedTitle(site, feed);
   const description = feed.description ?? section?.frontmatter.description ?? site.description ?? title;
   const self = `${origin}/${feedPath(feed.under)}`;
-  const newest = items.find((p) => p.frontmatter.datePublished)?.frontmatter.datePublished;
+  const newest = items.find((p) => p.frontmatter.datePublished)?.frontmatter.datePublished; // items are sorted newest first
   const body = items
     .map((p) => {
       const link = p.meta.canonical ?? `${origin}${p.route}`;

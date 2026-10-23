@@ -190,3 +190,8 @@ export function tree(pages: readonly PageSummary[], under = "/"): TreeNode[] {
   };
   return sort(roots);
 }
+
+/** A tree() in sidebar reading order (each page, then its children), for neighbors() in nested docs. */
+export function flatten(nodes: readonly TreeNode[]): PageSummary[] {
+  return nodes.flatMap((n) => [n.page, ...flatten(n.children)]);
+}

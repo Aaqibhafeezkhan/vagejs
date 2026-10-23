@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
-import { breadcrumbs, collection, neighbors, tree, type PageSummary } from "../src/core/pages.js";
+import { breadcrumbs, collection, flatten, neighbors, tree, type PageSummary } from "../src/core/pages.js";
 import { copyFixture, write } from "./helpers.js";
 
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dist", rel), "utf8");
@@ -100,6 +100,12 @@ describe("navigation helpers", () => {
     expect(t.map((n) => n.page.title)).toEqual(["Start", "Install", "Guides", "Deep", "Zeta"]);
     expect(t.find((n) => n.page.title === "Guides")!.children.map((n) => n.page.title)).toEqual(["A guide", "B guide"]);
     expect(() => tree(docs, "docs")).toThrow(/under/);
+  });
+
+  it("flattens a tree in sidebar order for previous/next in nested docs", () => {
+    const order = flatten(tree(docs, "/docs/")).map((p) => p.title);
+    expect(order).toEqual(["Start", "Install", "Guides", "A guide", "B guide", "Deep", "Zeta"]);
+    expect(neighbors(flatten(tree(docs, "/docs/")), "/docs/guides/")).toMatchObject({ prev: { title: "Install" }, next: { title: "A guide" } });
   });
 
   it("finds previous and next pages in an ordered list", () => {

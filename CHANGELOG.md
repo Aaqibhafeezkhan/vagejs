@@ -8,12 +8,16 @@
 - **CDN-injected scripts.** `vage verify` warns about scripts your host or CDN adds to pages (such as Cloudflare Web Analytics), which your security policy may block.
 - **Navigation from frontmatter.** `order` and `navTitle` fields; `PageSummary.label`; `collection(…, { sort: "order" })`; `tree()`, `breadcrumbs()` and `neighbors()` helpers.
 - **RSS feeds.** `seo.feeds: [{ under: "/blog/" }]` writes `/blog/feed.xml` and links it from the section's pages.
-- **Markdown copies.** `seo.markdownCopies: true` publishes `/<path>.md` copies of listed pages, linked with `rel="alternate" type="text/markdown"`.
+- **Markdown copies.** `seo.markdownCopies: true` publishes `/<path>.md` copies of listed pages, linked with `rel="alternate" type="text/markdown"`; `llms.txt` then links to them. Copies (and `llms-full.txt`) drop HTML comments and, unless `markdown.html` is `"allow"`, raw HTML, and make relative links absolute.
+- **`flatten()`** puts a `tree()` in sidebar order, for previous/next links in nested docs.
 - **Sitemap dates from git.** `seo.lastmod: "git"` takes `<lastmod>` from each page's last commit (`dateModified` still wins). Skipped with a warning in shallow clones, where every page would get the latest commit's date.
 
 ### Changed
 - Rule pack 2026.10.1 adds `crawlers.probes` and the Perplexity source; no existing rule changed. Projects that pin `guidelines.rulePack: "2026.10.0"` need to review and update the pin.
-- `vage verify` fetches pages with browser-like headers, so it sees what visitors get.
+- `vage verify` fetches pages with browser-like headers, so it sees what visitors get. It also checks the live feed, Markdown copies and optimized images, and reports how many crawlers it probed.
+- `llms-full.txt` no longer includes HTML comments or (in sanitize mode) raw HTML from pages.
+- Generated GitHub workflows check out full git history (`fetch-depth: 0`).
+- Image sizes respect JPEG EXIF orientation.
 
 ### Not yet
 - AVIF images and `<picture>`.
