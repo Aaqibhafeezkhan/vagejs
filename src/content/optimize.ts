@@ -5,6 +5,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parse } from "node-html-parser";
 import { VageError } from "../core/errors.js";
+import { insidePublic } from "../dev/guard.js";
 import { imageSize } from "./images.js";
 
 /**
@@ -67,12 +68,8 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
   const publicDir = path.join(root, "public");
   const file = path.join(publicDir, rel);
   if (!file.startsWith(publicDir + path.sep)) return undefined;
-  try {
-    // Never follow symlinks: they can point outside the project.
-    if (!fs.lstatSync(file).isFile()) return undefined;
-  } catch {
-    return undefined;
-  }
+  // Never follow symlinked files or folders: they can point outside the project.
+  if (!insidePublic(file, publicDir)) return undefined;
   const size = imageSize(file);
   if (!size) return undefined;
 
@@ -103,7 +100,9 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
       fs.renameSync(tmp, cached);
     }
     files.set(`${IMAGE_DIR}/${name}`, cached);
-    entries.push(`/${IMAGE_DIR}/${name} ${w}w`);
+    // Label with the file's real width (rotation can change it), and skip duplicates.
+    const actual = imageSize(cached)?.width ?? w;
+    if (!entries.some((e) => e.endsWith(` ${actual}w`))) entries.push(`/${IMAGE_DIR}/${name} ${actual}w`);
   }
   return entries.length ? { srcset: entries.join(", "), files } : undefined;
 }

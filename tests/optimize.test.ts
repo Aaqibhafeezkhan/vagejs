@@ -137,3 +137,30 @@ describe("image pipeline review fixes", () => {
     await expect(build(root)).rejects.toThrow(/Couldn't optimize \/images\/broken\.png/);
   });
 });
+
+describe("image pipeline re-review fixes", () => {
+  it("refuses images in symlinked folders", async () => {
+    const root = await site();
+    const outside = fs.mkdtempSync(path.join(path.dirname(root), "outside-"));
+    fs.writeFileSync(path.join(outside, "o.jpg"), await jpeg(900, 600));
+    fs.symlinkSync(outside, path.join(root, "public", "linked"), "dir");
+    const never: Resize = async () => {
+      throw new Error("should not be called");
+    };
+    expect(await imageVariants("/linked/o.jpg", root, { optimize: true, widths: [400], quality: 75, sizes: "100vw" }, never)).toBeUndefined();
+  });
+
+  it("labels srcset with the real width of rotated WebP files", async () => {
+    const root = await site();
+    const webp = await sharp({ create: { width: 1200, height: 600, channels: 3, background: "#208040" } }).webp().withMetadata({ orientation: 6 }).toBuffer();
+    fs.writeFileSync(path.join(root, "public/images/turned.webp"), webp);
+    const v = await imageVariants("/images/turned.webp", root, { optimize: true, widths: [400, 800, 1600], quality: 75, sizes: "100vw" }, await sharpResize(root));
+    const labels = v!.srcset.split(", ").map((e) => Number(e.split(" ")[1]!.slice(0, -1)));
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const entry of v!.srcset.split(", ")) {
+      const [url, w] = entry.split(" ");
+      const meta = await sharp(v!.files.get(url!.slice(1))!).metadata();
+      expect(`${meta.width}w`).toBe(w);
+    }
+  });
+});

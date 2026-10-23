@@ -1,4 +1,5 @@
 import type { SiteConfig } from "../core/config.js";
+import { instant } from "../core/dates.js";
 import type { SitePage } from "../core/site.js";
 
 export interface FeedConfig {
@@ -36,8 +37,8 @@ export function rssFeed(site: SiteConfig, feed: FeedConfig, pages: SitePage[], o
     .filter((p) => p.route.startsWith(feed.under) && p.route !== feed.under)
     .sort((a, b) => {
       // Compare as instants: "2026-10-23T23:00:00-05:00" is after "2026-10-24".
-      const ta = a.frontmatter.datePublished ? Date.parse(a.frontmatter.datePublished.length === 10 ? `${a.frontmatter.datePublished}T00:00:00Z` : a.frontmatter.datePublished) : NaN;
-      const tb = b.frontmatter.datePublished ? Date.parse(b.frontmatter.datePublished.length === 10 ? `${b.frontmatter.datePublished}T00:00:00Z` : b.frontmatter.datePublished) : NaN;
+      const ta = instant(a.frontmatter.datePublished);
+      const tb = instant(b.frontmatter.datePublished);
       if (ta === tb || (Number.isNaN(ta) && Number.isNaN(tb))) return a.frontmatter.title.localeCompare(b.frontmatter.title);
       return Number.isNaN(ta) ? 1 : Number.isNaN(tb) ? -1 : tb - ta;
     })

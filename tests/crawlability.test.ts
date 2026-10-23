@@ -105,3 +105,12 @@ describe("crawlability review fixes", () => {
     await expect(checkCrawlability("https://example.org", { fetch: flaky })).resolves.toEqual([]);
   });
 });
+
+describe("crawlability re-review fixes", () => {
+  it("reads robots.txt in full and matches product tokens like Googlebot/2.1", async () => {
+    const long = `${"# filler line\n".repeat(800)}User-agent: *\nDisallow: /\n`;
+    const found = await checkCrawlability("https://example.org", { fetch: fake((url, ua, init) => (url.pathname === "/robots.txt" ? new Response(long) : healthy(url, ua, init))) });
+    expect(found.some((d) => d.kind === "robots-blocked" && d.detail.includes("Googlebot"))).toBe(true);
+    expect(robotsBlocks("User-agent: Googlebot/2.1\nDisallow: /\n\nUser-agent: *\nAllow: /\n", "Googlebot")).toBe(true);
+  });
+});

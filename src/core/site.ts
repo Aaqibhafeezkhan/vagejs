@@ -3,7 +3,7 @@ import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { feedPath, rssFeed } from "../discovery/feed.js";
 import { gitPageDates } from "../discovery/git-dates.js";
-import { markdownCopy, markdownCopyPath, publishableMarkdown } from "../discovery/markdown-copy.js";
+import { htmlToMarkdown, markdownCopy, markdownCopyPath } from "../discovery/markdown-copy.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
 import { headersFile } from "../deploy/headers.js";
@@ -110,8 +110,13 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   }
 
   checkPublicDir(root, model.warnings);
+  // Markdown versions of pages, converted from their sanitized HTML (copies and llms-full.txt).
+  const markdown = new Map<string, string>();
+  if (site.seo.markdownCopies || (site.seo.llmsTxt && site.seo.llmsTxt.full)) {
+    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(p.content, { route: p.route, origin: site.site }));
+  }
   model.redirects = buildRedirects(site, new Set(model.pages.map((p) => p.route)));
-  addDiscoveryFiles(root, model);
+  addDiscoveryFiles(root, model, markdown);
   return model;
 }
 
@@ -120,7 +125,7 @@ export function listedPages(model: SiteModel): SitePage[] {
   return model.pages.filter((p) => !p.meta.noindex && p.meta.canonical === absoluteUrl(model.site.site, p.route));
 }
 
-function addDiscoveryFiles(root: string, model: SiteModel) {
+function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string, string>) {
   const { site, files, warnings } = model;
   const listed = listedPages(model);
   const generate = (name: string, content: () => string) => {
@@ -167,10 +172,8 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
     }
     generate(feedPath(feed.under), () => rssFeed(site, feed, listed, site.site!));
   }
-  const keepHtml = site.markdown.html === "allow";
-  const publishable = (p: SitePage) => publishableMarkdown(p.body, { route: p.route, origin: site.site, keepHtml });
   if (site.seo.markdownCopies) {
-    for (const p of listed) generate(markdownCopyPath(p.route), () => markdownCopy(p.frontmatter.title, p.frontmatter.description, publishable(p)));
+    for (const p of listed) generate(markdownCopyPath(p.route), () => markdownCopy(p.frontmatter.title, p.frontmatter.description, markdown.get(p.route) ?? ""));
   }
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);
@@ -190,7 +193,7 @@ function addDiscoveryFiles(root: string, model: SiteModel) {
         // With Markdown copies, AI tools are pointed at the plain-text version (llmstxt.org).
         url: site.seo.markdownCopies ? (absoluteUrl(site.site, `/${markdownCopyPath(p.route)}`) ?? `/${markdownCopyPath(p.route)}`) : (absoluteUrl(site.site, p.route) ?? p.route),
         description: p.frontmatter.description,
-        body: publishable(p),
+        body: markdown.get(p.route) ?? "",
       }));
       generate("llms.txt", () => llmsTxt(site.title!, site.description, pages));
       if (site.seo.llmsTxt.full) generate("llms-full.txt", () => llmsFullTxt(site.title!, site.description, pages));

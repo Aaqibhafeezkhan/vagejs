@@ -36,6 +36,8 @@ export type Layout = (props: LayoutProps) => string | SafeHtml | Promise<string 
 
 export interface RenderedPage {
   html: string;
+  /** The page body as rendered and sanitized, before the layout (source of Markdown copies). */
+  content: string;
   /** Generated image files this page uses: published path -> file on disk (images.optimize). */
   assets: Map<string, string>;
   frontmatter: Frontmatter;
@@ -94,7 +96,7 @@ export async function renderPage(options: {
   let out = injectHead(html, headTags(site, meta), file);
   const tags = options.analytics ? analyticsTags(site) : undefined;
   if (tags) out = injectAnalytics(out, tags, file);
-  return { html: out, frontmatter, body, meta, assets };
+  return { html: out, content, frontmatter, body, meta, assets };
 }
 
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs"];

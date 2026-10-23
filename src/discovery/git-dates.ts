@@ -10,7 +10,7 @@ import path from "node:path";
  */
 export function gitPageDates(root: string): { dates?: Map<string, string>; problem?: string } {
   // core.quotepath=off: print non-ASCII file names as-is (default would quote "caf\303\251.md").
-  const git = (args: string[]) => execFileSync("git", ["-c", "core.quotepath=off", ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+  const git = (args: string[]) => execFileSync("git", ["-c", "core.quotepath=off", ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 });
   try {
     git(["--version"]);
   } catch {
@@ -28,18 +28,24 @@ export function gitPageDates(root: string): { dates?: Map<string, string>; probl
     const top = git(["rev-parse", "--show-toplevel"]).trim();
     // git prints real paths; compare against the project's real path (e.g. /var -> /private/var on macOS).
     const real = fs.realpathSync(root);
-    const out = git(["log", "--format=@@%cI", "--name-only", "--no-renames", "--", path.join(root, "src", "pages")]);
+    // -z: NUL-separated, so file names with quotes, spaces or newlines come through exactly.
+    const out = git(["log", "-z", "--format=@@%cI", "--name-only", "--no-renames", "--", path.join(root, "src", "pages")]);
     const dates = new Map<string, string>();
     let current = "";
-    for (const line of out.split("\n")) {
-      if (line.startsWith("@@")) current = line.slice(2).trim();
-      else if (line.trim() && current) {
-        const rel = path.relative(real, path.join(top, line.trim()));
+    for (const raw of out.split("\0")) {
+      const field = raw.replace(/^\n+/, "");
+      if (!field) continue;
+      const header = /^@@(\S+)\n?([\s\S]*)$/.exec(field);
+      const name = header ? header[2]! : field;
+      if (header) current = header[1]!;
+      if (name && current) {
+        const rel = path.relative(real, path.join(top, name));
         if (!dates.has(rel)) dates.set(rel, current); // newest first: keep the first date seen
       }
     }
     return { dates };
   } catch (err) {
-    return { problem: `reading the git history failed (${(err as Error).message.split("\n")[0]})` };
+    const stderr = String((err as { stderr?: unknown }).stderr ?? "").trim().split("\n")[0];
+    return { problem: `reading the git history failed (${stderr || (err as Error).message.split("\n")[0]})` };
   }
 }

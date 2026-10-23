@@ -31,6 +31,11 @@ describe("collection()", () => {
     expect(collection(pages, { under: "/blog", includeIndex: true }).map((p) => p.route)).toContain("/blog/");
   });
 
+  it("compares dates as points in time", () => {
+    const tz = [page("/blog/late/", "Late", "2026-10-23T23:00:00-05:00"), page("/blog/next/", "Next", "2026-10-24")];
+    expect(collection(tz, { under: "/blog/", sort: "date" }).map((p) => p.title)).toEqual(["Late", "Next"]);
+  });
+
   it("sorts newest first by date, undated last", () => {
     expect(collection(pages, { under: "/blog/", sort: "date" }).map((p) => p.title)).toEqual(["Alpha", "Bravo", "Old", "Charlie"]);
   });

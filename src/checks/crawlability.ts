@@ -51,7 +51,8 @@ export function robotsBlocks(robots: string, token: string): boolean {
     const value = m[2]!;
     if (key === "user-agent") {
       if (!current || !collectingAgents) groups.push((current = { agents: [], rules: [] }));
-      current.agents.push(value.toLowerCase());
+      // "Googlebot/2.1" names the Googlebot product token.
+      current.agents.push(value.toLowerCase().split("/")[0]!.trim());
       collectingAgents = true;
     } else if (key === "allow" || key === "disallow") {
       collectingAgents = false;
@@ -86,11 +87,11 @@ type Fetcher = typeof fetch;
 export async function checkCrawlability(origin: string, options: { fetch?: Fetcher } = {}): Promise<{ differences: Difference[]; crawlersChecked: number }> {
   const doFetch = options.fetch ?? fetch;
   const out: Difference[] = [];
-  const get = async (url: string, init: RequestInit = {}) => {
+  const get = async (url: string, init: RequestInit = {}, maxChars = 8000) => {
     try {
       const res = await doFetch(url, { signal: AbortSignal.timeout(20_000), ...init });
       // Read the body here too: a reset mid-download is a failed request, not a crash.
-      const body = res.ok ? (await res.text()).slice(0, 8000) : "";
+      const body = res.ok ? (await res.text()).slice(0, maxChars) : "";
       return { status: res.status, ok: res.ok, headers: res.headers, body };
     } catch {
       return undefined;
@@ -122,7 +123,8 @@ export async function checkCrawlability(origin: string, options: { fetch?: Fetch
   }
 
   // 2. robots.txt
-  const robotsRes = await get(`${origin}/robots.txt`);
+  // Read robots.txt in full (Google processes up to 500 KiB), not just the first few KB.
+  const robotsRes = await get(`${origin}/robots.txt`, {}, 512 * 1024);
   if (robotsRes?.ok) {
     for (const c of CRAWLERS.filter((x) => x.purpose !== "ai-user")) {
       if (robotsBlocks(robotsRes.body, c.token)) {

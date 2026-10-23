@@ -1,54 +1,69 @@
-import { Marked, type Token, type Tokens } from "marked";
-
-const marked = new Marked({ gfm: true });
+import TurndownService from "turndown";
 
 /** "/" -> "index.md", "/docs/cli/" -> "docs/cli.md". */
 export function markdownCopyPath(route: string): string {
   return route === "/" ? "index.md" : `${route.slice(1, -1)}.md`;
 }
 
-/**
- * Page Markdown that is safe to publish as-is (Markdown copies, llms-full.txt):
- * - HTML comments are always removed: authors keep private notes in them, and the
- *   HTML page never shows them.
- * - Other raw HTML is removed unless every author is trusted (markdown.html "allow"),
- *   matching what the sanitizer strips from the HTML page (scripts, iframes, forms…).
- * - Relative link and image targets become absolute, so they work from the copy's own URL.
- * Code blocks and inline code are kept verbatim: they're text, not markup.
- */
-export function publishableMarkdown(body: string, options: { route: string; origin?: string; keepHtml: boolean }): string {
-  const base = `https://site.invalid${options.route}`;
-  const absolute = (href: string) => {
-    if (/^([a-z][a-z0-9+.-]*:|\/\/|#|\/)/i.test(href)) return href;
-    try {
-      const u = new URL(href, base);
-      return `${options.origin ?? ""}${u.pathname}${u.search}${u.hash}`;
-    } catch {
-      return href;
-    }
-  };
-  const drop = (t: Tokens.HTML | Tokens.Tag) => /^\s*<!--/.test(t.raw) || !options.keepHtml;
+let jsdom: typeof import("jsdom") | undefined;
+let service: TurndownService | undefined;
 
-  let out = "";
-  for (const token of marked.lexer(body)) {
-    if (token.type === "html" && drop(token as Tokens.HTML)) continue;
-    let raw = token.raw;
-    marked.walkTokens([token], (t: Token) => {
-      if (t.type === "html" && t !== token && drop(t as Tokens.Tag)) raw = raw.replace(t.raw, "");
-      if ((t.type === "link" || t.type === "image") && t.href) {
-        const abs = absolute(t.href);
-        if (abs !== t.href) raw = raw.replace(`](${t.href}`, `](${abs}`);
-      }
-    });
-    out += raw;
-  }
-  return out.replace(/\n{3,}/g, "\n\n").trim();
+function converter(): TurndownService {
+  if (service) return service;
+  service = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-", emDelimiter: "_" });
+  // Never carry executable or embedded content into the copy, even from trusted HTML.
+  service.remove(["script", "style", "noscript", "template", "iframe", "object", "embed", "form", "button", "input", "select", "textarea"]);
+  // Simple GFM tables (one header row, plain cells).
+  const cell = (s: string) => s.replace(/\n+/g, " ").replace(/\|/g, "\\|").trim();
+  service.addRule("table", {
+    filter: "table",
+    replacement: (_content, node) => {
+      const rows = [...(node as HTMLTableElement).querySelectorAll("tr")].map((tr) =>
+        [...tr.querySelectorAll("th, td")].map((c) => cell(service!.turndown((c as HTMLElement).innerHTML))),
+      );
+      if (!rows.length) return "";
+      const width = Math.max(...rows.map((r) => r.length));
+      const line = (r: string[]) => `| ${Array.from({ length: width }, (_, i) => r[i] ?? "").join(" | ")} |`;
+      return `\n\n${[line(rows[0]!), line(Array(width).fill("---")), ...rows.slice(1).map(line)].join("\n")}\n\n`;
+    },
+  });
+  return service;
 }
 
-/** The page as plain Markdown: the author's own H1 (or the title), the summary, then the body. */
-export function markdownCopy(title: string, description: string | undefined, body: string): string {
-  const own = /^#\s+(.+)\n+/.exec(body);
-  const heading = own ? `# ${own[1]!.trim()}` : `# ${title}`;
-  const rest = own ? body.slice(own[0].length) : body;
+/**
+ * The page as Markdown, converted from its rendered, sanitized HTML: the copy contains
+ * exactly what the page shows (no comments, no raw HTML the sanitizer removed, the same
+ * links the link lock checked), with links and images made absolute.
+ */
+export async function htmlToMarkdown(html: string, options: { route: string; origin?: string }): Promise<string> {
+  jsdom ??= await import("jsdom");
+  const doc = new jsdom.JSDOM("").window.document;
+  const template = doc.createElement("template");
+  template.innerHTML = html;
+  const base = `https://site.invalid${options.route}`;
+  const absolute = (value: string) => {
+    if (/^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(value)) return value;
+    try {
+      const u = new URL(value, base);
+      return `${options.origin ?? ""}${u.pathname}${u.search}${u.hash}`;
+    } catch {
+      return value;
+    }
+  };
+  for (const a of template.content.querySelectorAll("a[href]")) a.setAttribute("href", absolute(a.getAttribute("href")!));
+  for (const img of template.content.querySelectorAll("img[src]")) {
+    img.setAttribute("src", absolute(img.getAttribute("src")!));
+    img.removeAttribute("srcset");
+  }
+  const wrapper = doc.createElement("div");
+  wrapper.append(template.content);
+  return converter().turndown(wrapper).trim();
+}
+
+/** The copy: the page's own H1 (or the title), the summary, then the content. */
+export function markdownCopy(title: string, description: string | undefined, markdown: string): string {
+  const own = /^#\s+(.+?)\s*(?:\n+|$)/.exec(markdown);
+  const heading = `# ${own ? own[1] : title}`;
+  const rest = own ? markdown.slice(own[0].length) : markdown;
   return `${heading}\n\n${description ? `> ${description}\n\n` : ""}${rest.trim()}\n`;
 }

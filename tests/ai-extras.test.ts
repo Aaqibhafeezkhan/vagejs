@@ -78,7 +78,20 @@ describe("Markdown copies are safe to publish (review findings)", () => {
     "",
     '<iframe src="https://casino-spam.example/"></iframe>',
     "",
-    "See [about](../about/) and ![pic](img/a.png) and [ext](https://example.org/x).",
+    "- item one",
+    "  <!--",
+    "  SECRET-IN-LIST",
+    "  -->",
+    "",
+    "> quoted",
+    "> <!-- SECRET-IN-QUOTE -->",
+    "",
+    "Use `<script>` here, then <script>SECRET_SCRIPT()</script> end.",
+    "",
+    "See [about](../about/), ![pic](img/a.png), [ext](https://example.org/x), [ref][d] and [angle](<other page/>).",
+    "",
+    "[d]: ../ref-target/",
+    "[unused]: https://unused-spam.example/",
     "",
     "```html",
     "<script>console.log('code sample')</script>",
@@ -93,27 +106,36 @@ describe("Markdown copies are safe to publish (review findings)", () => {
     return root;
   }
 
-  it("drops comments and raw HTML, keeps code, and makes links absolute", async () => {
+  it("contain only what the page shows: no comments, raw HTML or unused links; absolute links; code kept", async () => {
     const root = site();
     await build(root);
     for (const file of ["docs/notes.md", "llms-full.txt"]) {
       const text = read(root, file);
-      expect(text, file).not.toMatch(/INTERNAL|private block note|evil\.example|casino-spam|<span>/);
-      expect(text, file).toContain("<script>console.log('code sample')</script>"); // inside a code block
+      expect(text, file).not.toMatch(/INTERNAL|private block note|evil\.example|casino-spam|SECRET|unused-spam|<span>|<iframe/);
+      expect(text, file).toContain("<script>console.log('code sample')</script>"); // a code block, shown as code on the page
+      expect(text, file).toContain("`<script>`");
       expect(text, file).toContain("[about](https://fixture.example/docs/about/)");
       expect(text, file).toContain("![pic](https://fixture.example/docs/notes/img/a.png)");
       expect(text, file).toContain("[ext](https://example.org/x)");
+      expect(text, file).toContain("[ref](https://fixture.example/docs/ref-target/)");
+      expect(text, file).toContain("https://fixture.example/docs/notes/other%20page/");
+      expect(text, file).toContain("inline world.");
     }
-    expect(read(root, "docs/notes.md").startsWith("# My notes\n\n> Notes.")).toBe(true); // the author's own H1
+    expect(read(root, "docs/notes.md").startsWith("# My notes\n\n> Notes.")).toBe(true);
     expect(read(root, "llms.txt")).toContain("(https://fixture.example/docs/notes.md)");
   });
 
-  it("keeps trusted HTML (markdown.html allow) but still drops comments", async () => {
+  it("strip scripts and comments even when every author is trusted", async () => {
     const root = site(', markdown: { html: "allow" }');
     await build(root);
-    const text = read(root, "docs/notes.md");
-    expect(text).toContain("evil.example");
-    expect(text).not.toMatch(/INTERNAL|private block note/);
+    expect(read(root, "docs/notes.md")).not.toMatch(/INTERNAL|SECRET|evil\.example/);
+  });
+
+  it("keep tables as Markdown tables", async () => {
+    const root = site();
+    write(root, "src/pages/docs/table.md", "---\ntitle: Table\ndescription: Table.\n---\n# Table\n\n| A | B |\n| --- | --- |\n| 1 | x \\| y |\n");
+    await build(root);
+    expect(read(root, "docs/table.md")).toContain("| A | B |\n| --- | --- |\n| 1 | x \\| y |");
   });
 
   it("refuses two pages that would produce the same copy", async () => {
@@ -128,11 +150,13 @@ describe("git dates review fixes", () => {
     const root = copyFixture();
     write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { lastmod: "git" } };');
     write(root, "src/pages/café.md", "---\ntitle: Café\ndescription: Coffee.\n---\n# Café\n");
+    write(root, "src/pages/my page.md", "---\ntitle: Spaced\ndescription: Spaces.\n---\n# Spaced\n");
     git(root, ["init", "-q", "-b", "main"]);
     git(root, ["add", "-A"]);
     git(root, ["commit", "-q", "-m", "one"], "2026-03-04T05:06:07Z");
     await build(root);
     expect(read(root, "sitemap.xml")).toMatch(/caf%C3%A9\/<\/loc>\s*<lastmod>2026-03-04T05:06:07Z<\/lastmod>/i);
+    expect(read(root, "sitemap.xml")).toMatch(/my%20page\/<\/loc>\s*<lastmod>2026-03-04T05:06:07Z<\/lastmod>/i);
 
     const plain = fs.mkdtempSync(path.join(os.tmpdir(), "vage-nogit-"));
     fs.cpSync(copyFixture(), plain, { recursive: true });

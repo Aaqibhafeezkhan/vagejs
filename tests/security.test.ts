@@ -222,3 +222,23 @@ describe("guideline monitor output", () => {
     expect(untrusted("a\n\nb`c")).toBe("`a b'c`");
   });
 });
+
+describe("dev guard and symlinked folders (re-review)", () => {
+  it("never serves files through a symlinked folder in public/", async () => {
+    const { startDevServer } = await import("../src/dev/server.js");
+    const root = copyFixture();
+    const outside = fs.mkdtempSync(path.join(path.dirname(root), "outside-"));
+    fs.writeFileSync(path.join(outside, "x.txt"), "secret");
+    fs.writeFileSync(path.join(outside, "secret.md"), "secret");
+    fs.symlinkSync(outside, path.join(root, "public", "linked"), "dir");
+    const server = await startDevServer(root, {});
+    try {
+      const url = `http://localhost:${(server.httpServer!.address() as { port: number }).port}`;
+      expect((await fetch(`${url}/linked/x.txt`)).status).toBe(404);
+      expect((await fetch(`${url}/linked/secret.md`)).status).toBe(404);
+      expect((await fetch(`${url}/images/note.txt`)).status).toBe(200);
+    } finally {
+      await server.close();
+    }
+  });
+});

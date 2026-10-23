@@ -4,6 +4,7 @@ import { parseFrontmatter, type Frontmatter } from "../content/markdown.js";
 import { pageMeta } from "../seo/head.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { clonePlain } from "./clone.js";
+import { instant } from "./dates.js";
 import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
 import { discoverRoutes } from "./routes.js";
@@ -120,9 +121,9 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
           ? byOrder
           : sort === "date"
           ? (a: PageSummary, b: PageSummary) => {
-              const da = a.frontmatter.datePublished ?? "";
-              const db = b.frontmatter.datePublished ?? "";
-              if (da !== db) return da && db ? db.localeCompare(da) : da ? -1 : 1;
+              const ta = instant(a.frontmatter.datePublished);
+              const tb = instant(b.frontmatter.datePublished);
+              if (ta !== tb && !(Number.isNaN(ta) && Number.isNaN(tb))) return Number.isNaN(ta) ? 1 : Number.isNaN(tb) ? -1 : tb - ta;
               return byTitle(a, b);
             }
           : (a: PageSummary, b: PageSummary) => a.route.localeCompare(b.route);
