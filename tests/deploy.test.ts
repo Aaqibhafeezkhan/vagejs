@@ -6,12 +6,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { confirmPagesDeployment, ensurePagesEnabled, pagesWorkflow, PAGES_WORKFLOW, type Runner } from "../src/deploy/github-pages.js";
 import { publish, type PublishPlan } from "../src/deploy/publish.js";
 import { findSecrets } from "../src/deploy/secrets.js";
-import { copyFixture, write } from "./helpers.js";
+import { copyFixture, write, EMPTY_GIT_CONFIG } from "./helpers.js";
 
 beforeAll(() => {
   // Isolate from the developer's git config (signing, hooks, identity).
   Object.assign(process.env, {
-    GIT_CONFIG_GLOBAL: os.devNull,
+    GIT_CONFIG_GLOBAL: EMPTY_GIT_CONFIG,
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_AUTHOR_NAME: "Test",
     GIT_AUTHOR_EMAIL: "test@example.invalid",

@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import fs from "node:fs";
 import path from "node:path";
 
 /**
@@ -25,11 +24,11 @@ export function gitPageDates(root: string): { dates?: Map<string, string>; probl
     if (git(["rev-parse", "--is-shallow-repository"]).trim() === "true") {
       return { problem: "this is a shallow git clone, so every page would get the latest commit's date (in GitHub Actions, use actions/checkout with fetch-depth: 0)" };
     }
-    const top = git(["rev-parse", "--show-toplevel"]).trim();
-    // git prints real paths; compare against the project's real path (e.g. /var -> /private/var on macOS).
-    const real = fs.realpathSync(root);
+    // --relative: names relative to the project folder, with "/" on every system. Comparing
+    // absolute paths breaks on Windows (8.3 short names, drive-letter case) and needs
+    // realpath on macOS (/var -> /private/var).
     // -z: NUL-separated, so file names with quotes, spaces or newlines come through exactly.
-    const out = git(["log", "-z", "--format=@@%cI", "--name-only", "--no-renames", "--", path.join(root, "src", "pages")]);
+    const out = git(["log", "-z", "--format=@@%cI", "--name-only", "--no-renames", "--relative", "--", "src/pages"]);
     const dates = new Map<string, string>();
     let current = "";
     for (const raw of out.split("\0")) {
@@ -39,7 +38,7 @@ export function gitPageDates(root: string): { dates?: Map<string, string>; probl
       const name = header ? header[2]! : field;
       if (header) current = header[1]!;
       if (name && current) {
-        const rel = path.relative(real, path.join(top, name));
+        const rel = path.join(...name.split("/"));
         if (!dates.has(rel)) dates.set(rel, current); // newest first: keep the first date seen
       }
     }

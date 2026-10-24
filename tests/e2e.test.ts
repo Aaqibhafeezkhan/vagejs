@@ -1,24 +1,33 @@
 // Full user journey against the packed package: create -> npm install -> build.
 // Needs network or a warm npm cache for third-party dependencies. Run with `npm run test:e2e`.
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawnSync, type ExecFileSyncOptions, type SpawnSyncOptions } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
+import { EMPTY_GIT_CONFIG, WINDOWS } from "./helpers.js";
 
 const REPO = path.join(import.meta.dirname, "..");
 const CLI = path.join(REPO, "dist", "cli", "index.js");
 let work: string;
 let tarball: string;
 
+// npm and npx are .cmd scripts on Windows, which Node only starts through a shell.
+const shellArgs = (args: string[]) => (WINDOWS ? args.map((a) => (/[\s"&|<>^]/.test(a) ? `"${a}"` : a)) : args);
+const npmSync = (args: string[], opts: ExecFileSyncOptions) => execFileSync("npm", shellArgs(args), { ...opts, shell: WINDOWS });
+const npxSpawn = (args: string[], opts: SpawnSyncOptions & { encoding: "utf8" }) => spawnSync("npx", shellArgs(args), { ...opts, shell: WINDOWS });
+
 beforeAll(() => {
   // Under `npm publish --dry-run` (prepublishOnly), npm exports npm_config_dry_run to child
   // processes; the npm commands below must really pack and install.
   delete process.env.npm_config_dry_run;
   work = fs.mkdtempSync(path.join(os.tmpdir(), "vage-e2e-"));
-  const packed = execFileSync("npm", ["pack", "--pack-destination", work, "--json"], { cwd: REPO, encoding: "utf8" });
+  const packed = npmSync(["pack", "--pack-destination", work, "--json"], { cwd: REPO, encoding: "utf8" });
   tarball = path.join(work, JSON.parse(packed)[0].filename);
 }, 120_000);
+
+/** create-vagejs's entry file, run with node (its .bin shim is a .cmd on Windows). */
+const createBin = (runner: string) => path.join(runner, "node_modules", "create-vagejs", JSON.parse(fs.readFileSync(path.join(runner, "node_modules", "create-vagejs", "package.json"), "utf8")).bin["create-vagejs"]);
 
 function vage(args: string[], cwd: string) {
   return spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf8" });
@@ -31,13 +40,13 @@ describe("vage CLI (packed package)", () => {
     expect(JSON.parse(created.stdout).ok).toBe(true);
 
     const site = path.join(work, "site");
-    execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: site, stdio: "pipe" });
+    npmSync(["install", "--no-audit", "--no-fund"], { cwd: site, stdio: "pipe" });
     expect(fs.existsSync(path.join(site, "package-lock.json"))).toBe(true);
     // Reinstall strictly from the lockfile, as CI would.
-    execFileSync("npm", ["ci", "--no-audit", "--no-fund"], { cwd: site, stdio: "pipe" });
+    npmSync(["ci", "--no-audit", "--no-fund"], { cwd: site, stdio: "pipe" });
 
     // Use the project's own installed binary, as a user would via npm scripts.
-    const built = spawnSync("npx", ["vage", "build", "--json"], { cwd: site, encoding: "utf8" });
+    const built = npxSpawn(["vage", "build", "--json"], { cwd: site, encoding: "utf8" });
     expect(built.status, built.stderr).toBe(0);
     const result = JSON.parse(built.stdout);
     expect(result.ok).toBe(true);
@@ -55,13 +64,13 @@ describe("vage CLI (packed package)", () => {
     }
 
     // A fresh starter passes checks; the only warning is the placeholder site URL.
-    const checked = spawnSync("npx", ["vage", "check", "--json"], { cwd: site, encoding: "utf8" });
+    const checked = npxSpawn(["vage", "check", "--json"], { cwd: site, encoding: "utf8" });
     expect(checked.status, checked.stdout).toBe(0);
     expect(JSON.parse(checked.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 1, findings: [{ rule: "config" }] });
-    expect(spawnSync("npx", ["vage", "check", "--strict"], { cwd: site, encoding: "utf8" }).status).toBe(1);
+    expect(npxSpawn(["vage", "check", "--strict"], { cwd: site, encoding: "utf8" }).status).toBe(1);
 
     // The starter is within budgets and has no automated accessibility violations.
-    const audited = spawnSync("npx", ["vage", "audit", "--json"], { cwd: site, encoding: "utf8" });
+    const audited = npxSpawn(["vage", "audit", "--json"], { cwd: site, encoding: "utf8" });
     expect(audited.status, audited.stdout).toBe(0);
     expect(JSON.parse(audited.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 0 });
   }, 300_000);
@@ -69,7 +78,7 @@ describe("vage CLI (packed package)", () => {
   it("supports a representative coding-agent workflow", () => {
     const site = path.join(work, "site");
     const json = (args: string[]) => {
-      const res = spawnSync("npx", ["vage", ...args, "--json"], { cwd: site, encoding: "utf8" });
+      const res = npxSpawn(["vage", ...args, "--json"], { cwd: site, encoding: "utf8" });
       return { status: res.status, data: JSON.parse(res.stdout) };
     };
 
@@ -105,8 +114,8 @@ describe("vage CLI (packed package)", () => {
 
   it("never publishes without confirmation", () => {
     const site = path.join(work, "site");
-    const env = { ...process.env, GIT_CONFIG_GLOBAL: os.devNull, GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.invalid" };
-    const npx = (args: string[]) => spawnSync("npx", ["vage", ...args], { cwd: site, encoding: "utf8", env, stdio: ["ignore", "pipe", "pipe"] });
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: EMPTY_GIT_CONFIG, GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.invalid" };
+    const npx = (args: string[]) => npxSpawn(["vage", ...args], { cwd: site, encoding: "utf8", env, stdio: ["ignore", "pipe", "pipe"] });
 
     const dry = npx(["deploy:github", "--dry-run", "--json"]);
     expect(dry.status).toBe(0);
@@ -124,19 +133,19 @@ describe("vage CLI (packed package)", () => {
 
   it("npm create vagejs: the create-vagejs package scaffolds a site pinned to the released version", () => {
     const createDir = path.join(REPO, "packages", "create-vagejs");
-    const packed = execFileSync("npm", ["pack", "--pack-destination", work, "--json"], { cwd: createDir, encoding: "utf8" });
+    const packed = npmSync(["pack", "--pack-destination", work, "--json"], { cwd: createDir, encoding: "utf8" });
     const createTarball = path.join(work, JSON.parse(packed)[0].filename);
     const runner = path.join(work, "runner");
     fs.mkdirSync(runner);
     // Install both tarballs, as `npm create` would from the registry.
-    execFileSync("npm", ["install", "--no-audit", "--no-fund", tarball, createTarball], { cwd: runner, stdio: "pipe" });
-    const res = spawnSync(path.join(runner, "node_modules", ".bin", "create-vagejs"), ["fresh-site"], { cwd: work, encoding: "utf8" });
+    npmSync(["install", "--no-audit", "--no-fund", tarball, createTarball], { cwd: runner, stdio: "pipe" });
+    const res = spawnSync(process.execPath, [createBin(runner), "fresh-site"], { cwd: work, encoding: "utf8" });
     expect(res.status, res.stderr).toBe(0);
     expect(res.stdout).toMatch(/npm install\n {2}npm start\n/); // next steps point to the command that opens the browser
     const pkg = JSON.parse(fs.readFileSync(path.join(work, "fresh-site", "package.json"), "utf8"));
     expect(pkg.scripts.start).toBe("vage dev --open");
     expect(pkg.devDependencies.vagejs).toBe("^0.3.3");
-    expect(spawnSync(path.join(runner, "node_modules", ".bin", "create-vagejs"), [], { encoding: "utf8" }).stderr).toMatch(/Usage: npm create vagejs@latest/);
+    expect(spawnSync(process.execPath, [createBin(runner)], { encoding: "utf8" }).stderr).toMatch(/Usage: npm create vagejs@latest/);
   }, 300_000);
 
   it("returns non-zero with a JSON error for failures", () => {
@@ -175,7 +184,7 @@ describe("vage CLI (packed package)", () => {
 
   it("guards outward integrations behind configuration", () => {
     const site = path.join(work, "site");
-    const npx = (args: string[]) => spawnSync("npx", ["vage", ...args], { cwd: site, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const npx = (args: string[]) => npxSpawn(["vage", ...args], { cwd: site, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     expect(npx(["indexnow", "--all"]).stderr).toMatch(/IndexNow is not configured/);
     expect(npx(["deploy", "--target", "cloudflare-pages", "--dry-run"]).stderr).toMatch(/No Cloudflare Pages project/);
     expect(npx(["deploy", "--target", "netlify"]).stderr).toMatch(/Unknown --target "netlify"/);

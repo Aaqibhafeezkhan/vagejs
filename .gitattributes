@@ -1,0 +1,4 @@
+# Keep text files LF in the repository and in checkouts on every system, so test
+# fixtures and golden outputs compare byte for byte (Git for Windows would otherwise
+# convert them to CRLF). Sites written with CRLF are covered by a test of their own.
+* text=auto eol=lf

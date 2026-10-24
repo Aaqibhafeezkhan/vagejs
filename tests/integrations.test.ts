@@ -11,7 +11,7 @@ import { connectGoogle, credentialsPath, disconnectGoogle, getAccessToken, loadC
 import { listSites, pacificDate, searchReport } from "../src/integrations/search-console.js";
 import { analyticsTags } from "../src/integrations/tags.js";
 import { startDevServer } from "../src/dev/server.js";
-import { copyFixture, write } from "./helpers.js";
+import { copyFixture, write, WINDOWS } from "./helpers.js";
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const noSleep = async () => {};
@@ -134,7 +134,7 @@ describe("Google OAuth", () => {
 
     expect(creds.refreshToken).toBe(REFRESH);
     const file = credentialsPath(env);
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    if (!WINDOWS) expect(fs.statSync(file).mode & 0o777).toBe(0o600); // Windows: private through the user profile's permissions
     expect(loadCredentials(env)?.scopes).toEqual([SCOPES.gsc]);
   });
 

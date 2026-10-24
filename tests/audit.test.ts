@@ -10,7 +10,7 @@ import { cruxField, pageSpeed, redact } from "../src/audit/remote.js";
 import { rate } from "../src/audit/vitals.js";
 import { parseConfig } from "../src/core/config.js";
 import { removeApiKey, resolveApiKey, saveApiKey } from "../src/integrations/api-keys.js";
-import { copyFixture, write } from "./helpers.js";
+import { copyFixture, write, WINDOWS } from "./helpers.js";
 
 const KEY = "AIzaTEST-secret-key-0123456789";
 const tmpConfig = () => fs.mkdtempSync(path.join(os.tmpdir(), "vage-keys-"));
@@ -247,7 +247,7 @@ describe("user API keys", () => {
     const env = { VAGE_CONFIG_DIR: tmpConfig() };
     expect(resolveApiKey("pagespeed", env)).toBeUndefined();
     const file = saveApiKey("pagespeed", ` ${KEY} `, env);
-    expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    if (!WINDOWS) expect(fs.statSync(file).mode & 0o777).toBe(0o600); // Windows: private through the user profile's permissions
     expect(resolveApiKey("pagespeed", env)).toBe(KEY);
     expect(resolveApiKey("pagespeed", { ...env, PAGESPEED_API_KEY: "AIzaFROM-ENVIRONMENT-123456" })).toBe("AIzaFROM-ENVIRONMENT-123456");
     expect(resolveApiKey("crux", env)).toBeUndefined();

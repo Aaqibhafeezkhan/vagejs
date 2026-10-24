@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
 import { copySource, markdownCopy } from "../src/discovery/markdown-copy.js";
-import { copyFixture, write } from "./helpers.js";
+import { copyFixture, WINDOWS, write } from "./helpers.js";
 
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dist", rel), "utf8");
 const git = (cwd: string, args: string[], date?: string) =>
@@ -278,7 +278,7 @@ describe("Markdown copies, 0.3.1 review", () => {
     expect(markdownCopy("T", undefined, "````md\n```\n# inside\n````\n\ntext").startsWith("# T\n")).toBe(true);
   });
 
-  it("give canonical headers only to plain paths, so a file name can't become a wildcard rule", async () => {
+  it.skipIf(WINDOWS)("give canonical headers only to plain paths, so a file name can't become a wildcard rule", async () => {
     const root = copyFixture();
     write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true }, deploy: { target: "cloudflare-workers", cloudflareWorker: "site" } };');
     write(root, "src/pages/a*b.md", "---\ntitle: Star\ndescription: A page with a star in its file name.\n---\n# Star\n");

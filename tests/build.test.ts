@@ -70,3 +70,19 @@ describe("build", () => {
     await expect(build(path.join(copyFixture(), "public"))).rejects.toThrow(/No src\/pages directory/);
   });
 });
+
+describe("Windows line endings", () => {
+  it("build the same site from pages, layouts and config saved with CRLF", async () => {
+    const walk = (d: string): string[] => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? walk(path.join(d, f.name)) : [path.join(d, f.name)]));
+    const lf = copyFixture();
+    const crlf = copyFixture();
+    for (const f of [...walk(path.join(crlf, "src")), path.join(crlf, "vage.config.ts")]) {
+      if (/\.(md|ts)$/.test(f) && fs.existsSync(f)) fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace(/\r?\n/g, "\r\n"));
+    }
+    await build(lf);
+    await build(crlf);
+    const out = walk(path.join(lf, "dist")).map((f) => path.relative(path.join(lf, "dist"), f));
+    expect(walk(path.join(crlf, "dist")).map((f) => path.relative(path.join(crlf, "dist"), f)).sort()).toEqual([...out].sort());
+    for (const rel of out) expect(fs.readFileSync(path.join(crlf, "dist", rel), "utf8"), rel).toBe(fs.readFileSync(path.join(lf, "dist", rel), "utf8"));
+  });
+});

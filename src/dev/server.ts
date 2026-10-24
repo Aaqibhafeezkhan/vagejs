@@ -22,9 +22,10 @@ import { redirect } from "./preview.js";
  */
 export async function startDevServer(root: string, options: ServeOptions = {}): Promise<ViteDevServer> {
   // Vite reports watcher paths with symlinks resolved, so compare against the real path.
+  // .native also expands Windows 8.3 short names (RUNNER~1 -> runneradmin).
   root = path.resolve(root);
   if (!fs.existsSync(root)) throw new VageError(`Project directory not found: ${root}`);
-  root = fs.realpathSync(root);
+  root = fs.realpathSync.native(root);
   const pagesDir = path.join(root, "src", "pages");
   const srcDir = path.join(root, "src") + path.sep;
 
@@ -35,8 +36,12 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   });
   const load = viteLoader(server);
 
+  // Vite reports "C:/..." on Windows; compare normalized paths, ignoring case there.
+  const key = (file: string) => (process.platform === "win32" ? path.resolve(file).toLowerCase() : path.resolve(file));
+  const srcKey = key(srcDir.slice(0, -1)) + path.sep;
   server.watcher.on("all", (_event, file) => {
-    if (file.startsWith(srcDir) || file === findConfigFile(root)) {
+    const config = findConfigFile(root);
+    if (key(file).startsWith(srcKey) || (config && key(file) === key(config))) {
       server.ws.send({ type: "full-reload", path: "*" });
     }
   });
