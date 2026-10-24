@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.2 (2026-10-24)
 
 ### Added
 - `vage dev` and `vage preview` also print the address the server really listens on (`http://[::1]:5173/` or `http://127.0.0.1:5173/`). Browsers keep cookies per host name, so it avoids the HTTP 431 error that piles of `localhost` cookies from other projects cause.
