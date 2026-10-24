@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.5 (2026-10-24)
 
 Found by deploying a new site for real to Vercel, Cloudflare Workers and GitHub Pages.
 

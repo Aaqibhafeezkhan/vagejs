@@ -123,7 +123,7 @@ export async function confirmPagesDeployment(
  * Returns the problem to show before anything is pushed, or undefined when it's fine.
  */
 export function pagesSubfolderProblem(site: string | undefined, remote: string | undefined): string | undefined {
-  const m = remote && /github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i.exec(remote.trim());
+  const m = remote && /(?:^|[@/])github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i.exec(remote.trim());
   if (!m || !site) return undefined;
   const [, owner, repo] = m as unknown as [string, string, string];
   if (repo.toLowerCase() === `${owner}.github.io`.toLowerCase()) return undefined;

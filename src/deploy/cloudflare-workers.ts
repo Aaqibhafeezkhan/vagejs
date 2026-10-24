@@ -242,7 +242,7 @@ export async function deployCloudflareWorkers(
       await sleep(3000);
     }
     // `site` may not point at this Worker yet (a new domain, or a typo): say where the Worker itself answers.
-    const own = workersDev && workersDev !== pageUrl ? ` The Worker itself is at ${workersDev}. If ${pageUrl} is your own domain, attach it to the Worker (routes or custom_domain in wrangler.jsonc).` : "";
+    const own = workersDev && workersDev !== pageUrl ? ` The Worker itself is at ${workersDev}. If ${pageUrl} is your own domain, attach it to the Worker (routes or a custom domain in your wrangler config).` : "";
     return { status: "unconfirmed", worker, mode, versionId, pageUrl, reason: `Deployed, but ${pageUrl} did not respond with 200 yet. Check it in a minute.${own}` };
   } finally {
     if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });

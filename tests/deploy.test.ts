@@ -218,5 +218,7 @@ describe("GitHub Pages subfolder check", () => {
     expect(pagesSubfolderProblem("https://www.example.org", "https://github.com/agevenkat/site.git")).toBeUndefined();
     expect(pagesSubfolderProblem("https://agevenkat.github.io", "https://gitlab.com/agevenkat/site.git")).toBeUndefined();
     expect(pagesSubfolderProblem("https://agevenkat.github.io", undefined)).toBeUndefined();
+    expect(pagesSubfolderProblem("https://agevenkat.github.io", "https://notgithub.com/agevenkat/site.git")).toBeUndefined();
+    expect(pagesSubfolderProblem("https://agevenkat.github.io", "ssh://git@github.com/agevenkat/site.git")).toBeDefined();
   });
 });
