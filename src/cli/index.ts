@@ -158,6 +158,16 @@ cli
   );
 
 cli
+  .command("mcp", "Run an MCP server over stdio so AI assistants can check this site (read-only tools; needs @modelcontextprotocol/sdk)")
+  .option("--root <dir>", "Project root", { default: "." })
+  .action((opts: { root: string }) =>
+    run({}, async () => {
+      const { startMcpServer } = await import("../mcp/server.js");
+      await startMcpServer(opts.root, { version, info: () => frameworkInfo(cli, version) });
+    }),
+  );
+
+cli
   .command("info", "Describe commands, config and frontmatter (use --json for agents)")
   .option("--json", "Print machine-readable JSON")
   .action((opts: { json?: boolean }) =>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 (2026-10-24)
+
+### Added
+- **MCP server.** `vage mcp` runs a Model Context Protocol server over stdio, so AI assistants can call vagejs directly. Four read-only tools: `vage_info` (commands, settings and page fields), `vage_check` (the same findings as `vage check`), `vage_pages` (published pages, drafts and pages that fail to render) and `vage_links` (outbound domains and whether they're approved). Approving link domains and deploying are deliberately not tools. The SDK is optional: install `@modelcontextprotocol/sdk` in the project to use it, and `vage mcp` explains this if it's missing. While it runs, anything the build prints goes to stderr, so stdout carries only the protocol.
+
+### Changed
+- The README opens with an animated demo and links to the website, docs and Discussions; `CONTRIBUTING.md`, issue forms and a pull request checklist were added to the repository.
+
 ## 0.3.5 (2026-10-24)
 
 Found by deploying a new site for real to Vercel, Cloudflare Workers and GitHub Pages.

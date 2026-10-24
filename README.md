@@ -178,6 +178,15 @@ npx vage info --json    # commands, options, config and frontmatter JSON Schemas
 npx vage check --json   # findings with file, rule and fix hints
 ```
 
+Or let the assistant call vagejs directly over MCP. `npx vage mcp` runs an MCP server with read-only tools (`vage_info`, `vage_check`, `vage_pages`, `vage_links`); it needs the optional SDK:
+
+```bash
+npm install --save-dev @modelcontextprotocol/sdk
+claude mcp add --transport stdio --scope project vagejs -- npx vage mcp   # Claude Code
+```
+
+Other assistants take the same command in their MCP settings: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["vage", "mcp"] } } }`. Approving link domains and deploying stay CLI commands for the site owner.
+
 ## Command reference
 
 ```bash
@@ -202,7 +211,7 @@ vage info     [--json]                            # commands + config/frontmatte
 
 ## Planned, not implemented
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, MCP server, AVIF images.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, AVIF images.
 
 ## Security
 
