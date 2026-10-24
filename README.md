@@ -73,7 +73,7 @@ Our plans start at …
 
 Save it as `src/pages/pricing.md` and it's served at `/pricing/`. `title` is required. `description`, `draft`, `noindex`, `canonical`, `image`, `type: article`, `author`, `datePublished` and `dateModified` are optional; see [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md).
 
-Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading. With `images: { optimize: true }` (and `npm install --save-dev sharp`), vagejs also makes resized WebP copies of images in page content and offers them with `srcset`.
+Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading. With `images: { optimize: true }` (and `npm install --save-dev sharp`), vagejs also makes resized WebP copies of images in page content and offers them with `srcset`. Add `avif: true` for AVIF copies too, offered first through `<picture>` (usually smaller; slower to make). `vage audit` counts the copy browsers download, not the original.
 
 ### Navigation, feeds and AI extras
 
@@ -211,7 +211,7 @@ vage info     [--json]                            # commands + config/frontmatte
 
 ## Planned, not implemented
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes, AVIF images.
+Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes.
 
 ## Security
 
