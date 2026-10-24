@@ -65,11 +65,11 @@ function converter(): TurndownService {
  * content a layout builds from frontmatter (FAQ answers, post lists) is included. Pages
  * without exactly one `<main>` fall back to the Markdown body.
  */
-export function copySource(pageHtml: string, content: string): string {
-  const opens = pageHtml.match(/<main[\s>]/gi) ?? [];
-  if (opens.length !== 1) return content;
-  const m = /<main(?:\s[^>]*)?>([\s\S]*)<\/main>/i.exec(pageHtml);
-  return m ? m[1]! : content;
+export async function copySource(pageHtml: string, content: string): Promise<string> {
+  jsdom ??= await import("jsdom");
+  // Parsed as HTML (scripts don't run), so "<main>" text in scripts, comments or attributes doesn't count.
+  const mains = new jsdom.JSDOM(pageHtml).window.document.querySelectorAll("main");
+  return mains.length === 1 ? mains[0]!.innerHTML : content;
 }
 
 /**
@@ -121,9 +121,24 @@ export async function htmlToMarkdown(html: string, options: { route: string; ori
  * inside a code block.
  */
 export function markdownCopy(title: string, description: string | undefined, markdown: string): string {
-  const own = /^#[ \t]+(.+?)[ \t]*(?:\n+|$)/m.exec(markdown);
-  const usable = own && !/^(```|~~~)/m.test(markdown.slice(0, own.index));
-  const heading = `# ${usable ? own[1] : title}`;
-  const rest = usable ? markdown.slice(0, own.index) + markdown.slice(own.index + own[0].length) : markdown;
+  const lines = markdown.split("\n");
+  let fence = "";
+  let at = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const run = /^(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence) {
+      if (run && run[0] === fence[0] && run.length >= fence.length && !line.slice(run.length).trim()) fence = "";
+    } else if (run) {
+      fence = run;
+    } else if (/^#[ \t]+\S/.test(line)) {
+      at = i;
+      break;
+    }
+  }
+  const heading = `# ${at >= 0 ? lines[at]!.replace(/^#[ \t]+/, "").trim() : title}`;
+  let next = at + 1;
+  while (at >= 0 && next < lines.length && !lines[next]!.trim()) next++; // and the blank lines after it
+  const rest = at >= 0 ? [...lines.slice(0, at), ...lines.slice(next)].join("\n") : markdown;
   return `${heading}\n\n${description ? `> ${description}\n\n` : ""}${rest.trim()}\n`;
 }

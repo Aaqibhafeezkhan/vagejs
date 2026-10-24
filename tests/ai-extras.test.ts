@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
+import { copySource, markdownCopy } from "../src/discovery/markdown-copy.js";
 import { copyFixture, write } from "./helpers.js";
 
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dist", rel), "utf8");
@@ -260,5 +261,30 @@ describe("Markdown copies, SEO audit fixes", () => {
     const headers = read(root, "_headers");
     expect(headers).toContain('/framed.md\n  Link: <https://fixture.example/framed/>; rel="canonical"');
     expect(headers).toContain('/index.md\n  Link: <https://fixture.example/>; rel="canonical"');
+  });
+});
+
+describe("Markdown copies, 0.3.1 review", () => {
+  it("take <main> from the parsed page, not from text that looks like it", async () => {
+    const page = '<body><main><p>hi</p></main><footer>FOOTER</footer><script>const s = "</main>";</script></body>';
+    expect(await copySource(page, "BODY")).toBe("<p>hi</p>");
+    expect(await copySource('<body><!-- <main> --><main>one</main></body>', "BODY")).toBe("one");
+    expect(await copySource("<body><main>a</main><main>b</main></body>", "BODY")).toBe("BODY");
+  });
+
+  it("find the H1 after a closed code block, and never inside one", () => {
+    expect(markdownCopy("T", undefined, "Intro\n\n```sh\necho\n```\n\n# Real H1\n\nbody")).toBe("# Real H1\n\nIntro\n\n```sh\necho\n```\n\nbody\n");
+    expect(markdownCopy("T", undefined, "```sh\n# comment\n```\n\n# Real H1\n\nbody").startsWith("# Real H1\n")).toBe(true);
+    expect(markdownCopy("T", undefined, "````md\n```\n# inside\n````\n\ntext").startsWith("# T\n")).toBe(true);
+  });
+
+  it("give canonical headers only to plain paths, so a file name can't become a wildcard rule", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true }, deploy: { target: "cloudflare-workers", cloudflareWorker: "site" } };');
+    write(root, "src/pages/a*b.md", "---\ntitle: Star\ndescription: A page with a star in its file name.\n---\n# Star\n");
+    await build(root);
+    const headers = read(root, "_headers");
+    expect(headers).not.toContain("*b.md");
+    expect(headers).toContain("/about.md\n  Link:");
   });
 });

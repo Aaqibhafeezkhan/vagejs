@@ -113,7 +113,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   // Markdown versions of pages, converted from their sanitized HTML (copies and llms-full.txt).
   const markdown = new Map<string, string>();
   if (site.seo.markdownCopies || (site.seo.llmsTxt && site.seo.llmsTxt.full)) {
-    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(copySource(p.html, p.content), { route: p.route, origin: site.site }));
+    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(await copySource(p.html, p.content), { route: p.route, origin: site.site }));
   }
   model.redirects = buildRedirects(site, new Set(model.pages.map((p) => p.route)));
   addDiscoveryFiles(root, model, markdown);
@@ -183,7 +183,7 @@ function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string,
   if (cloudflare && site.security.headers) {
     const html = [...model.pages, ...(model.notFound ? [model.notFound] : []), ...model.redirects].map((p) => p.html);
     // Each Markdown copy names its HTML page as canonical, so search engines don't index both.
-    const copies = site.seo.markdownCopies && site.site ? listed.map((p) => ({ path: `/${markdownCopyPath(p.route)}`, canonical: p.meta.canonical! })).filter((c) => /^[^\s<>]+$/.test(c.path + c.canonical)) : [];
+    const copies = site.seo.markdownCopies && site.site ? listed.map((p) => ({ path: `/${markdownCopyPath(p.route)}`, canonical: p.meta.canonical! })).filter((c) => /^\/[A-Za-z0-9._~\/-]+$/.test(c.path) && /^[^\s<>]+$/.test(c.canonical)) : [];
     if (!copyCanonicalsFit(copies.length)) {
       warnings.push(`_headers: ${copies.length} Markdown copies need more header rules than Cloudflare allows, so they're published without a canonical Link header.`);
     }
