@@ -9,10 +9,18 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.os }} / Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        node: [22, 24]
+        include:
+          # 22.12.0 is the oldest Node vagejs supports (package.json engines).
+          - { os: ubuntu-latest, node: "22.12.0" }
+          - { os: ubuntu-latest, node: "22" }
+          - { os: ubuntu-latest, node: "24" }
+          - { os: windows-latest, node: "22" }
+          - { os: macos-latest, node: "22" }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -24,6 +32,7 @@ jobs:
       - run: npm test
       - run: npm run test:e2e
       # GitHub-hosted Ubuntu runners include Chrome.
-      - run: npx vitest run tests/audit.test.ts -t "real Lighthouse"
+      - if: runner.os == 'Linux'
+        run: npx vitest run tests/audit.test.ts -t "real Lighthouse"
         env:
           VAGE_TEST_LIGHTHOUSE: "1"
