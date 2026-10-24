@@ -152,6 +152,10 @@ describe("vage CLI (packed package)", () => {
   it("rejects unknown commands and invalid ports", () => {
     expect(vage(["frobnicate"], work).stderr).toMatch(/Unknown command "frobnicate"/);
     expect(vage(["dev", "--port", "abc"], work).stderr).toMatch(/Invalid port "abc"/);
+    const unused = vage(["indexnow", "--dry-run", "--urls", "/a/", "/b/"], work);
+    expect(unused.stderr).toMatch(/one comma-separated value/);
+    expect(unused.stderr).not.toMatch(/at Command\./); // no stack trace
+    expect(vage(["check", "--nope"], work).stderr).toMatch(/Unknown option `--nope`\. See "vage check --help"/);
   });
 
   it("explains missing Google setup without network calls", () => {

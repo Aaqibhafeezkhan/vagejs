@@ -29,10 +29,10 @@ Requires **Node.js 22.12 or newer**.
 npm create vagejs@latest my-site
 cd my-site
 npm install
-npm run dev
+npm start
 ```
 
-Open the URL it prints. Edit `src/pages/index.md` and the browser reloads.
+`npm start` opens the site in your browser. Edit `src/pages/index.md` and the page reloads. (`npm run dev` does the same without opening a browser, and prints the address.)
 
 ## Using vagejs
 
@@ -103,7 +103,8 @@ export default layout;
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Dev server with live reload |
+| `npm start` | Dev server with live reload, opened in your browser |
+| `npm run dev` | The same, without opening a browser; prints the address (and a direct `[::1]` or `127.0.0.1` address to use if the browser shows HTTP 431) |
 | `npm run check` | Links, SEO, structured data and basic accessibility; writes nothing |
 | `npm run build` | Static site in `dist/`, plus `robots.txt`, `sitemap.xml`, `llms.txt` |
 | `npm run audit` | Page-weight budgets and automated accessibility (`-- --lighthouse` adds Lighthouse) |

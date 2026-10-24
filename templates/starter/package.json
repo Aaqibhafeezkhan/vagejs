@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "vage dev --open",
     "dev": "vage dev",
     "build": "vage build",
     "check": "vage check",

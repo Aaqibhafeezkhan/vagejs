@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+- `vage dev` and `vage preview` also print the address the server really listens on (`http://[::1]:5173/` or `http://127.0.0.1:5173/`). Browsers keep cookies per host name, so it avoids the HTTP 431 error that piles of `localhost` cookies from other projects cause.
+- `--open` on `vage dev` and `vage preview` opens the site in your default browser at that address. New sites get `npm start` (`vage dev --open`); `npm run dev` still doesn't open a browser, so AI assistants can run it.
+
+### Fixed
+- Command-line mistakes (an unknown option, or a list passed as separate values like `--urls /a/ /b/`) print a short message with the right `--help` command instead of a stack trace.
+
 ### Changed
 - npm description and keywords say "static site generator"; the `vite` keyword is gone, so searches for Vite don't list vagejs.
 

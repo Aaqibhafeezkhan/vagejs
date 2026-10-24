@@ -10,6 +10,7 @@ import { VageError } from "../core/errors.js";
 import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
 import { startDevServer } from "../dev/server.js";
 import { startPreviewServer } from "../dev/preview.js";
+import { directUrl, printUrls } from "../dev/listen.js";
 import { createInterface } from "node:readline/promises";
 import { createProject } from "./create.js";
 import { frameworkInfo } from "./info.js";
@@ -24,6 +25,7 @@ interface CommonOptions {
 interface ServeFlags extends CommonOptions {
   port?: number;
   host?: string | boolean;
+  open?: boolean;
 }
 
 cli
@@ -44,11 +46,13 @@ cli
   .option("--root <dir>", "Project root", { default: "." })
   .option("--port <port>", "Port (fails if taken; default picks a free port from 5173)")
   .option("--host [host]", "Expose on the network")
+  .option("--open", "Open the site in your browser (at the direct address, so localhost cookies can't cause HTTP 431)")
   .action((opts: ServeFlags) =>
     run(opts, async () => {
       const server = await startDevServer(opts.root, { port: parsePort(opts.port), host: opts.host });
-      console.log(`vagejs dev server running at ${server.resolvedUrls?.local[0]}`);
-      server.resolvedUrls?.network.forEach((url) => console.log(`  network: ${url}`));
+      const direct = directUrl(server.httpServer?.address());
+      printUrls("vagejs dev server", server.resolvedUrls?.local[0], direct, server.resolvedUrls?.network);
+      if (opts.open) openBrowser(direct ?? server.resolvedUrls!.local[0]!);
     }),
   );
 
@@ -141,11 +145,13 @@ cli
   .option("--root <dir>", "Project root", { default: "." })
   .option("--port <port>", "Port (fails if taken; default picks a free port from 4173)")
   .option("--host [host]", "Expose on the network")
+  .option("--open", "Open the site in your browser")
   .action((opts: ServeFlags) =>
     run(opts, async () => {
       const server = await startPreviewServer(opts.root, { port: parsePort(opts.port), host: opts.host });
-      console.log(`vagejs preview running at ${server.resolvedUrls?.local[0]}`);
-      server.resolvedUrls?.network.forEach((url) => console.log(`  network: ${url}`));
+      const direct = directUrl(server.httpServer?.address());
+      printUrls("vagejs preview", server.resolvedUrls?.local[0], direct, server.resolvedUrls?.network);
+      if (opts.open) openBrowser(direct ?? server.resolvedUrls!.local[0]!);
     }),
   );
 
@@ -487,7 +493,16 @@ try {
     await cli.runMatchedCommand();
   }
 } catch (err) {
-  fail(err, Boolean(cli.options.json));
+  fail(usageError(err), Boolean(cli.options.json));
+}
+
+/** Mistakes in the command line itself (unknown option, extra value) get a clear message, not a stack trace. */
+function usageError(err: unknown): unknown {
+  if ((err as Error)?.name !== "CACError") return err;
+  const name = cli.matchedCommand?.name;
+  const help = name ? `vage ${name} --help` : "vage --help";
+  const lists = /^Unused args/.test((err as Error).message) ? ' Options that take a list want one comma-separated value, e.g. --urls "/a/,/b/".' : "";
+  return new VageError(`${(err as Error).message}.${lists} See "${help}".`);
 }
 
 async function run(opts: { json?: boolean }, fn: () => unknown): Promise<void> {

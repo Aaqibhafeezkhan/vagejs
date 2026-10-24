@@ -5,6 +5,7 @@ import type { PreviewServer, ViteDevServer } from "vite";
 import { build } from "../src/core/build.js";
 import { startDevServer } from "../src/dev/server.js";
 import { startPreviewServer } from "../src/dev/preview.js";
+import { directUrl } from "../src/dev/listen.js";
 import { copyFixture, write } from "./helpers.js";
 
 let servers: (ViteDevServer | PreviewServer)[] = [];
@@ -139,5 +140,22 @@ describe("preview server", () => {
 
   it("asks for a build when dist/ is missing", async () => {
     await expect(startPreviewServer(copyFixture(), {})).rejects.toThrow(/Run "vage build" first/);
+  });
+});
+
+describe("direct address (avoids HTTP 431 from localhost cookies)", () => {
+  it("names the loopback address the server listens on", () => {
+    expect(directUrl({ address: "::1", family: "IPv6", port: 5173 })).toBe("http://[::1]:5173/");
+    expect(directUrl({ address: "127.0.0.1", family: "IPv4", port: 5174 })).toBe("http://127.0.0.1:5174/");
+    expect(directUrl({ address: "::", family: "IPv6", port: 5173 })).toBeUndefined(); // --host: every interface
+    expect(directUrl(null)).toBeUndefined();
+  });
+
+  it("works for a running dev server", async () => {
+    const server = await startDevServer(copyFixture(), {});
+    servers.push(server);
+    const direct = directUrl(server.httpServer?.address());
+    expect(direct).toMatch(/^http:\/\/(\[::1\]|127\.0\.0\.1):\d+\/$/);
+    expect((await fetch(direct!)).status).toBe(200);
   });
 });
