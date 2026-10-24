@@ -115,3 +115,23 @@ export async function confirmPagesDeployment(
   const pages = await run("gh", ["api", "repos/{owner}/{repo}/pages", "--jq", ".html_url"], cwd);
   return { status: "success", runUrl, pageUrl: pages.code === 0 ? pages.stdout.trim() || undefined : undefined };
 }
+
+/**
+ * GitHub Pages serves a repository named anything but <owner>.github.io from a subfolder
+ * (https://owner.github.io/repo/). vagejs sites need the root of a domain (links like
+ * /about/ would point outside the site), so that only works with a custom domain.
+ * Returns the problem to show before anything is pushed, or undefined when it's fine.
+ */
+export function pagesSubfolderProblem(site: string | undefined, remote: string | undefined): string | undefined {
+  const m = remote && /github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i.exec(remote.trim());
+  if (!m || !site) return undefined;
+  const [, owner, repo] = m as unknown as [string, string, string];
+  if (repo.toLowerCase() === `${owner}.github.io`.toLowerCase()) return undefined;
+  if (!/\.github\.io$/i.test(new URL(site).hostname)) return undefined; // a custom domain serves the root
+  return (
+    `GitHub Pages would serve this repository at https://${owner.toLowerCase()}.github.io/${repo}/, a subfolder, ` +
+    `but a vagejs site must be served from the root of a domain: links like /about/ would point outside the site. Either:\n` +
+    `  - use your own domain: set site to it in vage.config.ts and add it in the repository under Settings → Pages → Custom domain, or\n` +
+    `  - publish from a repository named ${owner}.github.io (set site to https://${owner.toLowerCase()}.github.io).`
+  );
+}

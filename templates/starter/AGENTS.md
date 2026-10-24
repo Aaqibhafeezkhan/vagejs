@@ -144,7 +144,9 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 
 After deploying, `npx vage indexnow --changed-since HEAD~1` (needs `integrations.indexNow.key`) tells IndexNow search engines about changed pages. It's a hint, not a guarantee of indexing; ask the owner first.
 
-GitHub Pages needs a custom domain or a `<user>.github.io` repository, because vagejs does not support base paths yet.
+GitHub Pages needs a custom domain or a `<user>.github.io` repository, because vagejs does not support base paths yet; `vage deploy` stops before pushing when the site would land in a subfolder.
+
+Other static hosts (Vercel, Netlify and the like) work without a vagejs deploy command: build command `npm run build`, output folder `dist`, no framework preset. Config redirects become small forwarding pages there, and the `_headers` security headers apply only on Cloudflare.
 `.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
 
 ## Analytics and search reports

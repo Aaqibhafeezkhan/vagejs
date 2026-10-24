@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Found by deploying a new site for real to Vercel, Cloudflare Workers and GitHub Pages.
+
+### Fixed
+- **Cloudflare Workers: the first deploy of a new site works again.** Current wrangler reports a missing Worker as one that "does not yet exist", without an error code, so vagejs stopped instead of creating it.
+- **GitHub Pages: no more broken sites in a subfolder.** A `github.io` site published from a repository not named `<owner>.github.io` is served from a subfolder, where every link breaks. `vage deploy` now stops before pushing and explains the two fixes (a custom domain, or an `<owner>.github.io` repository).
+
+### Changed
+- When a Workers deploy can't confirm the site address, the message names the Worker's own `workers.dev` address and how to attach a domain.
+- The starter's config comments list all AI crawlers (PerplexityBot, Applebot-Extended), and its `AGENTS.md` explains hosting on Vercel, Netlify and other static hosts.
+
 ## 0.3.4 (2026-10-24)
 
 Found by running every test on Windows, macOS and Linux, and on the oldest supported Node (22.12.0). CI now tests all of them on every change.

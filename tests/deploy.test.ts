@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { confirmPagesDeployment, ensurePagesEnabled, pagesWorkflow, PAGES_WORKFLOW, type Runner } from "../src/deploy/github-pages.js";
+import { confirmPagesDeployment, ensurePagesEnabled, pagesWorkflow, PAGES_WORKFLOW, type Runner, pagesSubfolderProblem } from "../src/deploy/github-pages.js";
 import { publish, type PublishPlan } from "../src/deploy/publish.js";
 import { findSecrets } from "../src/deploy/secrets.js";
 import { copyFixture, write, EMPTY_GIT_CONFIG } from "./helpers.js";
@@ -201,5 +201,22 @@ describe("GitHub Pages adapter", () => {
     expect(await ensurePagesEnabled("/x", missing.run)).toBe("enabled");
     expect(missing.calls).toContain("gh api -X POST repos/{owner}/{repo}/pages -f build_type=workflow");
     expect(await ensurePagesEnabled("/x", fakeGh({ "gh auth status": { code: 1 } }).run)).toMatchObject({ manual: expect.stringMatching(/Source: "GitHub Actions"/) });
+  });
+});
+
+describe("GitHub Pages subfolder check", () => {
+  it("stops a github.io site published from a project repository (it would live in a subfolder)", () => {
+    const problem = pagesSubfolderProblem("https://agevenkat.github.io", "https://github.com/agevenkat/vagejs-host-test.git");
+    expect(problem).toMatch(/https:\/\/agevenkat\.github\.io\/vagejs-host-test\/, a subfolder/);
+    expect(problem).toMatch(/Custom domain/);
+    expect(pagesSubfolderProblem("https://agevenkat.github.io", "git@github.com:agevenkat/site")).toBeDefined();
+  });
+
+  it("allows the owner's own github.io repository, a custom domain, and other git hosts", () => {
+    expect(pagesSubfolderProblem("https://agevenkat.github.io", "https://github.com/agevenkat/agevenkat.github.io.git")).toBeUndefined();
+    expect(pagesSubfolderProblem("https://AgeVenkat.github.io", "git@github.com:AgeVenkat/AgeVenkat.github.io.git")).toBeUndefined();
+    expect(pagesSubfolderProblem("https://www.example.org", "https://github.com/agevenkat/site.git")).toBeUndefined();
+    expect(pagesSubfolderProblem("https://agevenkat.github.io", "https://gitlab.com/agevenkat/site.git")).toBeUndefined();
+    expect(pagesSubfolderProblem("https://agevenkat.github.io", undefined)).toBeUndefined();
   });
 });

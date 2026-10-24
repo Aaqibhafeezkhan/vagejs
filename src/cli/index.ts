@@ -220,6 +220,11 @@ cli
       if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages, cloudflare-workers or cloudflare-pages.`);
       const { publish } = await import("../deploy/publish.js");
       const pages = await import("../deploy/github-pages.js");
+      // Stop before pushing a site GitHub Pages would serve from a subfolder (its links would break).
+      const { gitRaw } = await import("../deploy/git.js");
+      const origin = opts.remote ?? (await gitRaw(path.resolve(opts.root), ["remote", "get-url", "origin"]).catch(() => undefined))?.stdout?.trim();
+      const subfolder = pages.pagesSubfolderProblem(config.site, origin);
+      if (subfolder) throw new VageError(subfolder);
       const result = await publish(opts.root, {
         ...opts,
         extraFiles: (branch) => ({ [pages.PAGES_WORKFLOW]: pages.pagesWorkflow(branch) }),
