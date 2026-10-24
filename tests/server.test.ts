@@ -147,7 +147,9 @@ describe("direct address (avoids HTTP 431 from localhost cookies)", () => {
   it("names the loopback address the server listens on", () => {
     expect(directUrl({ address: "::1", family: "IPv6", port: 5173 })).toBe("http://[::1]:5173/");
     expect(directUrl({ address: "127.0.0.1", family: "IPv4", port: 5174 })).toBe("http://127.0.0.1:5174/");
-    expect(directUrl({ address: "::", family: "IPv6", port: 5173 })).toBeUndefined(); // --host: every interface
+    expect(directUrl({ address: "::", family: "IPv6", port: 5173 })).toBe("http://127.0.0.1:5173/"); // --host: every interface
+    expect(directUrl({ address: "0.0.0.0", family: "IPv4", port: 5173 })).toBe("http://127.0.0.1:5173/");
+    expect(directUrl({ address: "192.168.1.3", family: "IPv4", port: 5173 })).toBeUndefined(); // one network address
     expect(directUrl(null)).toBeUndefined();
   });
 

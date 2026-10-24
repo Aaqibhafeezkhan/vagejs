@@ -52,7 +52,8 @@ cli
       const server = await startDevServer(opts.root, { port: parsePort(opts.port), host: opts.host });
       const direct = directUrl(server.httpServer?.address());
       printUrls("vagejs dev server", server.resolvedUrls?.local[0], direct, server.resolvedUrls?.network);
-      if (opts.open) openBrowser(direct ?? server.resolvedUrls!.local[0]!);
+      const target = direct ?? server.resolvedUrls?.local[0] ?? server.resolvedUrls?.network[0];
+      if (opts.open && target) openBrowser(target);
     }),
   );
 
@@ -151,7 +152,8 @@ cli
       const server = await startPreviewServer(opts.root, { port: parsePort(opts.port), host: opts.host });
       const direct = directUrl(server.httpServer?.address());
       printUrls("vagejs preview", server.resolvedUrls?.local[0], direct, server.resolvedUrls?.network);
-      if (opts.open) openBrowser(direct ?? server.resolvedUrls!.local[0]!);
+      const target = direct ?? server.resolvedUrls?.local[0] ?? server.resolvedUrls?.network[0];
+      if (opts.open && target) openBrowser(target);
     }),
   );
 
