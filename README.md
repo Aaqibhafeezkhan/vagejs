@@ -17,7 +17,7 @@
 
 [Website](https://vagejs.com) · [Docs](https://vagejs.com/docs/) · [Use with AI assistants](https://vagejs.com/agents/) · [Changelog](https://vagejs.com/changelog/) · [Discussions](https://github.com/agevenkat/vagejs/discussions)
 
-<!-- Demo GIF goes here (assets/demo.gif): create a site, ask an AI assistant for a page, `npm run check` catches a broken link, `npm start`. -->
+<p align="center"><img src="https://raw.githubusercontent.com/agevenkat/vagejs/main/assets/demo.svg" alt="Terminal demo: create a vagejs site, install it, npm run check catches a broken link and names the file, the link is fixed, the check passes, and npm start runs the site." width="760"></p>
 
 - **Static by default**: plain HTML, no client JavaScript unless you add analytics.
 - **SEO built in**: `robots.txt`, `sitemap.xml`, `llms.txt`, canonical URLs, Open Graph and JSON-LD, generated from your pages.
