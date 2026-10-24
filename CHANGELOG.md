@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- npm description and keywords say "static site generator"; the `vite` keyword is gone, so searches for Vite don't list vagejs.
+
 ## 0.3.1 (2026-10-24)
 
 Fixes from an SEO audit of [vagejs.com](https://vagejs.com).

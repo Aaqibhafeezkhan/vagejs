@@ -1,7 +1,7 @@
 {
   "name": "vagejs",
   "version": "0.3.1",
-  "description": "AI-native, static-first web framework: Markdown sites with built-in SEO, llms.txt, audits, security and safe deploys.",
+  "description": "A free static site generator for AI website development: Markdown pages with built-in SEO, llms.txt, checks, spam protection and safe deploys.",
   "keywords": [
     "static-site-generator",
     "ssg",
@@ -9,9 +9,9 @@
     "seo",
     "llms-txt",
     "ai-agents",
-    "vite",
-    "cli",
-    "web-framework"
+    "agents-md",
+    "claude-code",
+    "cli"
   ],
   "homepage": "https://vagejs.com",
   "author": "vagejs.com",
