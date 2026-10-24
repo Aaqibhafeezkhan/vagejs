@@ -64,7 +64,7 @@ export function frameworkInfo(cli: CAC, version: string) {
     },
     features: {
       feeds: 'seo.feeds: [{ under: "/blog/" }] writes /blog/feed.xml (RSS 2.0) and links it from that section\'s pages',
-      markdownCopies: "seo.markdownCopies: true publishes /<path>.md copies of listed pages, linked with rel=alternate type=text/markdown",
+      markdownCopies: "seo.markdownCopies: true publishes /<path>.md copies of listed pages, made from each page's <main> and linked with rel=alternate type=text/markdown; layouts mark repeated extras (share links, calls to action) with data-vage-copy=\"skip\". On Cloudflare, _headers gives each copy a canonical Link header to its page",
       lastmod: 'seo.lastmod: "git" takes sitemap <lastmod> from each page\'s last commit (dateModified wins; skipped in shallow clones)',
       images: 'images: { optimize: true } (needs the sharp package) makes resized WebP copies of content images in /_vage/img/ and adds srcset/sizes',
       navigation: "frontmatter order and navTitle; helpers tree(), breadcrumbs(), neighbors(); PageSummary.label",

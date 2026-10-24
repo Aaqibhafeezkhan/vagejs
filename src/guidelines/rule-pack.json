@@ -1,6 +1,6 @@
 {
-  "version": "2026.10.1",
-  "released": "2026-10-23",
+  "version": "2026.10.2",
+  "released": "2026-10-24",
   "sources": [
     {
       "id": "google-search-essentials",
@@ -274,6 +274,14 @@
       "url": "https://docs.perplexity.ai/guides/bots",
       "category": "ai-crawlers",
       "cadence": "weekly"
+    },
+    {
+      "id": "apple-applebot",
+      "provider": "Apple",
+      "title": "About Applebot (incl. Applebot-Extended)",
+      "url": "https://support.apple.com/en-us/119829",
+      "category": "ai-crawlers",
+      "cadence": "weekly"
     }
   ],
   "rules": [
@@ -284,7 +292,9 @@
       "sources": [
         "openai-bots",
         "anthropic-crawlers",
-        "google-crawlers"
+        "google-crawlers",
+        "perplexity-bots",
+        "apple-applebot"
       ],
       "implementedIn": [
         "src/discovery/crawlers.ts",
@@ -321,6 +331,18 @@
             "provider": "Google",
             "purpose": "training",
             "source": "google-crawlers"
+          },
+          {
+            "token": "PerplexityBot",
+            "provider": "Perplexity",
+            "purpose": "search",
+            "source": "perplexity-bots"
+          },
+          {
+            "token": "Applebot-Extended",
+            "provider": "Apple",
+            "purpose": "training",
+            "source": "apple-applebot"
           }
         ]
       }
@@ -603,7 +625,8 @@
         "src/deploy/headers.ts"
       ],
       "data": {
-        "maxLineLength": 2000
+        "maxLineLength": 2000,
+        "maxRules": 100
       }
     },
     {
@@ -705,6 +728,13 @@
       "summary": "Add crawlers.probes (search and AI crawler user agents and tokens for vage verify's crawlability check) and the Perplexity crawler source. Full user-agent strings copied verbatim on 2026-10-23 for Googlebot, GPTBot, ChatGPT-User, PerplexityBot and Perplexity-User; OAI-SearchBot, Anthropic's crawlers and bingbot are recorded by token (Anthropic's page lists only tokens, Bing's page couldn't be read, and OAI-SearchBot's full string couldn't be copied verbatim). No existing rule changed.",
       "reviewedBy": "Venkatesh A G E",
       "contentHash": "4d88418eb0b5425da970a1a30218a097783e117ce65376171d9a7f3ab7d9f658"
+    },
+    {
+      "version": "2026.10.2",
+      "date": "2026-10-24",
+      "summary": "robots.ai-crawlers: add PerplexityBot (search; Perplexity says it surfaces and links sites in its search results and is not used for foundation-model training) and Applebot-Extended (training; Apple says it does not crawl and only controls use of Applebot-crawled data for training its generative models). Google-Extended stays under training; its source also covers grounding in Gemini Apps and Vertex AI, which the docs now state. Perplexity-User is excluded as a user-initiated fetcher. CCBot and cohere-ai not added: no provider documentation describing them as AI-training robots.txt tokens was found. Checked against the cited sources on 2026-10-24. cloudflare.headers: record the documented limit of 100 rules as data (maxRules), used to add a canonical Link header to each Markdown copy only when the _headers file stays within it.",
+      "reviewedBy": "Venkatesh A G E",
+      "contentHash": "6b1d977ca79843dab0f6b03dc8b3448ca451eafb037bc6af112165fb5c1035c1"
     }
   ]
 }

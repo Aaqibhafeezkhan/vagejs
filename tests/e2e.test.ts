@@ -133,7 +133,7 @@ describe("vage CLI (packed package)", () => {
     const res = spawnSync(path.join(runner, "node_modules", ".bin", "create-vagejs"), ["fresh-site"], { cwd: work, encoding: "utf8" });
     expect(res.status, res.stderr).toBe(0);
     const pkg = JSON.parse(fs.readFileSync(path.join(work, "fresh-site", "package.json"), "utf8"));
-    expect(pkg.devDependencies.vagejs).toBe("^0.3.0");
+    expect(pkg.devDependencies.vagejs).toBe("^0.3.1");
     expect(spawnSync(path.join(runner, "node_modules", ".bin", "create-vagejs"), [], { encoding: "utf8" }).stderr).toMatch(/Usage: npm create vagejs@latest/);
   }, 300_000);
 
@@ -179,6 +179,6 @@ describe("vage CLI (packed package)", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
     for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy", "connect", "disconnect", "report", "guidelines", "indexnow"]) expect(help.stdout).toContain(cmd);
-    expect(vage(["--version"], work).stdout).toContain("0.3.0");
+    expect(vage(["--version"], work).stdout).toContain("0.3.1");
   });
 });

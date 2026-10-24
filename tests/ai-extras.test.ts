@@ -224,3 +224,41 @@ describe("Markdown copies, focused check", () => {
     expect(await htmlToMarkdown('<p><img src="javascript:alert(1)" alt="x"> ok</p>', { route: "/p/" })).toBe("ok");
   });
 });
+
+describe("Markdown copies, SEO audit fixes", () => {
+  const layout = `export default ({ content, page }) => \`<!doctype html><html lang="en"><head><title>\${page.title}</title></head><body>
+<nav><a href="/">Home</a></nav>
+<main><p><a href="/about/">Kicker link</a></p><h1>Two-line<br /> heading</h1><p><span aria-hidden="true">$</span><code>npm run dev</code></p><ul><li>Built by the layout</li></ul>\${content}<section data-vage-copy="skip"><h2>Share this post</h2></section></main>
+<footer>Footer text</footer></body></html>\`;`;
+
+  async function site(extra = "") {
+    const root = copyFixture();
+    write(root, "vage.config.ts", `export default { site: "https://fixture.example", title: "Fixture Site", seo: { markdownCopies: true, llmsTxt: { full: true } }${extra} };`);
+    write(root, "src/layouts/framed.ts", layout);
+    write(root, "src/pages/framed.md", "---\ntitle: Framed\ndescription: A page whose layout adds content.\nlayout: framed\n---\nBody text.\n");
+    await build(root);
+    return root;
+  }
+
+  it("are made from the page's <main>, so layout-built content is included and marked extras are not", async () => {
+    const root = await site();
+    const copy = read(root, "framed.md");
+    expect(copy.startsWith("# Two-line heading\n")).toBe(true);
+    expect(copy).toContain("Built by the layout");
+    expect(copy).toContain("Body text.");
+    expect(copy).not.toContain("Share this post");
+    expect(copy).not.toContain("Footer text");
+    expect(copy.match(/^# /gm)).toHaveLength(1); // the H1 moved to the top, no second title
+    expect(copy).toContain("Kicker link");
+    expect(copy).toContain("`npm run dev`");
+    expect(copy).not.toContain("$");
+    expect(read(root, "llms-full.txt")).toContain("Built by the layout");
+  });
+
+  it("name their HTML page as canonical in _headers on Cloudflare", async () => {
+    const root = await site(', deploy: { target: "cloudflare-workers", cloudflareWorker: "site" }');
+    const headers = read(root, "_headers");
+    expect(headers).toContain('/framed.md\n  Link: <https://fixture.example/framed/>; rel="canonical"');
+    expect(headers).toContain('/index.md\n  Link: <https://fixture.example/>; rel="canonical"');
+  });
+});

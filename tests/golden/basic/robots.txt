@@ -10,4 +10,7 @@ Disallow: /
 User-agent: Google-Extended
 Disallow: /
 
+User-agent: Applebot-Extended
+Disallow: /
+
 Sitemap: https://fixture.example/sitemap.xml

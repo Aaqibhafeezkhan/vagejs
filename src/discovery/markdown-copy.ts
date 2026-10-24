@@ -61,6 +61,18 @@ function converter(): TurndownService {
 }
 
 /**
+ * The part of a rendered page the copy is made from: the inside of its one `<main>`, so
+ * content a layout builds from frontmatter (FAQ answers, post lists) is included. Pages
+ * without exactly one `<main>` fall back to the Markdown body.
+ */
+export function copySource(pageHtml: string, content: string): string {
+  const opens = pageHtml.match(/<main[\s>]/gi) ?? [];
+  if (opens.length !== 1) return content;
+  const m = /<main(?:\s[^>]*)?>([\s\S]*)<\/main>/i.exec(pageHtml);
+  return m ? m[1]! : content;
+}
+
+/**
  * The page as Markdown, converted from its rendered, sanitized HTML: the copy contains
  * exactly what the page shows (no comments, no raw HTML the sanitizer removed, the same
  * links the link lock checked), with links and images made absolute.
@@ -81,7 +93,11 @@ export async function htmlToMarkdown(html: string, options: { route: string; ori
     }
   };
   // Hidden content isn't on the page for visitors, so it isn't in the copy either.
-  for (const el of template.content.querySelectorAll("[hidden], svg, math")) el.remove();
+  // Layouts mark repeated extras (share links, calls to action) with data-vage-copy="skip";
+  // aria-hidden parts are decoration that screen readers skip too.
+  for (const el of template.content.querySelectorAll('[hidden], svg, math, [aria-hidden="true"], [data-vage-copy="skip"]')) el.remove();
+  // A heading split over two lines with <br> stays one Markdown heading.
+  for (const br of template.content.querySelectorAll("h1 br, h2 br, h3 br, h4 br, h5 br, h6 br")) br.replaceWith(" ");
   for (const a of template.content.querySelectorAll("a[href]")) {
     const href = a.getAttribute("href")!.trim();
     // Script and data URLs never become links in the copy (trusted HTML can contain them).
@@ -99,10 +115,15 @@ export async function htmlToMarkdown(html: string, options: { route: string; ori
   return converter().turndown(wrapper).trim();
 }
 
-/** The copy: the page's own H1 (or the title), the summary, then the content. */
+/**
+ * The copy: the page's own H1 (or the title), the summary, then the content. The H1 is
+ * moved to the top even when a layout puts something before it, but never taken from
+ * inside a code block.
+ */
 export function markdownCopy(title: string, description: string | undefined, markdown: string): string {
-  const own = /^#\s+(.+?)\s*(?:\n+|$)/.exec(markdown);
-  const heading = `# ${own ? own[1] : title}`;
-  const rest = own ? markdown.slice(own[0].length) : markdown;
+  const own = /^#[ \t]+(.+?)[ \t]*(?:\n+|$)/m.exec(markdown);
+  const usable = own && !/^(```|~~~)/m.test(markdown.slice(0, own.index));
+  const heading = `# ${usable ? own[1] : title}`;
+  const rest = usable ? markdown.slice(0, own.index) + markdown.slice(own.index + own[0].length) : markdown;
   return `${heading}\n\n${description ? `> ${description}\n\n` : ""}${rest.trim()}\n`;
 }

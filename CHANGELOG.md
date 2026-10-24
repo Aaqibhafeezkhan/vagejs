@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1 (2026-10-24)
+
+Fixes from an SEO audit of [vagejs.com](https://vagejs.com).
+
+### Fixed
+- **Markdown copies and `llms-full.txt` now include content a layout builds.** They were made from the Markdown body only, so pages whose content lives in frontmatter (an FAQ list, a home page, a blog index) produced almost empty copies. They're now made from the page's single `<main>` element (pages without exactly one `<main>` still use the Markdown body). A heading split with `<br>` stays one heading.
+
+### Added
+- `data-vage-copy="skip"` on any element in a layout leaves it out of the Markdown copy and `llms-full.txt`, for repeated extras such as share links, author cards or a call to action.
+- On Cloudflare targets, `_headers` gives each Markdown copy a `Link: <page URL>; rel="canonical"` header, so search engines treat the HTML page as the original. Skipped with a warning when the copies would push `_headers` past Cloudflare's 100-rule limit.
+
+### Changed
+- Rule pack 2026.10.2 (reviewed by Venkatesh A G E): `aiSearch` now also covers **PerplexityBot**, and `aiTraining` also covers **Applebot-Extended**, from each provider's own documentation. Sites that set these options get the new groups in `robots.txt`. Google-Extended stays under training; the docs now say it also controls grounding in Gemini Apps and Vertex AI. The rule pack also records Cloudflare's 100-rule `_headers` limit. Projects that pin `guidelines.rulePack: "2026.10.1"` need to review and update the pin.
+
 ## 0.3.0 (2026-10-23)
 
 ### Added

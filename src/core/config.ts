@@ -37,11 +37,11 @@ const robotsSchema = z.strictObject({
   aiTraining: z
     .enum(["allow", "disallow"])
     .optional()
-    .describe("Groups for documented AI training crawlers (GPTBot, ClaudeBot, Google-Extended). Unset: the * group applies."),
+    .describe("Groups for documented AI training crawlers (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended). Google-Extended also covers grounding in Gemini Apps and Vertex AI. Unset: the * group applies."),
   aiSearch: z
     .enum(["allow", "disallow"])
     .optional()
-    .describe("Groups for documented AI search crawlers (OAI-SearchBot, Claude-SearchBot). Unset: the * group applies."),
+    .describe("Groups for documented AI search crawlers (OAI-SearchBot, Claude-SearchBot, PerplexityBot). Unset: the * group applies."),
 });
 
 const seoSchema = z.strictObject({

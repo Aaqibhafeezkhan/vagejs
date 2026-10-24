@@ -3,10 +3,10 @@ import path from "node:path";
 import { llmsFullTxt, llmsTxt, type LlmsPage } from "../discovery/llms.js";
 import { feedPath, rssFeed } from "../discovery/feed.js";
 import { gitPageDates } from "../discovery/git-dates.js";
-import { htmlToMarkdown, markdownCopy, markdownCopyPath } from "../discovery/markdown-copy.js";
+import { copySource, htmlToMarkdown, markdownCopy, markdownCopyPath } from "../discovery/markdown-copy.js";
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
-import { headersFile } from "../deploy/headers.js";
+import { copyCanonicalsFit, headersFile } from "../deploy/headers.js";
 import { cloudflareRedirects } from "../deploy/redirects.js";
 import { findSecrets } from "../deploy/secrets.js";
 import { rulePack } from "../guidelines/pack.js";
@@ -113,7 +113,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   // Markdown versions of pages, converted from their sanitized HTML (copies and llms-full.txt).
   const markdown = new Map<string, string>();
   if (site.seo.markdownCopies || (site.seo.llmsTxt && site.seo.llmsTxt.full)) {
-    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(p.content, { route: p.route, origin: site.site }));
+    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(copySource(p.html, p.content), { route: p.route, origin: site.site }));
   }
   model.redirects = buildRedirects(site, new Set(model.pages.map((p) => p.route)));
   addDiscoveryFiles(root, model, markdown);
@@ -182,7 +182,12 @@ function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string,
   if (cloudflare && model.redirects.length) generate("_redirects", () => cloudflareRedirects(model.redirects));
   if (cloudflare && site.security.headers) {
     const html = [...model.pages, ...(model.notFound ? [model.notFound] : []), ...model.redirects].map((p) => p.html);
-    generate("_headers", () => headersFile(html, site));
+    // Each Markdown copy names its HTML page as canonical, so search engines don't index both.
+    const copies = site.seo.markdownCopies && site.site ? listed.map((p) => ({ path: `/${markdownCopyPath(p.route)}`, canonical: p.meta.canonical! })).filter((c) => /^[^\s<>]+$/.test(c.path + c.canonical)) : [];
+    if (!copyCanonicalsFit(copies.length)) {
+      warnings.push(`_headers: ${copies.length} Markdown copies need more header rules than Cloudflare allows, so they're published without a canonical Link header.`);
+    }
+    generate("_headers", () => headersFile(html, site, copies));
   }
   if (site.seo.llmsTxt) {
     if (!site.title) {
