@@ -13,13 +13,18 @@
 
 # vagejs
 
-An AI-native, static-first web framework. Write pages in Markdown, and vagejs builds a fast static site with SEO, `llms.txt`, accessibility and security handled for you. It's built so AI coding agents can use it without guessing. **Pre-release (0.x).**
+**A free static site generator built for AI coding assistants.** Your assistant (Claude Code, Cursor, Codex, Copilot) writes the pages; vagejs checks them before anything goes live. Write pages in Markdown and get a fast static site with SEO, `llms.txt`, accessibility and security handled for you. **Pre-release (0.x).**
+
+[Website](https://vagejs.com) · [Docs](https://vagejs.com/docs/) · [Use with AI assistants](https://vagejs.com/agents/) · [Changelog](https://vagejs.com/changelog/) · [Discussions](https://github.com/agevenkat/vagejs/discussions)
+
+<!-- Demo GIF goes here (assets/demo.gif): create a site, ask an AI assistant for a page, `npm run check` catches a broken link, `npm start`. -->
 
 - **Static by default**: plain HTML, no client JavaScript unless you add analytics.
 - **SEO built in**: `robots.txt`, `sitemap.xml`, `llms.txt`, canonical URLs, Open Graph and JSON-LD, generated from your pages.
 - **Checks before you ship**: `vage check` (links, SEO, structured data, accessibility) and `vage audit` (page-weight budgets, axe, optional Lighthouse and PageSpeed).
 - **Safe by default**: page content is sanitized; secrets, build output and force-pushes are refused; Cloudflare deploys get a computed Content-Security-Policy.
 - **Agent-friendly**: every site ships with `AGENTS.md`, and `vage info --json` describes every command and config option.
+- **Runs everywhere**: macOS, Windows and Linux, tested on every change. Deploys to GitHub Pages and Cloudflare Workers built in; any static host (Vercel, Netlify) works with `npm run build` and the `dist` folder.
 
 ## Quick start
 
@@ -224,6 +229,8 @@ npx vage verify                   # compare the live site with your files
 Also protect the accounts around the site: two-factor authentication on GitHub, npm, your host and your domain registrar; branch protection on `main`; and Google Search Console alerts for security issues.
 
 ## Contributing
+
+New contributors are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and the issues labeled [good first issue](https://github.com/agevenkat/vagejs/labels/good%20first%20issue). Questions and ideas go in [Discussions](https://github.com/agevenkat/vagejs/discussions).
 
 ```bash
 npm install

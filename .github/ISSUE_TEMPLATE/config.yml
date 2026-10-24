@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/agevenkat/vagejs/discussions
+    about: Ask how to do something, or share an idea before writing a feature request.
+  - name: Security vulnerability
+    url: https://github.com/agevenkat/vagejs/security/advisories/new
+    about: Report security issues privately, never in a public issue.

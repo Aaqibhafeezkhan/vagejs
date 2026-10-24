@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in vagejs doesn't work as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The commands you ran and, if possible, a small page or config that shows the problem.
+      placeholder: |
+        1. npm create vagejs@latest my-site
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output or error message
+      description: Paste the full output. Remove any tokens or secrets first.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: vagejs version
+      description: Run `npx vage --version`.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS and Node.js version
+      placeholder: macOS 15, Node.js 22.12.0
+    validations:
+      required: true
