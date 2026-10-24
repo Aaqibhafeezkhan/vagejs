@@ -10,8 +10,8 @@ export default defineConfig({
   seo: {
     robots: {
       // AI crawler policy is your decision; unset means the "*" rules apply.
-      // aiTraining: "disallow", // GPTBot, ClaudeBot, Google-Extended
-      // aiSearch: "allow",      // OAI-SearchBot, Claude-SearchBot
+      // aiTraining: "disallow", // GPTBot, ClaudeBot, Google-Extended, Applebot-Extended
+      // aiSearch: "allow",      // OAI-SearchBot, Claude-SearchBot, PerplexityBot
     },
     sitemap: true,
     llmsTxt: { full: false },

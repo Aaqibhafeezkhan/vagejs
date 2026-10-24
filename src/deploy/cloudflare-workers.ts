@@ -213,7 +213,8 @@ export async function deployCloudflareWorkers(
     output = out(upload);
     if (upload.code !== 0) {
       // Only a Worker that doesn't exist yet gets a full deploy (which also attaches routes).
-      if (!/\b10007\b|worker[^\n]*(?:does not exist|not found)/i.test(output)) return { status: "failure", worker, reason: failReason(upload.code, output) };
+      // wrangler 4.152 says "...a new version of a Worker that does not yet exist" (no code).
+      if (!/\b10007\b|worker[^\n]*(?:does not (?:yet )?exist|not found)/i.test(output)) return { status: "failure", worker, reason: failReason(upload.code, output) };
       mode = "first-deploy";
       const first = await wrangler("deploy");
       output = out(first);
@@ -240,7 +241,9 @@ export async function deployCloudflareWorkers(
       if (page?.ok) return { status: "success", worker, mode, versionId, pageUrl };
       await sleep(3000);
     }
-    return { status: "unconfirmed", worker, mode, versionId, pageUrl, reason: `Deployed, but ${pageUrl} did not respond with 200 yet. Check it in a minute.` };
+    // `site` may not point at this Worker yet (a new domain, or a typo): say where the Worker itself answers.
+    const own = workersDev && workersDev !== pageUrl ? ` The Worker itself is at ${workersDev}. If ${pageUrl} is your own domain, attach it to the Worker (routes or custom_domain in wrangler.jsonc).` : "";
+    return { status: "unconfirmed", worker, mode, versionId, pageUrl, reason: `Deployed, but ${pageUrl} did not respond with 200 yet. Check it in a minute.${own}` };
   } finally {
     if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   }

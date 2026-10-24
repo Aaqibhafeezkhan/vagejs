@@ -155,6 +155,10 @@ describe("Cloudflare Workers deploy", () => {
     expect(result).toMatchObject({ status: "success", mode: "first-deploy" });
     expect(r.calls[1]!.slice(3, 4)).toEqual(["deploy"]);
 
+    // wrangler 4.152's wording, without an error code (found deploying a new site for real).
+    const current = runner([{ code: 1, stderr: "✘ [ERROR] You cannot upload a new version of a Worker that does not yet exist. Please run the `deploy` command first." }, { code: 0, stdout: "Deployed site https://site.acct.workers.dev" }]);
+    expect(await deployCloudflareWorkers(root, { plan: plan("site"), run: current.run, fetch: ok, ...quiet })).toMatchObject({ status: "success", mode: "first-deploy" });
+
     const other = runner([{ code: 1, stderr: "Error: assets directory not found: dist" }]);
     const failed = await deployCloudflareWorkers(root, { plan: plan("site"), run: other.run, ...quiet });
     expect(failed.status).toBe("failure");
@@ -174,6 +178,10 @@ describe("Cloudflare Workers deploy", () => {
 
     const down = await deployCloudflareWorkers(root, { plan: plan("site"), siteUrl: "https://fixture.example", run: runner([{ code: 0, stdout: `Version ID: ${VERSION}` }, { code: 0 }]).run, fetch: async () => new Response("", { status: 404 }), ...quiet });
     expect(down.status).toBe("unconfirmed");
+
+    // The site address isn't this Worker yet: the message names the Worker's own address.
+    const elsewhere = await deployCloudflareWorkers(root, { plan: plan("site"), siteUrl: "https://fixture.example", run: runner([{ code: 1, stderr: "You cannot upload a new version of a Worker that does not yet exist." }, { code: 0, stdout: "Deployed site https://site.acct.workers.dev" }]).run, fetch: async () => new Response("", { status: 404 }), ...quiet });
+    expect(elsewhere.reason).toMatch(/The Worker itself is at https:\/\/site\.acct\.workers\.dev/);
   });
 
   it("writes _headers and _redirects for the Workers target too", async () => {
