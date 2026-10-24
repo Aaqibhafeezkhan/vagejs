@@ -18,6 +18,8 @@ export interface NewOptions {
   date?: string;
   /** Posts: only written when given; vagejs never invents an author. */
   author?: string;
+  /** Posts: the file name, when the title has no Latin letters or digits to make one from. */
+  slug?: string;
 }
 
 export interface Created {
@@ -56,6 +58,10 @@ const yaml = (value: string) => JSON.stringify(value);
 export function createPage(root: string, kind: "page" | "post", name: string, options: NewOptions = {}): Created {
   const pagesDir = path.join(path.resolve(root), "src", "pages");
   if (!fs.existsSync(pagesDir)) throw new VageError(`No src/pages folder in ${path.resolve(root)}. Run this inside a vagejs project.`);
+  // One line each: a line break would end up in the heading and fail the frontmatter schema.
+  for (const [label, value] of [["title", kind === "post" ? name : options.title], ["description", options.description], ["author", options.author]] as const) {
+    if (value !== undefined && /[\u0000-\u001f\u007f]/.test(value)) throw new VageError(`The ${label} must be one line of text, without line breaks or tabs.`);
+  }
 
   let slug: string;
   let title: string;
@@ -68,8 +74,9 @@ export function createPage(root: string, kind: "page" | "post", name: string, op
     if (!title) throw new VageError('Give the post a title, e.g. vage new post "Our first launch".');
     const under = (options.under ?? "blog").replace(/^\/+|\/+$/g, "");
     if (!SLUG.test(under)) throw new VageError(`"${options.under}" isn't a valid section folder. Use lowercase letters, numbers, hyphens and /.`);
-    const base = slugify(title);
-    if (!base) throw new VageError(`Couldn't make a file name from "${name}". Use a title with letters or numbers.`);
+    const base = options.slug !== undefined ? options.slug : slugify(title);
+    if (!base) throw new VageError(`Couldn't make a file name from "${name}". Add --slug <name> (lowercase letters, numbers and hyphens).`);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(base)) throw new VageError(`"${base}" isn't a valid --slug. Use lowercase letters, numbers and hyphens.`);
     slug = `${under}/${base}`;
   }
   if (options.date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(options.date)) throw new VageError(`--date must be YYYY-MM-DD, not "${options.date}".`);
@@ -92,7 +99,18 @@ export function createPage(root: string, kind: "page" | "post", name: string, op
   }
   lines.push("# Remove the next line when the page is ready to publish.", "draft: true", "---", "", `# ${title}`, "", "Write here.", "");
 
+  // Never write through a symlinked folder: it can point outside the project.
+  let existing = path.dirname(file);
+  while (!fs.existsSync(existing)) existing = path.dirname(existing);
+  const realPages = fs.realpathSync(pagesDir);
+  const realParent = fs.realpathSync(existing);
+  if (realParent !== realPages && !realParent.startsWith(realPages + path.sep)) throw new VageError(`${path.relative(path.resolve(root), existing)} leads outside src/pages (a symlink?). Create the page in a regular folder.`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, lines.join("\n"), { flag: "wx" });
+  try {
+    fs.writeFileSync(file, lines.join("\n"), { flag: "wx" });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "EEXIST") throw new VageError(`${rel} already exists, so ${route} is taken. Pick another name, or edit that file.`);
+    throw err;
+  }
   return { file: rel, route, draft: true };
 }

@@ -88,11 +88,12 @@ function downloadedImage(img: ReturnType<typeof parse>): string | undefined {
   const source = img.parentNode?.rawTagName?.toLowerCase() === "picture" ? img.parentNode.querySelector("source[srcset]") : null;
   const srcset = source?.getAttribute("srcset") ?? img.getAttribute("srcset");
   if (!srcset) return img.getAttribute("src");
-  let best: { url: string; width: number } | undefined;
+  let best: { url: string; size: number } | undefined;
   for (const entry of srcset.split(",")) {
-    const [url, descriptor] = entry.trim().split(/\s+/);
-    const width = Number(/^(\d+)w$/.exec(descriptor ?? "")?.[1] ?? 0);
-    if (url && (!best || width > best.width)) best = { url, width };
+    const [url, descriptor = "1x"] = entry.trim().split(/\s+/);
+    // "960w" (width) or "2x" (density): either way, the biggest number is the biggest file.
+    const size = Number(/^([\d.]+)[wx]$/.exec(descriptor)?.[1] ?? 0);
+    if (url && (!best || size > best.size)) best = { url, size };
   }
   return best?.url ?? img.getAttribute("src");
 }

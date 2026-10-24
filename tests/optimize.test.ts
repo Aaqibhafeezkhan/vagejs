@@ -93,6 +93,18 @@ describe("optimized images in the dev server", () => {
     expect(res.headers.get("content-type")).toBe("image/webp");
     expect((await fetch(`${url}/_vage/img/nope-0000000000-1.webp`)).status).toBe(404);
   });
+
+  it("serves the AVIF copies too (review finding: they returned 404 in dev)", async () => {
+    const root = await site();
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", images: { optimize: true, avif: true, widths: [400, 800, 1600] } };');
+    server = await startDevServer(root, { port: 0 });
+    const url = `http://localhost:${(server.httpServer!.address() as { port: number }).port}`;
+    const html = await (await fetch(`${url}/gallery/`)).text();
+    const avif = /<source type="image\/avif" srcset="([^ ]+) /.exec(html)![1]!;
+    const res = await fetch(url + avif);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/avif");
+  });
 });
 
 describe("image pipeline review fixes", () => {
@@ -135,7 +147,7 @@ describe("image pipeline review fixes", () => {
     const root = await site();
     fs.writeFileSync(path.join(root, "public/images/broken.png"), Buffer.concat([Buffer.from("89504e470d0a1a0a0000000d49484452000003e8000001f40806000000", "hex")]));
     write(root, "src/pages/broken.md", "---\ntitle: Broken\ndescription: Broken.\n---\n# Broken\n\n![Broken](/images/broken.png)\n");
-    await expect(build(root)).rejects.toThrow(/Couldn't optimize \/images\/broken\.png/);
+    await expect(build(root)).rejects.toThrow(/Couldn't make a WebP copy of \/images\/broken\.png/);
   });
 });
 

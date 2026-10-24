@@ -165,12 +165,15 @@ cli
   .option("--under <folder>", "Posts: section folder under src/pages (default: blog)")
   .option("--date <YYYY-MM-DD>", "Posts: datePublished (default: today)")
   .option("--author <name>", "Posts: author (only written when given)")
+  .option("--slug <name>", "Posts: file name, for titles without Latin letters or digits")
   .option("--json", "Print machine-readable JSON")
-  .action((kind: string, name: string, opts: { root: string; title?: string; description?: string; under?: string; date?: string; author?: string; json?: boolean }) =>
+  .action((kind: string, name: string, opts: { root: string; title?: unknown; description?: unknown; under?: unknown; date?: unknown; author?: unknown; slug?: unknown; json?: boolean }) =>
     run(opts, async () => {
       if (kind !== "page" && kind !== "post") throw new VageError(`Unknown kind "${kind}". Use vage new page <path> or vage new post "<title>".`);
       const { createPage } = await import("./new.js");
-      const created = createPage(opts.root, kind, String(name), { title: opts.title, description: opts.description, under: opts.under, date: opts.date === undefined ? undefined : String(opts.date), author: opts.author });
+      // cac turns numeric values (--title 123) into numbers, so every option is read as text.
+      const text = (v: unknown) => (v === undefined ? undefined : String(v));
+      const created = createPage(opts.root, kind, String(name), { title: text(opts.title), description: text(opts.description), under: text(opts.under), date: text(opts.date), author: text(opts.author), slug: text(opts.slug) });
       if (opts.json) return print({ ok: true, ...created });
       console.log(`Created ${created.file} (draft) for ${created.route}`);
       console.log("Preview it with npm start (drafts show there); remove `draft: true` to publish it, then run npm run check.");

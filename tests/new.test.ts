@@ -5,7 +5,7 @@ import { build } from "../src/core/build.js";
 import { check } from "../src/checks/check.js";
 import { parseFrontmatter } from "../src/content/markdown.js";
 import { createPage, slugify } from "../src/cli/new.js";
-import { copyFixture, write } from "./helpers.js";
+import { copyFixture, WINDOWS, write } from "./helpers.js";
 
 const fm = (root: string, rel: string) => parseFrontmatter(fs.readFileSync(path.join(root, rel), "utf8"), rel).frontmatter as Record<string, unknown>;
 
@@ -48,10 +48,23 @@ describe("vage new", () => {
     const root = copyFixture();
     expect(() => createPage(root, "page", "about")).toThrow(/already exists/);
     write(root, "src/pages/guides/index.md", "---\ntitle: Guides\n---\n# Guides\n");
-    expect(() => createPage(root, "page", "guides")).toThrow(/guides\/index\.md already exists/);
+    expect(() => createPage(root, "page", "guides")).toThrow(/guides[\\/]index\.md already exists/);
     for (const bad of ["../escape", "Pricing", "a//b", "a b", "/"]) expect(() => createPage(root, "page", bad)).toThrow(/isn't a valid page path/);
     expect(() => createPage(root, "post", "!!!")).toThrow(/Couldn't make a file name/);
     expect(() => createPage(root, "post", "Fine", { date: "2 Nov" })).toThrow(/YYYY-MM-DD/);
     expect(slugify("Crème brûlée & co.")).toBe("creme-brulee-co");
+  });
+
+  it("review fixes: one-line values, symlinked folders, --slug", () => {
+    const root = copyFixture();
+    expect(() => createPage(root, "page", "x", { title: "One\nTwo" })).toThrow(/one line/);
+    expect(() => createPage(root, "post", "Fine", { author: "A\r\nB" })).toThrow(/one line/);
+    const outside = fs.mkdtempSync(path.join(path.dirname(root), "outside-"));
+    fs.symlinkSync(outside, path.join(root, "src/pages/linked"), WINDOWS ? "junction" : "dir"); // junctions need no admin rights on Windows
+    expect(() => createPage(root, "page", "linked/escape")).toThrow(/leads outside src\/pages|leads outside src\\pages/);
+    expect(fs.existsSync(path.join(outside, "escape.md"))).toBe(false);
+    expect(() => createPage(root, "post", "日本語のタイトル")).toThrow(/--slug/);
+    expect(createPage(root, "post", "日本語のタイトル", { slug: "japanese-title" }).route).toBe("/blog/japanese-title/");
+    expect(() => createPage(root, "post", "x", { slug: "Bad Slug" })).toThrow(/isn't a valid --slug/);
   });
 });

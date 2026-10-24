@@ -107,7 +107,7 @@ export async function imageVariants(src: string, root: string, options: ImageOpt
         try {
           data = await resize(input, w, options.quality, format);
         } catch (err) {
-          throw new VageError(`Couldn't optimize ${src}: ${(err as Error).message}. Replace the file, or turn off images.optimize.`);
+          throw new VageError(`Couldn't make a ${format === "avif" ? "AVIF" : "WebP"} copy of ${src}: ${(err as Error).message}. Replace the file, or turn off ${format === "avif" ? "images.avif" : "images.optimize"}.`);
         }
         fs.writeFileSync(tmp, data);
         fs.renameSync(tmp, cached);
