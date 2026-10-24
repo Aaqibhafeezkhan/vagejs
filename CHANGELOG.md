@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.4 (2026-10-24)
+
+Found by running every test on Windows, macOS and Linux, and on the oldest supported Node (22.12.0). CI now tests all of them on every change.
+
+### Fixed
+- **Windows: live reload works.** The dev server didn't reload the browser after an edit on Windows, because it compared file paths in different forms (`C:/…` with long folder names against `C:\…` with short ones).
+- **Windows: sitemap dates from git.** With `seo.lastmod: "git"`, dates could be silently missing when the project path used short folder names or a different drive-letter case. git now reports paths relative to the project.
+
+### Added
+- A test that a site saved with Windows line endings (CRLF) builds exactly the same as one saved with LF.
+
 ## 0.3.3 (2026-10-24)
 
 ### Changed
