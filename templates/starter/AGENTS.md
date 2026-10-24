@@ -20,7 +20,7 @@ Run `npm run check` after every change and fix all errors before finishing.
 
 `npx vage info --json` prints every command and option plus JSON Schemas for `vage.config.ts` and page frontmatter. Prefer it over guessing.
 
-**MCP server (optional):** `npx vage mcp` runs an MCP server over stdio with four read-only tools: `vage_info`, `vage_check`, `vage_pages` and `vage_links`. It needs `npm install --save-dev @modelcontextprotocol/sdk` in the project. For Claude Code: `claude mcp add --transport stdio --scope project vagejs -- npx vage mcp` (saved in `.mcp.json`). Other assistants take the same command in their MCP settings: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["vage", "mcp"] } } }`. Approving link domains and deploying are not MCP tools; they stay CLI commands the site owner approves.
+**MCP server (optional):** `npx vage mcp` runs an MCP server over stdio with four read-only tools: `vage_info`, `vage_check`, `vage_pages` and `vage_links`. It needs `npm install --save-dev @modelcontextprotocol/sdk` in the project. For Claude Code, run in the project folder: `claude mcp add --transport stdio --scope project vagejs -- npx -p vagejs vage mcp` (saved in `.mcp.json`). Other assistants: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["-p", "vagejs", "vage", "mcp", "--root", "/absolute/path/to/the/site"] } } }`. `-p vagejs` makes npx run the vagejs installed in the project, and never a different package that happens to be called `vage`. Approving link domains and deploying are not MCP tools; they stay CLI commands the site owner approves. Layouts must not write to `process.stdout` directly: in MCP mode stdout carries the protocol (vagejs moves `console.log` to stderr).
 
 ## Recipes
 

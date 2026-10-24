@@ -59,6 +59,17 @@ export async function listPages(root: string) {
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const text = (value: unknown) => ({ content: [{ type: "text", text: JSON.stringify(value, null, 2) }] });
 
+/** Runs a tool; a failure (a broken layout, an invalid config) becomes a readable error result, without terminal colors. */
+const tool = (fn: () => Promise<unknown>) => async () => {
+  try {
+    return text(await fn());
+  } catch (err) {
+    // eslint-disable-next-line no-control-regex
+    const message = String((err as Error)?.message ?? err).replace(/\u001b\[[0-9;]*m/g, "");
+    return { isError: true, content: [{ type: "text", text: message }] };
+  }
+};
+
 /**
  * `vage mcp`: an MCP server over stdio for the project at `root`. Every tool is
  * read-only; approving links and deploying stay with people, through the CLI.
@@ -76,10 +87,10 @@ export async function startMcpServer(root: string, options: { version: string; i
         "Tools for a vagejs website project. Use vage_info for commands, settings and page fields; vage_check after every change (fix every error it reports; each finding names the file); vage_pages to see what exists; vage_links for outbound domains. Never approve link domains or deploy without the site owner: those stay CLI commands (npx vage links approve, npx vage deploy).",
     },
   );
-  server.registerTool("vage_info", { title: "Describe vagejs", description: "Commands, configuration options and page frontmatter fields, with their JSON Schemas (the same as `vage info --json`).", annotations: READ_ONLY }, async () => text(options.info()));
-  server.registerTool("vage_check", { title: "Check the site", description: "Checks every page for broken links, missing titles and descriptions, structured data, accessibility basics and unapproved outbound links (the same as `vage check --json`). Writes nothing.", annotations: READ_ONLY }, async () => text(await check(root)));
-  server.registerTool("vage_pages", { title: "List pages", description: "Every published page (route, source file, title, description, layout, noindex), the drafts that are skipped, and pages that fail to render.", annotations: READ_ONLY }, async () => text(await listPages(root)));
-  server.registerTool("vage_links", { title: "List outbound domains", description: "External domains the site links to, which pages link there, and whether each is approved in links.lock.json. Only the site owner approves new domains.", annotations: READ_ONLY }, async () => text(await linkStatus(root)));
+  server.registerTool("vage_info", { title: "Describe vagejs", description: "Commands, configuration options and page frontmatter fields, with their JSON Schemas (the same as `vage info --json`).", annotations: READ_ONLY }, tool(async () => options.info()));
+  server.registerTool("vage_check", { title: "Check the site", description: "Checks every page for broken links, missing titles and descriptions, structured data, accessibility basics and unapproved outbound links (the same as `vage check --json`). Writes nothing.", annotations: READ_ONLY }, tool(() => check(root)));
+  server.registerTool("vage_pages", { title: "List pages", description: "Every published page (route, source file, title, description, layout, noindex), the drafts that are skipped, and pages that fail to render.", annotations: READ_ONLY }, tool(() => listPages(root)));
+  server.registerTool("vage_links", { title: "List outbound domains", description: "External domains the site links to, which pages link there, and whether each is approved in links.lock.json. Only the site owner approves new domains.", annotations: READ_ONLY }, tool(() => linkStatus(root)));
 
   await server.connect(options.transport ?? new sdk.StdioServerTransport());
 }

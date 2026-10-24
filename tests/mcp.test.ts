@@ -43,4 +43,15 @@ describe("vage mcp", () => {
     expect(json(await client.callTool({ name: "vage_info" }))).toEqual({ name: "vagejs" });
     await client.close();
   });
+
+  it("turns a failure into a readable error result and keeps serving", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", "export default { site: 42 };");
+    const client = await connect(root);
+    const failed = (await client.callTool({ name: "vage_check" })) as { isError?: boolean; content: { text: string }[] };
+    expect(failed.isError).toBe(true);
+    expect(failed.content[0]!.text).not.toMatch(/\u001b\[/);
+    expect(json(await client.callTool({ name: "vage_info" }))).toEqual({ name: "vagejs" });
+    await client.close();
+  });
 });

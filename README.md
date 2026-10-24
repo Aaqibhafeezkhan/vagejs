@@ -182,10 +182,10 @@ Or let the assistant call vagejs directly over MCP. `npx vage mcp` runs an MCP s
 
 ```bash
 npm install --save-dev @modelcontextprotocol/sdk
-claude mcp add --transport stdio --scope project vagejs -- npx vage mcp   # Claude Code
+claude mcp add --transport stdio --scope project vagejs -- npx -p vagejs vage mcp   # Claude Code, in the project folder
 ```
 
-Other assistants take the same command in their MCP settings: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["vage", "mcp"] } } }`. Approving link domains and deploying stay CLI commands for the site owner.
+Other assistants: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["-p", "vagejs", "vage", "mcp", "--root", "/absolute/path/to/the/site"] } } }`. `-p vagejs` makes npx run the vagejs installed in the project, and never a different package that happens to be called `vage`. Approving link domains and deploying stay CLI commands for the site owner.
 
 ## Command reference
 
