@@ -16,6 +16,15 @@ This website uses **vagejs** (pre-release). Only the features listed here exist 
 Add `--json` to `npx vage build`, `check` or `audit` for machine-readable output (`{ ok: false, error }` on failure).
 Run `npm run check` after every change and fix all errors before finishing.
 
+## Windows
+
+vagejs is tested on Windows on every change.
+
+- Node.js **22.12 or newer** is needed. Check with `node --version` in a new PowerShell or Command Prompt window.
+- The `npm` and `npx` commands in this file work in PowerShell and Command Prompt. In Command Prompt, leave out any `# …` notes after a command: it doesn't treat `#` as a comment.
+- Windows usually saves files with **CRLF** line endings. vagejs handles them; don't convert line endings.
+- If a browser shows **HTTP 431** on `localhost`, open the direct `[::1]` or `127.0.0.1` address that `npm start` and `npm run dev` print.
+
 ## Machine-readable reference
 
 `npx vage info --json` prints every command and option plus JSON Schemas for `vage.config.ts` and page frontmatter. Prefer it over guessing.

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Windows setup notes in the README and the starter's `AGENTS.md` (contributed by @chinmayee5599, #7).
+
 ## 0.4.0 (2026-10-24)
 
 ### Added
