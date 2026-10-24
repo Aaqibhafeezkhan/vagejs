@@ -37,7 +37,7 @@ cli
       const result = createProject(dir, assertVageSpec(opts.vageSpec));
       if (opts.json) return print({ ok: true, ...result });
       const rel = path.relative(process.cwd(), result.dir) || ".";
-      console.log(`Created ${result.dir}\n\nNext steps:\n  cd ${rel}\n  npm install\n  npm run dev`);
+      console.log(`Created ${result.dir}\n\nNext steps:\n  cd ${rel}\n  npm install\n  npm start\n\nnpm start opens the site in your browser. npm run dev starts it without opening one.`);
     }),
   );
 

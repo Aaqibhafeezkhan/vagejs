@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3 (2026-10-24)
+
+### Changed
+- After creating a site, the next steps say `npm start` (opens the browser) instead of `npm run dev`.
+
 ## 0.3.2 (2026-10-24)
 
 ### Added

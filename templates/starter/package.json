@@ -12,6 +12,6 @@
     "preview": "vage preview"
   },
   "devDependencies": {
-    "vagejs": "^0.3.2"
+    "vagejs": "^0.3.3"
   }
 }
