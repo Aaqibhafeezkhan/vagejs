@@ -119,26 +119,69 @@ export function contactVars(contact: Contact, siteTitle: string | undefined): st
   return Object.entries(vars).flatMap(([k, v]) => (v ? ["--var", `${k}:${v}`] : []));
 }
 
+/**
+ * The rate limit's namespace, from the Worker name: namespaces are per account, so two
+ * sites on one account must not share a counter.
+ */
+export function rateLimitNamespace(worker: string): string {
+  let h = 2166136261;
+  for (const c of worker) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  return String(1000 + (h % 1_000_000));
+}
+
 /** The bindings the contact Worker needs, for the generated config or to show the owner. */
-export function contactBindings(contact: Contact) {
+export function contactBindings(contact: Contact, worker: string) {
   return {
     main: CONTACT_WORKER,
     assets: { binding: "ASSETS", run_worker_first: [contact.path] },
     send_email: [{ name: "EMAIL", destination_address: contact.to }],
-    ratelimits: [{ name: "CONTACT_LIMIT", namespace_id: "1001", simple: { limit: contact.perMinute, period: 60 } }],
+    ratelimits: [{ name: "CONTACT_LIMIT", namespace_id: rateLimitNamespace(worker), simple: { limit: contact.perMinute, period: 60 } }],
   };
 }
 
-/** What a project's own wrangler config is missing for the contact form, if anything. */
-export function contactConfigProblem(root: string, file: string, contact: Contact): string | undefined {
-  const text = fs.readFileSync(path.join(root, file), "utf8");
+/** What a project's own wrangler config lacks for the contact form, read from its actual settings. */
+export function contactConfigProblem(root: string, file: string, contact: Contact, worker = ""): string | undefined {
+  const text = fs.readFileSync(path.join(root, file), "utf8").replace(/^\uFEFF/, "");
+  let main: unknown, binding: unknown, first: unknown, email: unknown;
+  if (file.endsWith(".toml")) {
+    const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+#.*$|^\s*#.*$/, ""));
+    const value = (key: string, block: string[]) => block.map((l) => new RegExp(`^\\s*${key}\\s*=\\s*(.+?)\\s*$`).exec(l)?.[1]).find(Boolean);
+    const section = (header: RegExp) => {
+      const start = lines.findIndex((l) => header.test(l));
+      if (start === -1) return [];
+      const end = lines.findIndex((l, i) => i > start && /^\s*\[/.test(l));
+      return lines.slice(start + 1, end === -1 ? undefined : end);
+    };
+    const top = lines.slice(0, Math.max(0, lines.findIndex((l) => /^\s*\[/.test(l)))) ;
+    const unquote = (v: string | undefined) => v?.replace(/^["']|["']$/g, "");
+    main = unquote(value("main", top));
+    binding = unquote(value("binding", section(/^\s*\[assets\]\s*$/)));
+    const firstRaw = value("run_worker_first", section(/^\s*\[assets\]\s*$/));
+    first = firstRaw && /^\[/.test(firstRaw) ? [...firstRaw.matchAll(/["']([^"']*)["']/g)].map((m) => m[1]) : firstRaw === "true" ? true : undefined;
+    const sendBlock = section(/^\s*\[\[send_email\]\]\s*$/);
+    email = sendBlock.length ? [{ name: unquote(value("name", sendBlock)), destination_address: unquote(value("destination_address", sendBlock)) }] : undefined;
+  } else {
+    let data: { main?: unknown; assets?: { binding?: unknown; run_worker_first?: unknown }; send_email?: unknown };
+    try {
+      data = JSON.parse(stripJsonComments(text));
+    } catch {
+      return undefined; // readWranglerConfig already reports unreadable files
+    }
+    ({ main } = data);
+    binding = data.assets?.binding;
+    first = data.assets?.run_worker_first;
+    email = data.send_email;
+  }
+  const routed = first === true || (Array.isArray(first) && first.some((p) => p === contact.path || p === `${contact.path}*`));
+  const sends = Array.isArray(email) && email.some((b: { name?: unknown; destination_address?: unknown }) => b?.name === "EMAIL" && (b.destination_address === undefined || b.destination_address === contact.to));
   const missing = [
-    !/vagejs\/dist\/worker\/contact\.js/.test(text) && `"main": "node_modules/vagejs/dist/worker/contact.js"`,
-    !/\bASSETS\b/.test(text) && `"binding": "ASSETS" under "assets"`,
-    !text.includes(contact.path) && `"run_worker_first": ["${contact.path}"] under "assets"`,
-    !/send_email/.test(text) && `"send_email": [{ "name": "EMAIL", "destination_address": "${contact.to}" }]`,
+    !(typeof main === "string" && /vagejs\/dist\/worker\/contact\.js$/.test(main)) && `"main": "node_modules/vagejs/dist/worker/contact.js"`,
+    binding !== "ASSETS" && `"binding": "ASSETS" under "assets"`,
+    !routed && `"run_worker_first": ["${contact.path}"] under "assets"`,
+    !sends && `"send_email": [{ "name": "EMAIL", "destination_address": "${contact.to}" }]`,
   ].filter(Boolean);
-  return missing.length ? `${file} needs these for the contact form: ${missing.join("; ")}. (The rate limit is optional: "ratelimits": [{ "name": "CONTACT_LIMIT", "namespace_id": "1001", "simple": { "limit": ${contact.perMinute}, "period": 60 } }].)` : undefined;
+  const limit = `"ratelimits": [{ "name": "CONTACT_LIMIT", "namespace_id": "${rateLimitNamespace(worker)}", "simple": { "limit": ${contact.perMinute}, "period": 60 } }]`;
+  return missing.length ? `${file} needs these for the contact form: ${missing.join("; ")}. (The rate limit is optional: ${limit}.)` : undefined;
 }
 
 export interface WorkersPlan {
@@ -164,7 +207,7 @@ export function planWorkersDeploy(root: string, requested: string | undefined, s
     if (!requested) throw new VageError("No Worker name. Pass --project <name>, set deploy.cloudflareWorker, or add a wrangler.jsonc.");
     return { worker: requested, warnings, ...extra };
   }
-  const problem = site.contact && contactConfigProblem(root, config.file, site.contact);
+  const problem = site.contact && contactConfigProblem(root, config.file, site.contact, config.name);
   if (problem) throw new VageError(problem, path.join(root, config.file));
   if (!config.name) throw new VageError(`${config.file} has no "name". Add the Worker's name there.`, path.join(root, config.file));
   if (requested && requested !== config.name) {
@@ -229,7 +272,7 @@ export async function deployCloudflareWorkers(
   const configArgs: string[] = options.plan.config ? ["--config", path.join(root, options.plan.config.file)] : [];
   if (!options.plan.config) {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vage-wrangler-"));
-    const contact = options.plan.contact && contactBindings(options.plan.contact);
+    const contact = options.plan.contact && contactBindings(options.plan.contact, worker);
     const config = {
       name: worker,
       compatibility_date: COMPATIBILITY_DATE,

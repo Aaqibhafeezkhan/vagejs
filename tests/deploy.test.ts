@@ -27,7 +27,8 @@ const yes = async () => true;
 function setup() {
   const root = copyFixture();
   write(root, "src/layouts/plain.ts", 'export default ({ content }: { content: string }) => `<html lang="en"><head><title>t</title></head><body><main>${content}</main></body></html>`;');
-  write(root, ".gitignore", "node_modules/\ndist/\n");
+  // .vite/: Vite's cache lands in the project root only here, where there's no package.json or node_modules.
+  write(root, ".gitignore", "node_modules/\ndist/\n.vite/\n");
   const remote = fs.mkdtempSync(path.join(os.tmpdir(), "vage-remote-"));
   sh(remote, "init", "-q", "--bare", "-b", "main");
   return { root, remote };
@@ -154,6 +155,8 @@ describe("GitHub Pages adapter", () => {
     expect(yml).toMatch(/deploy:\n    needs: build[\s\S]*pages: write\n      id-token: write[\s\S]*name: github-pages[\s\S]*deploy-pages@v5/);
     // Daily, so pages with a future datePublished go live on their day.
     expect(yml).toMatch(/schedule:\n    - cron: "15 0 \* \* \*"/);
+    // Scheduled runs use the default branch; only the configured one is published.
+    expect(yml).toContain("if: github.event_name != 'schedule' || github.ref == 'refs/heads/main'");
   });
 
   function fakeGh(responses: Record<string, { code?: number; stdout?: string }>): { run: Runner; calls: string[] } {

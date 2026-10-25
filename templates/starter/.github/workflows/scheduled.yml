@@ -1,6 +1,6 @@
 # Daily rebuild and deploy, so pages with a future datePublished go live on their day.
-# For Cloudflare and Netlify sites (GitHub Pages sites don't need it: deploy.yml already
-# rebuilds every day). Opt in: Settings → Secrets and variables → Actions:
+# For Cloudflare and Netlify sites only. GitHub Pages sites don't need it (deploy.yml already
+# rebuilds every day) and must not turn it on: there `vage deploy` pushes to the repository. Opt in: Settings → Secrets and variables → Actions:
 #   - variable VAGE_DAILY_DEPLOY = true
 #   - secrets for your host: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, or NETLIFY_AUTH_TOKEN
 # GitHub pauses scheduled workflows in repositories with no activity for 60 days.

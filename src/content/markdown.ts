@@ -68,7 +68,8 @@ export function parseFrontmatter(source: string, file: string): Omit<MarkdownPag
     try {
       data = parseYaml(match[1] ?? "") ?? {};
     } catch (err) {
-      throw new VageError(`Invalid YAML frontmatter: ${(err as Error).message}${quoteHint(err, match[1] ?? "")}`, file);
+      const hint = quoteHint(err, match[1] ?? "");
+      throw new VageError(hint ?? `Invalid YAML frontmatter: ${(err as Error).message}`, file);
     }
   }
   const result = frontmatterSchema.safeParse(data);
@@ -80,11 +81,11 @@ export function parseFrontmatter(source: string, file: string): Omit<MarkdownPag
 }
 
 /** The usual cause of "Nested mappings…": a value with ": " in it, which YAML reads as another key. */
-function quoteHint(err: unknown, yaml: string): string {
+function quoteHint(err: unknown, yaml: string): string | undefined {
   const line = (err as { linePos?: { line: number }[] }).linePos?.[0]?.line;
-  if (!/Nested mappings are not allowed/.test((err as Error).message) || !line) return "";
-  const m = /^(\s*)([\w-]+):\s*(.*\S)\s*$/.exec(yaml.split(/\r?\n/)[line - 1] ?? "");
-  if (!m) return "";
+  if (!/Nested mappings are not allowed/.test((err as Error).message) || !line) return undefined;
+  const m = /^(\s*)([\w-]+):\s*(.*?\S)(\s+#.*)?\s*$/.exec(yaml.split(/\r?\n/)[line - 1] ?? "");
+  if (!m) return undefined;
   // Line numbers count from the file's first line, which is the opening "---".
-  return `\nThe value of "${m[2]}" on line ${line + 1} contains ": ", so YAML reads it as another key. Wrap the value in quotes:\n  ${m[2]}: ${JSON.stringify(m[3])}`;
+  return `Invalid YAML frontmatter on line ${line + 1}: the value of "${m[2]}" contains ": ", so YAML reads it as another key. Wrap the value in quotes:\n  ${m[2]}: ${JSON.stringify(m[3])}${m[4] ?? ""}`;
 }

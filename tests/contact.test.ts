@@ -5,7 +5,7 @@ import type { ViteDevServer } from "vite";
 import { check } from "../src/checks/check.js";
 import { contactForm } from "../src/content/contact-form.js";
 import { parseConfig } from "../src/core/config.js";
-import { CONTACT_WORKER, deployCloudflareWorkers, planWorkersDeploy } from "../src/deploy/cloudflare-workers.js";
+import { CONTACT_WORKER, deployCloudflareWorkers, planWorkersDeploy, rateLimitNamespace } from "../src/deploy/cloudflare-workers.js";
 import type { Runner } from "../src/deploy/github-pages.js";
 import { startDevServer } from "../src/dev/server.js";
 import { contactEmail, contactWorker, readContactForm, type ContactEnv } from "../src/worker/contact-mail.js";
@@ -23,7 +23,7 @@ describe("contact form messages", () => {
     expect(readContactForm(form(OK))).toEqual(OK);
     expect(readContactForm(form({ ...OK, email: "not-an-email" }))).toBeUndefined();
     expect(readContactForm(form({ ...OK, message: "  " }))).toBeUndefined();
-    expect(readContactForm(form({ ...OK, website: "https://spam.example" }))).toBe("spam");
+    expect(readContactForm(form({ ...OK, vage_trap: "https://spam.example" }))).toBe("spam");
     // Line breaks would let a sender add mail headers.
     expect(readContactForm(form({ ...OK, name: "Ana\r\nBcc: x@evil.example" }))).toMatchObject({ name: "Ana Bcc: x@evil.example" });
   });
@@ -84,7 +84,7 @@ describe("contact Worker", () => {
 
   it("sends nothing for bots, invalid forms, visitors over the limit, missing settings or a failed send", async () => {
     const cases: [Record<string, string>, Partial<ContactEnv>, string][] = [
-      [{ ...OK, website: "x" }, {}, "/contact/sent/"],
+      [{ ...OK, vage_trap: "x" }, {}, "/contact/sent/"],
       [{ ...OK, email: "x" }, {}, "/contact/not-sent/"],
       [OK, { CONTACT_LIMIT: { limit: async () => ({ success: false }) } }, "/contact/not-sent/"],
       [OK, { CONTACT_TO: undefined }, "/contact/not-sent/"],
@@ -104,7 +104,7 @@ describe("contactForm()", () => {
     const site = parseConfig({ contact: { to: "me@site.example", from: "form@site.example", path: "/hello/" } });
     const out = String(contactForm(site, { send: "Send <now>" }));
     expect(out).toContain('<form class="vage-contact" method="post" action="/hello/"');
-    expect(out).toContain('name="website" type="text" tabindex="-1"');
+    expect(out).toContain('name="vage_trap" type="text" tabindex="-1"');
     expect(out).toContain("Send &lt;now&gt;</button>");
     expect(() => contactForm(parseConfig({}))).toThrow(/contact: \{ to, from \}/);
   });
@@ -160,7 +160,7 @@ describe("contact checks and deploys", () => {
     expect(r.configs[0]).toMatchObject({
       main: CONTACT_WORKER,
       send_email: [{ name: "EMAIL", destination_address: "me@fixture.example" }],
-      ratelimits: [{ name: "CONTACT_LIMIT", simple: { limit: 3, period: 60 } }],
+      ratelimits: [{ name: "CONTACT_LIMIT", namespace_id: rateLimitNamespace("site"), simple: { limit: 3, period: 60 } }],
       assets: { binding: "ASSETS", run_worker_first: ["/contact/"], not_found_handling: "404-page" },
     });
     expect(CONTACT_WORKER).toMatch(/worker[\\/]contact\.js$/);
@@ -182,6 +182,28 @@ describe("contact checks and deploys", () => {
       '{ "name": "site", "main": "node_modules/vagejs/dist/worker/contact.js", "send_email": [{ "name": "EMAIL", "destination_address": "me@fixture.example" }], "assets": { "directory": "dist", "binding": "ASSETS", "run_worker_first": ["/contact/"], "not_found_handling": "404-page" } }',
     );
     expect(planWorkersDeploy(root, undefined, { contact }).contact).toEqual(contact);
+    // Words in a comment or a route don't count, and the destination must match contact.to.
+    write(
+      root,
+      "wrangler.jsonc",
+      '{ "name": "site", "main": "node_modules/vagejs/dist/worker/contact.js", // ASSETS /contact/\n "routes": ["example.com/contact/"], "send_email": [{ "name": "EMAIL", "destination_address": "other@x.example" }], "assets": { "directory": "dist", "not_found_handling": "404-page" } }',
+    );
+    expect(() => planWorkersDeploy(root, undefined, { contact })).toThrow(/"binding": "ASSETS" under "assets"; "run_worker_first": \["\/contact\/"\] under "assets"; "send_email"/);
+  });
+
+  it("reads the same settings from wrangler.toml", () => {
+    const root = copyFixture();
+    write(
+      root,
+      "wrangler.toml",
+      'name = "site"\nmain = "node_modules/vagejs/dist/worker/contact.js"\n\n[assets]\ndirectory = "dist"\nbinding = "ASSETS"\nrun_worker_first = ["/contact/"]\nnot_found_handling = "404-page"\n\n[[send_email]]\nname = "EMAIL"\ndestination_address = "me@fixture.example"\n',
+    );
+    expect(planWorkersDeploy(root, undefined, { contact }).worker).toBe("site");
+  });
+
+  it("gives each Worker its own rate-limit counter", () => {
+    expect(rateLimitNamespace("site-a")).not.toBe(rateLimitNamespace("site-b"));
+    expect(rateLimitNamespace("site-a")).toMatch(/^\d+$/);
   });
 });
 

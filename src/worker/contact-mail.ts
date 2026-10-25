@@ -4,7 +4,7 @@
  *
  * POST <CONTACT_PATH> emails the message to CONTACT_TO from CONTACT_FROM, with Reply-To
  * set to the sender, then redirects (303) to CONTACT_SENT or CONTACT_FAILED. A filled-in
- * honeypot field ("website") looks sent but sends nothing. Everything else is served from
+ * honeypot field ("vage_trap") looks sent but sends nothing. Everything else is served from
  * the site's files by the ASSETS binding. `vage deploy` sets the variables from
  * vage.config.ts (contact).
  */
@@ -34,7 +34,8 @@ export interface ContactMessage {
 
 /** The form's fields, or undefined when something required is missing or invalid. Line breaks can't reach headers. */
 export function readContactForm(form: FormData): ContactMessage | "spam" | undefined {
-  if (form.get("website")) return "spam";
+  // The hidden spam trap, named so password managers don't fill it in (they do fill "website").
+  if (form.get("vage_trap")) return "spam";
   const oneLine = (key: string, max: number) => String(form.get(key) ?? "").replace(/[\r\n\t]+/g, " ").trim().slice(0, max);
   const name = oneLine("name", LIMITS.name);
   const email = oneLine("email", LIMITS.email);

@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse, type HTMLElement } from "node-html-parser";
 import { createBuildLoader } from "../core/loader.js";
+import { parseFrontmatter } from "../content/markdown.js";
+import { scheduledFor } from "../core/dates.js";
 import { normalizeRequestPath, routeForPage } from "../core/routes.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
@@ -395,7 +397,8 @@ function checkContact(model: SiteModel, outputs: Set<string>): Finding[] {
 async function checkRemovedPages(root: string, model: SiteModel): Promise<Finding[]> {
   let diff: string;
   try {
-    const res = await gitRaw(root, ["diff", "--name-status", "-M", "--relative", "HEAD", "--", "src/pages"]);
+    // -z: paths as written (git otherwise quotes names like café.md).
+    const res = await gitRaw(root, ["diff", "--name-status", "-z", "-M", "--relative", "HEAD", "--", "src/pages"]);
     if (res.code !== 0) return [];
     diff = res.stdout;
   } catch {
@@ -404,13 +407,17 @@ async function checkRemovedPages(root: string, model: SiteModel): Promise<Findin
   const live = new Set([...model.pages.map((p) => p.route), ...model.draftRoutes, ...model.skippedScheduled.map((s) => s.route)]);
   const redirected = new Set(Object.keys(model.site.redirects).map(normalizeRequestPath));
   const findings: Finding[] = [];
-  for (const line of diff.split("\n").filter(Boolean)) {
-    const [status, from, to] = line.split("\t");
-    if (!from || !(status === "D" || status?.startsWith("R"))) continue;
+  const fields = diff.split("\0");
+  for (let i = 0; i < fields.length - 1; ) {
+    const status = fields[i++]!;
+    const from = fields[i++];
+    const to = /^[RC]/.test(status) ? fields[i++] : undefined;
+    if (!from || !(status === "D" || status.startsWith("R"))) continue;
     const route = routeForPage(from.replace(/^src\/pages\//, ""));
     if (!route || live.has(route) || redirected.has(route)) continue;
+    // Pages that weren't public at the last commit (drafts, scheduled) had no visitors to lose.
     const before = await gitRaw(root, ["show", `HEAD:./${from}`]);
-    if (before.code === 0 && /^---\r?\n[\s\S]*?^draft:\s*true\s*$/m.test(before.stdout)) continue;
+    if (before.code === 0 && wasUnpublished(before.stdout, from)) continue;
     const target = to ? routeForPage(to.replace(/^src\/pages\//, "")) : undefined;
     findings.push({
       rule: "redirect-missing",
@@ -420,6 +427,15 @@ async function checkRemovedPages(root: string, model: SiteModel): Promise<Findin
     });
   }
   return findings;
+}
+
+function wasUnpublished(source: string, file: string): boolean {
+  try {
+    const { frontmatter } = parseFrontmatter(source, file);
+    return frontmatter.draft || scheduledFor(frontmatter.datePublished) !== undefined;
+  } catch {
+    return false;
+  }
 }
 
 function checkDuplicates(pages: SitePage[]): Finding[] {

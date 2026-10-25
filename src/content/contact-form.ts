@@ -12,7 +12,7 @@ export interface ContactFormLabels {
 
 /**
  * The contact form for a layout: plain HTML that posts to `contact.path`, where the
- * contact Worker emails it. Works without JavaScript. The hidden "website" field is a
+ * contact Worker emails it. Works without JavaScript. The hidden "vage_trap" field is a
  * honeypot: people never see it, bots fill it in. Style it with the `vage-contact` class.
  * Forms can't go in Markdown (page content is sanitized), so this belongs in a layout.
  */
@@ -26,7 +26,7 @@ export function contactForm(site: Pick<SiteConfig, "contact">, labels: ContactFo
   <input id="vage-contact-email" name="email" type="email" autocomplete="email" maxlength="${LIMITS.email}" required />
   <label for="vage-contact-message">${l.message}</label>
   <textarea id="vage-contact-message" name="message" rows="8" maxlength="${LIMITS.message}" required></textarea>
-  <div aria-hidden="true" style="position:absolute;left:-100vw"><label for="vage-contact-website">Leave this empty</label><input id="vage-contact-website" name="website" type="text" tabindex="-1" autocomplete="off" /></div>
+  <div aria-hidden="true" style="position:absolute;left:-100vw"><label for="vage-contact-trap">Leave this empty</label><input id="vage-contact-trap" name="vage_trap" type="text" tabindex="-1" autocomplete="off" /></div>
   <button type="submit">${l.send}</button>
 </form>`;
 }

@@ -40,6 +40,20 @@ describe("redirect-missing", () => {
     expect(await missing(root)).toEqual([]);
   });
 
+  it("reads non-ASCII file names and skips pages that were never public", async () => {
+    const root = copyFixture();
+    write(root, "src/pages/café.md", "---\ntitle: Café\ndescription: Coffee.\n---\n# Café\n");
+    write(root, "src/pages/soon.md", "---\ntitle: Soon\ndescription: Later.\ndatePublished: 2999-01-01\n---\n# Soon\n");
+    sh(root, "init", "-q");
+    sh(root, "add", "-A");
+    sh(root, "commit", "-qm", "init");
+    fs.rmSync(path.join(root, "src/pages/café.md"));
+    fs.rmSync(path.join(root, "src/pages/soon.md"));
+    expect(await missing(root)).toEqual([
+      'src/pages/café.md was deleted since the last commit, so /café/ will stop working for anyone with an old link. Add to vage.config.ts: redirects: { "/café/": "/new-address/" }',
+    ]);
+  });
+
   it("stays quiet outside a git repository", async () => {
     expect(await missing(copyFixture())).toEqual([]);
   });

@@ -20,8 +20,8 @@ describe("parseMarkdown", () => {
   });
 
   it("explains a value with a colon in it, and how to quote it", () => {
-    expect(() => parseMarkdown("---\ntitle: A\ndescription: Copy prompts: add pages, fix errors\n---\n# A\n", "/x/page.md")).toThrow(
-      /The value of "description" on line 3 contains ": ", so YAML reads it as another key\. Wrap the value in quotes:\n  description: "Copy prompts: add pages, fix errors"/,
+    expect(() => parseMarkdown("---\ntitle: A\ndescription: Copy prompts: add pages, fix errors # note\n---\n# A\n", "/x/page.md")).toThrow(
+      /^Invalid YAML frontmatter on line 3: the value of "description" contains ": ", so YAML reads it as another key\. Wrap the value in quotes:\n  description: "Copy prompts: add pages, fix errors" # note/,
     );
   });
 

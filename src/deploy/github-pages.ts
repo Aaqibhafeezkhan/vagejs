@@ -27,6 +27,8 @@ concurrency:
 
 jobs:
   build:
+    # Scheduled runs use the repository's default branch; publish only from ${JSON.stringify(branch)}.
+    if: github.event_name != 'schedule' || github.ref == ${JSON.stringify(`refs/heads/${branch}`).replace(/"/g, "'")}
     runs-on: ubuntu-latest
     permissions:
       contents: read
