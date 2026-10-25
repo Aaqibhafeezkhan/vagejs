@@ -15,7 +15,7 @@
 
 **A free static site generator built for AI coding assistants.** Your assistant (Claude Code, Cursor, Codex, Copilot) writes the pages; vagejs checks them before anything goes live. Write pages in Markdown and get a fast static site with SEO, `llms.txt`, accessibility and security handled for you. **Pre-release (0.x).**
 
-[Website](https://vagejs.com) · [Docs](https://vagejs.com/docs/) · [Use with AI assistants](https://vagejs.com/agents/) · [Changelog](https://vagejs.com/changelog/) · [Discussions](https://github.com/agevenkat/vagejs/discussions)
+[Website](https://vagejs.com) · [Docs](https://vagejs.com/docs/) · [Use with AI assistants](https://vagejs.com/agents/) · [Changelog](https://vagejs.com/changelog/) · [Discussions](https://github.com/agevenkat/vagejs/discussions) · [LinkedIn](https://www.linkedin.com/company/vagejs/)
 
 <p align="center"><img src="https://raw.githubusercontent.com/agevenkat/vagejs/main/assets/demo.svg" alt="Terminal demo: create a vagejs site, install it, npm run check catches a broken link and names the file, the link is fixed, the check passes, and npm start runs the site." width="760"></p>
 
