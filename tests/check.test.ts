@@ -30,6 +30,26 @@ describe("vage check", () => {
     ]);
   });
 
+  it("warns when rendered titles and meta descriptions may be shortened", async () => {
+    const root = copyFixture();
+    const longTitle = "T".repeat(61);
+    const longDescription = "D".repeat(161);
+    write(root, "src/pages/index.md", `---\ntitle: ${longTitle}\ndescription: ${longDescription}\n---\n# Home\n`);
+
+    const findings = (await check(root)).findings.filter((f) => f.page === "/");
+    const titleWarning = findings.find((f) => f.rule === "title-length");
+    const descriptionWarning = findings.find((f) => f.rule === "meta-description-length");
+
+    expect(titleWarning).toMatchObject({ severity: "warning", source: "src/pages/index.md" });
+    expect(titleWarning?.message).toContain("src/pages/index.md");
+    expect(titleWarning?.message).toContain("61 characters");
+    expect(titleWarning?.message).toContain("may be shortened in search results");
+    expect(descriptionWarning).toMatchObject({ severity: "warning", source: "src/pages/index.md" });
+    expect(descriptionWarning?.message).toContain("src/pages/index.md");
+    expect(descriptionWarning?.message).toContain("161 characters");
+    expect(descriptionWarning?.message).toContain("may be shortened in search results");
+  });
+
   it("validates JSON-LD written by layouts", async () => {
     const root = copyFixture();
     write(
