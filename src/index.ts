@@ -4,7 +4,7 @@ export { escapeHtml, html, raw, type SafeHtml } from "./core/html.js";
 export { z } from "zod";
 export type { Layout, LayoutProps } from "./core/render.js";
 export type { Frontmatter } from "./content/markdown.js";
-export { breadcrumbs, collection, flatten, neighbors, tree, type CollectionOptions, type PageSummary, type TreeNode } from "./core/pages.js";
+export { breadcrumbs, collection, flatten, neighbors, tagList, tagSlug, tree, type CollectionOptions, type PageSummary, type TagSummary, type TreeNode } from "./core/pages.js";
 export { build, type BuildResult } from "./core/build.js";
 export { startDevServer } from "./dev/server.js";
 export { startPreviewServer } from "./dev/preview.js";

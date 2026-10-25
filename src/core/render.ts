@@ -60,9 +60,11 @@ export async function renderPage(options: {
   pages?: readonly PageSummary[];
   /** Resizer for images.optimize (tests inject one; sharp otherwise). */
   resize?: Resize;
+  /** The page's Markdown, for generated pages (tag pages); otherwise `file` is read. */
+  source?: string;
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
-  const parsed = parseMarkdown(fs.readFileSync(file, "utf8"), file);
+  const parsed = parseMarkdown(options.source ?? fs.readFileSync(file, "utf8"), file);
   const { frontmatter, body } = parsed;
   const publicDir = path.join(root, "public");
   const assets = new Map<string, string>();
@@ -79,8 +81,8 @@ export async function renderPage(options: {
   }
   const content =
     site.markdown.html === "allow"
-      ? await enhanceTrustedHtml(parsed.html, publicDir, variants)
-      : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles, variants });
+      ? await enhanceTrustedHtml(parsed.html, publicDir, variants, site.markdown.headingIds)
+      : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles, variants, headingIds: site.markdown.headingIds });
   const layout = await applyLayoutFields(root, frontmatter, load, file);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const result = await layout({

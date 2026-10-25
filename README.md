@@ -22,9 +22,9 @@
 - **Static by default**: plain HTML, no client JavaScript unless you add analytics.
 - **SEO built in**: `robots.txt`, `sitemap.xml`, `llms.txt`, canonical URLs, Open Graph and JSON-LD, generated from your pages.
 - **Checks before you ship**: `vage check` (links, SEO, structured data, accessibility) and `vage audit` (page-weight budgets, axe, optional Lighthouse and PageSpeed).
-- **Safe by default**: page content is sanitized; secrets, build output and force-pushes are refused; Cloudflare deploys get a computed Content-Security-Policy.
+- **Safe by default**: page content is sanitized; secrets, build output and force-pushes are refused; Cloudflare and Netlify deploys get a computed Content-Security-Policy.
 - **Agent-friendly**: every site ships with `AGENTS.md`, and `vage info --json` describes every command and config option.
-- **Runs everywhere**: macOS, Windows and Linux, tested on every change. Deploys to GitHub Pages and Cloudflare Workers built in; any static host (Vercel, Netlify) works with `npm run build` and the `dist` folder.
+- **Runs everywhere**: macOS, Windows and Linux, tested on every change. Deploys to GitHub Pages, Cloudflare Workers and Netlify built in; any other static host (Vercel) works with `npm run build` and the `dist` folder.
 
 ## Quick start
 
@@ -79,7 +79,7 @@ description: Plans and prices.
 Our plans start at …
 ```
 
-Save it as `src/pages/pricing.md` and it's served at `/pricing/`. `title` is required. `description`, `draft`, `noindex`, `canonical`, `image`, `type: article`, `author`, `datePublished` and `dateModified` are optional; see [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md).
+Save it as `src/pages/pricing.md` and it's served at `/pricing/`. `title` is required. `description`, `draft`, `noindex`, `canonical`, `image`, `type: article`, `author`, `datePublished`, `dateModified` and `tags` are optional (a future `datePublished` schedules the page; each tag gets a page at `/tags/<tag>/`); see [`templates/starter/AGENTS.md`](templates/starter/AGENTS.md).
 
 Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` and `height` from the file, so the page doesn't jump while loading. With `images: { optimize: true }` (and `npm install --save-dev sharp`), vagejs also makes resized WebP copies of images in page content and offers them with `srcset`. Add `avif: true` for AVIF copies too, offered first through `<picture>` (usually smaller; slower to make). `vage audit` counts the copy browsers download, not the original.
 
@@ -153,6 +153,7 @@ npx vage deploy:github --remote https://github.com/you/site.git   # check, build
 npx vage deploy                                                  # GitHub Pages via Actions
 npx vage deploy --target cloudflare-workers --project my-site    # Cloudflare Workers: new version, no downtime
 npx vage deploy --target cloudflare-pages --project my-site      # older Cloudflare Pages projects
+npx vage deploy --target netlify --project my-site               # Netlify production deploy (deploy.target: "netlify")
 ```
 
 Every deploy shows its plan and asks for confirmation (`--dry-run` to preview, `--yes` to skip). It reports success only after the host confirms.
@@ -209,6 +210,7 @@ vage deploy:github [--remote URL] [--branch B] [-m MSG] [--dry-run] [--yes] [--j
 vage deploy        [--remote URL] [--no-wait] [--dry-run] [--yes] # GitHub Pages via Actions; confirms with GitHub
 vage deploy --target cloudflare-workers [--project NAME]          # new Worker version at 100%; custom domains stay up
 vage deploy --target cloudflare-pages --project NAME [--branch B] # Wrangler upload; preview URL per branch
+vage deploy --target netlify [--project SITE]                     # netlify-cli production deploy, then a live check
 vage indexnow --changed-since REF | --urls … | --all              # IndexNow URL notification (asks first)
 vage connect gsc|ga4 / vage disconnect google      # read-only Google OAuth (PKCE, loopback); token outside the repo
 vage connect pagespeed|crux / vage disconnect …   # save your own Google API key for audit --url (outside the repo)
@@ -219,7 +221,7 @@ vage info     [--json]                            # commands + config/frontmatte
 
 ## Planned, not implemented
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths, sitemap indexes.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites, base paths, sitemap indexes.
 
 ## Security
 

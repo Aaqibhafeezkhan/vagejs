@@ -12,6 +12,8 @@ export interface BuildResult {
   redirects: { from: string; to: string; output: string }[];
   files: string[];
   skippedDrafts: string[];
+  /** Pages with a later datePublished, and the date they go live (on a build from that day). */
+  skippedScheduled: { source: string; date: string }[];
   warnings: string[];
   durationMs: number;
 }
@@ -61,6 +63,7 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
       redirects: model.redirects.map((r) => ({ from: r.from, to: r.to, output: r.outFile })),
       files: [...model.files.keys()],
       skippedDrafts: model.skippedDrafts,
+      skippedScheduled: model.skippedScheduled.map(({ source, date }) => ({ source, date })),
       warnings: model.warnings,
       durationMs: Math.round(performance.now() - start),
     };

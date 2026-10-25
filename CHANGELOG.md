@@ -3,10 +3,16 @@
 ## Unreleased
 
 ### Added
-- `vage check` warns when rendered page titles exceed 60 characters or meta descriptions exceed 160, noting that they may be shortened in search results.
+- **Heading ids.** Every `##` and `###` heading in page content gets an id made from its text (`## Quick start` becomes `id="quick-start"`), so sections can be linked. Ids written by hand are kept and never reused; repeats get `-2`, `-3`; letters in any script are kept. Turn off with `markdown: { headingIds: false }`. This changes the HTML of existing sites: layouts that add their own heading ids should use these instead.
+- **`vage check` finds `#section` links that go nowhere.** A same-site link whose `#fragment` matches no id (or `<a name>`) on the target page is a `link-fragment` warning; the page would open at the top. `#top` and text fragments are allowed.
+- **Scheduled publishing.** A page with a future `datePublished` is left out of builds, page lists, feeds and the sitemap until a build on or after that date, and `vage build` lists it as scheduled. A date goes live on that day in the build machine's time zone; a datetime with an offset at that moment. Links to a scheduled page fail `vage check`, like links to drafts. The site still needs a build on that day, for example from a scheduled CI workflow.
+- **Tags.** `tags: [SEO, AI]` in frontmatter. Each tag gets a page at `/tags/<tag>/` listing its pages, newest first, in the default layout or `tags.layout`; `tags: { pages: false }` turns them off, and a page of your own at the same address is a build error. Layouts get `collection(pages, { tag })` and `tagList(pages)`. The dev server serves tag pages too.
+- **Netlify deploys.** `deploy: { target: "netlify", netlifySite: "<name or ID>" }` makes the build write Netlify's `_headers` (the same security headers and Content-Security-Policy as on Cloudflare) and `_redirects` (config redirects as forced 301s, which win over the HTML forwarding pages). `vage deploy` uploads `dist/` with a pinned netlify-cli to the production deploy, without a Netlify build, then checks that the site answers. Auth comes from `NETLIFY_AUTH_TOKEN` or `netlify login`, never a command-line flag.
+- `vage check` warns when rendered page titles exceed 60 characters or meta descriptions exceed 160, noting that they may be shortened in search results. Pages kept out of search (`noindex`) are skipped (contributed by @Aaqibhafeezkhan, #8).
 
 ### Changed
 - Windows setup notes in the README and the starter's `AGENTS.md` (contributed by @chinmayee5599, #7).
+- `vage_pages` (MCP) also lists scheduled pages.
 
 ## 0.4.0 (2026-10-24)
 

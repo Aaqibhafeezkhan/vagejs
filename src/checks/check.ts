@@ -82,11 +82,20 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   // Pages that failed to render are already reported; links to them aren't broken links on top of that.
   for (const e of model.pageErrors) if (e.route) outputs.add(`${e.route}index.html`);
   const drafts = new Set(model.draftRoutes);
+  const scheduled = new Map(model.skippedScheduled.map((s) => [s.route, s.date]));
   const pages = model.notFound ? [...model.pages, model.notFound] : model.pages;
 
-  for (const page of pages) {
+  const docs = pages.map((page) => ({ page, doc: parse(page.html) }));
+  // Link targets on each output file: element ids and <a name>, for #fragment links.
+  const anchors = new Map(
+    docs.map(({ page, doc }) => [
+      `/${page.outFile}`,
+      new Set([...doc.querySelectorAll("[id]").map((el) => el.getAttribute("id")!), ...doc.querySelectorAll("a[name]").map((el) => el.getAttribute("name")!)]),
+    ]),
+  );
+  for (const { page, doc } of docs) {
     const add = (f: Omit<Finding, "page" | "source">) => findings.push({ ...f, page: page.route, source: page.source });
-    checkPage(page, parse(page.html), model, outputs, drafts, add);
+    checkPage(page, doc, model, outputs, drafts, scheduled, anchors, add);
   }
   findings.push(...checkDuplicates(listedPages(model)));
   findings.push(...checkRobots(model));
@@ -101,6 +110,8 @@ function checkPage(
   model: SiteModel,
   outputs: Set<string>,
   drafts: Set<string>,
+  scheduled: Map<string, string>,
+  anchors: Map<string, Set<string>>,
   add: (f: Omit<Finding, "page" | "source">) => void,
 ) {
   const indexable = !page.meta.noindex;
@@ -203,6 +214,10 @@ function checkPage(
     if (!a.text.trim() && !a.getAttribute("aria-label") && !a.querySelector("img[alt]:not([alt=''])")) {
       add({ rule: "link-text", severity: "warning", message: `Link to "${href}" has no accessible text.`, docs: DOCS.linkPurpose });
     }
+    if (/^#./.test(href.trim())) {
+      checkFragment(href, `/${page.outFile}`, anchors, add);
+      continue;
+    }
     const target = internalPath(href, page.route, model.site.site);
     if (target === undefined) continue;
     if (target === MALFORMED) {
@@ -210,12 +225,18 @@ function checkPage(
       continue;
     }
     const resolved = resolveOutput(target, outputs);
+    if (resolved === "ok") checkFragment(href, target.endsWith("/") ? `${target}index.html` : target, anchors, add);
     if (resolved === "missing") {
-      const draft = drafts.has(target.endsWith("/") ? target : `${target}/`);
+      const route = target.endsWith("/") ? target : `${target}/`;
+      const date = scheduled.get(route);
       add({
         rule: "link-broken",
         severity: "error",
-        message: draft ? `Link to "${href}" points to a draft page, which is not published.` : `Link to "${href}" does not match any page or file.`,
+        message: drafts.has(route)
+          ? `Link to "${href}" points to a draft page, which is not published.`
+          : date
+            ? `Link to "${href}" points to a page scheduled for ${date}, which is not published yet.`
+            : `Link to "${href}" does not match any page or file.`,
       });
     } else if (resolved === "needs-slash") {
       add({ rule: "link-trailing-slash", severity: "warning", message: `Link to "${href}" redirects; use "${target}/".` });
@@ -468,6 +489,25 @@ function internalPath(href: string, base: string, site: string | undefined): str
   } catch {
     return MALFORMED;
   }
+}
+
+/**
+ * A #fragment must match an id (or <a name>) on the page it points to; otherwise the
+ * page opens at the top instead of the section. "#top" and text fragments (#:~:text=)
+ * work without one. Files that aren't rendered pages (PDFs, redirects) aren't checked.
+ */
+function checkFragment(href: string, outFile: string, anchors: Map<string, Set<string>>, add: (f: Omit<Finding, "page" | "source">) => void) {
+  const ids = anchors.get(outFile);
+  const hash = href.indexOf("#");
+  if (!ids || hash === -1) return;
+  let fragment: string;
+  try {
+    fragment = decodeURIComponent(href.slice(hash + 1));
+  } catch {
+    fragment = href.slice(hash + 1);
+  }
+  if (!fragment || fragment.toLowerCase() === "top" || fragment.startsWith(":~:") || ids.has(fragment)) return;
+  add({ rule: "link-fragment", severity: "warning", message: `Link to "${href}": no element with id "${fragment}" on that page, so it opens at the top.` });
 }
 
 function resolveOutput(target: string, outputs: Set<string>): "ok" | "needs-slash" | "missing" {

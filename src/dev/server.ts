@@ -8,8 +8,8 @@ import { escapeHtml } from "../core/html.js";
 import { baseViteConfig, viteLoader } from "../core/loader.js";
 import { renderPage } from "../core/render.js";
 import { cacheDir } from "../content/optimize.js";
-import { collectPages } from "../core/pages.js";
-import { renderSite } from "../core/site.js";
+import { collection, collectPages, tagList } from "../core/pages.js";
+import { renderSite, tagPageSource } from "../core/site.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "../core/routes.js";
 import { devAccessGuard } from "./guard.js";
 import { listenOrExplain, type ServeOptions } from "./listen.js";
@@ -89,6 +89,16 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
       // Match production preview: "/about" -> "/about/".
       if (entry && !pathname.endsWith("/") && !pathname.endsWith(".html")) {
         return redirect(res, entry.route + urlPath.slice(pathname.length));
+      }
+      if (!entry && site.tags.pages && route.startsWith("/tags/")) {
+        const pages = await collectPages(root, site, load, { skipInvalid: true });
+        const tag = tagList(pages).find((t) => t.route === route);
+        if (tag) {
+          if (!pathname.endsWith("/")) return redirect(res, tag.route + urlPath.slice(pathname.length));
+          const source = tagPageSource(site, tag.name, collection(pages, { tag: tag.name, sort: "date" }));
+          const page = await renderPage({ root, file: path.join(pagesDir, "tags", `${tag.slug}.md`), route, site, load, pages, source });
+          return send(res, 200, await server.transformIndexHtml(urlPath, page.html));
+        }
       }
       const notFound = findNotFoundPage(pagesDir);
       if (!entry && !notFound) {

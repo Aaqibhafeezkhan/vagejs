@@ -216,6 +216,16 @@ export const configSchema = z.strictObject({
       sizes: z.string().regex(/^[^<>"]+$/).default("(max-width: 48rem) 100vw, 48rem").describe('The sizes attribute: how wide images display, so browsers pick the right file.'),
     })
     .default({ optimize: false, widths: [480, 960, 1600], quality: 75, avif: false, sizes: "(max-width: 48rem) 100vw, 48rem" }),
+  tags: z
+    .strictObject({
+      pages: z.boolean().default(true).describe("Generate a page at /tags/<tag>/ for every tag used in page frontmatter, listing its pages, newest first."),
+      layout: z
+        .string()
+        .regex(/^[\w-]+$/, "layout must be a file name without extension")
+        .optional()
+        .describe("Layout for tag pages (src/layouts/<layout>.ts). Defaults to the default layout."),
+    })
+    .default({ pages: true }),
   markdown: z
     .strictObject({
       html: z
@@ -226,22 +236,31 @@ export const configSchema = z.strictObject({
         .boolean()
         .default(false)
         .describe('Keep style="..." attributes in page content (sanitize mode). Off by default: inline styles are the usual way to hide spam links. Put styling in layouts.'),
+      headingIds: z
+        .boolean()
+        .default(true)
+        .describe('Give each ## and ### heading in page content an id made from its text ("Quick start" -> id="quick-start"), so sections can be linked. Ids you write yourself are kept.'),
     })
-    .default({ html: "sanitize", inlineStyles: false }),
+    .default({ html: "sanitize", inlineStyles: false, headingIds: true }),
   seo: seoSchema.default(() => seoSchema.parse({})),
   performance: performanceSchema.default(() => performanceSchema.parse({})),
   deploy: z
     .strictObject({
       target: z
-        .enum(["github-pages", "cloudflare-pages", "cloudflare-workers"])
+        .enum(["github-pages", "cloudflare-pages", "cloudflare-workers", "netlify"])
         .default("github-pages")
-        .describe("Host used by `vage deploy`. Cloudflare now creates new sites as Workers: prefer cloudflare-workers there."),
+        .describe("Host used by `vage deploy`. Cloudflare now creates new sites as Workers: prefer cloudflare-workers there. netlify also makes the build write Netlify's _redirects and _headers."),
       cloudflareProject: z.string().regex(/^[a-z0-9][a-z0-9-]{0,57}$/).optional().describe("Cloudflare Pages project name."),
       cloudflareWorker: z
         .string()
         .regex(/^[a-z0-9][a-z0-9-]{0,62}$/)
         .optional()
         .describe("Cloudflare Worker name (cloudflare-workers target, when the project has no wrangler config). Defaults to cloudflareProject."),
+      netlifySite: z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9-]{0,62}$/)
+        .optional()
+        .describe("Netlify site name or ID (netlify target). Create the site in Netlify first."),
     })
     .default({ target: "github-pages" }),
   security: z

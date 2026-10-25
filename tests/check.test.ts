@@ -71,6 +71,21 @@ noindex: true
     expect(rules).not.toContain("meta-description-length");
   });
 
+  it("warns about #fragment links that match no id on the target page", async () => {
+    const root = copyFixture();
+    write(root, "src/pages/about.md", `---\ntitle: About\ndescription: About us.\n---\n# About\n\n## Our team\n\n<a name="old-anchor"></a><a id="new-anchor" name="both"></a>\n`);
+    write(
+      root,
+      "src/pages/index.md",
+      `---\ntitle: Home\ndescription: Home page.\n---\n# Home\n\n## Intro\n\n[a](#intro) [b](#nope) [c](/about/#our-team) [d](/about/#team) [e](https://fixture.example/about/#old-anchor) [f](#top) [g](/about/#:~:text=team) [h](/images/logo.png#x) [i](/old/#team) [j](/about/#both) [k](/about/#new-anchor)\n`,
+    );
+    const messages = (await check(root)).findings.filter((f) => f.rule === "link-fragment").map((f) => `${f.severity} ${f.page}: ${f.message}`);
+    expect(messages).toEqual([
+      'warning /: Link to "#nope": no element with id "nope" on that page, so it opens at the top.',
+      'warning /: Link to "/about/#team": no element with id "team" on that page, so it opens at the top.',
+    ]);
+  });
+
   it("validates JSON-LD written by layouts", async () => {
     const root = copyFixture();
     write(

@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseFrontmatter, type Frontmatter } from "../content/markdown.js";
+import { headingSlug } from "../content/sanitize.js";
 import { pageMeta } from "../seo/head.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
 import { clonePlain } from "./clone.js";
-import { instant } from "./dates.js";
+import { instant, scheduledFor } from "./dates.js";
 import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
 import { discoverRoutes } from "./routes.js";
@@ -25,7 +26,7 @@ export interface PageSummary {
 }
 
 /**
- * Every published page (drafts and 404.md excluded), sorted by route. Reads frontmatter
+ * Every published page (drafts, pages scheduled for a later date and 404.md excluded), sorted by route. Reads frontmatter
  * and applies each page's layout schema, so list entries get the same defaults as the
  * page itself. The result is frozen: layouts share it, so none may change it.
  * `skipInvalid` (dev server, `vage check`) leaves out pages whose frontmatter is invalid;
@@ -38,7 +39,7 @@ export async function collectPages(root: string, site: SiteConfig, load: ModuleL
     let frontmatter: Frontmatter;
     try {
       ({ frontmatter } = parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file));
-      if (frontmatter.draft) continue;
+      if (frontmatter.draft || scheduledFor(frontmatter.datePublished)) continue;
       await applyLayoutFields(root, frontmatter, load, entry.file);
     } catch (err) {
       // Any failure (bad frontmatter, a layout that throws or doesn't compile) is that page's own error.
@@ -82,6 +83,8 @@ export interface CollectionOptions {
    */
   sort?: "date" | "title" | "route" | "order" | ((a: PageSummary, b: PageSummary) => number);
   limit?: number;
+  /** Only pages with this tag (compared like tag page addresses: "SEO" matches "seo"). */
+  tag?: string;
 }
 
 /**
@@ -98,7 +101,8 @@ export function byOrder(a: PageSummary, b: PageSummary): number {
 
 export function collection(pages: readonly PageSummary[], options: CollectionOptions = {}): PageSummary[] {
   if (!Array.isArray(pages)) throw new VageError("collection(): pass the layout's `pages` as the first argument.");
-  const { under, includeIndex = false, sort = "route", limit } = options;
+  const { under, includeIndex = false, sort = "route", limit, tag } = options;
+  if (tag !== undefined && (typeof tag !== "string" || !tagSlug(tag))) throw new VageError(`collection(): "tag" must be a tag name like "SEO" (got ${JSON.stringify(tag)}).`);
   if (under !== undefined && !/^\/(?!\/)/.test(under)) {
     throw new VageError(`collection(): "under" must be a site path starting with "/", like "/blog/" (got ${JSON.stringify(under)}).`);
   }
@@ -110,7 +114,9 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
     throw new VageError(`collection(): "limit" must be a whole number of 0 or more (got ${JSON.stringify(limit)}).`);
   }
   const prefix = under ? (under.endsWith("/") ? under : `${under}/`) : undefined;
-  const picked = pages.filter((p) => !prefix || (p.route.startsWith(prefix) && (includeIndex || p.route !== prefix)));
+  const picked = pages.filter(
+    (p) => (!prefix || (p.route.startsWith(prefix) && (includeIndex || p.route !== prefix))) && (tag === undefined || (p.frontmatter.tags ?? []).some((t: string) => tagSlug(t) === tagSlug(tag))),
+  );
   const byTitle = (a: PageSummary, b: PageSummary) => a.title.localeCompare(b.title);
   const compare =
     typeof sort === "function"
@@ -129,6 +135,35 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
           : (a: PageSummary, b: PageSummary) => a.route.localeCompare(b.route);
   const sorted = [...picked].sort(compare);
   return limit === undefined ? sorted : sorted.slice(0, limit);
+}
+
+/** A tag's address part: "Web Design" -> "web-design" (tag pages live at /tags/<slug>/). */
+export function tagSlug(tag: string): string {
+  return headingSlug(tag);
+}
+
+export interface TagSummary {
+  /** The tag as first written in the pages, e.g. "SEO". */
+  name: string;
+  slug: string;
+  /** "/tags/<slug>/" (generated when tags.pages is on). */
+  route: string;
+  count: number;
+}
+
+/** Every tag the pages use, A to Z, with how many pages have it: for tag clouds and tag menus. */
+export function tagList(pages: readonly PageSummary[]): TagSummary[] {
+  const tags = new Map<string, TagSummary>();
+  for (const p of pages) {
+    for (const name of new Set(p.frontmatter.tags ?? [])) {
+      const slug = tagSlug(name);
+      if (!slug) continue;
+      const t = tags.get(slug) ?? { name, slug, route: `/tags/${slug}/`, count: 0 };
+      t.count++;
+      tags.set(slug, t);
+    }
+  }
+  return [...tags.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** The pages before and after `route` in an ordered list (e.g. from collection()), for "Previous / Next" links. */

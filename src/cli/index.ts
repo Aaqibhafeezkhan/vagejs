@@ -69,6 +69,7 @@ cli
       for (const r of result.redirects) console.log(`  ${r.from.padEnd(30)} -> ${r.output} (redirect to ${r.to})`);
       for (const file of result.files) console.log(`  ${"".padEnd(30)} -> ${file}`);
       for (const draft of result.skippedDrafts) console.log(`  (draft, skipped) ${draft}`);
+      for (const s of result.skippedScheduled) console.log(`  (scheduled for ${s.date}, skipped) ${s.source}`);
       for (const warning of result.warnings) console.log(`\nWarning: ${warning}`);
       console.log(`\nBuilt ${result.pages.length} page(s) into ${result.outDir} in ${result.durationMs}ms`);
     }),
@@ -232,10 +233,10 @@ cli
   );
 
 cli
-  .command("deploy", "Deploy: GitHub Pages (workflow + push, waits for GitHub), Cloudflare Workers (new version, no downtime) or Cloudflare Pages")
+  .command("deploy", "Deploy: GitHub Pages (workflow + push, waits for GitHub), Cloudflare Workers (new version, no downtime), Cloudflare Pages or Netlify")
   .option("--root <dir>", "Project root", { default: "." })
-  .option("--target <host>", "github-pages, cloudflare-workers or cloudflare-pages (default: deploy.target in config)")
-  .option("--project <name>", "Cloudflare Pages project or Worker name (default: deploy.cloudflareProject / cloudflareWorker)")
+  .option("--target <host>", "github-pages, cloudflare-workers, cloudflare-pages or netlify (default: deploy.target in config)")
+  .option("--project <name>", "Cloudflare Pages project, Worker or Netlify site name (default: deploy.cloudflareProject / cloudflareWorker / netlifySite)")
   .option("--remote <url>", "Git URL to add as origin if there is none")
   .option("--branch <name>", "Branch for a new repository (default: main)")
   .option("-m, --message <msg>", "Commit message")
@@ -250,7 +251,11 @@ cli
       const target = opts.target ?? config.deploy.target;
       if (target === "cloudflare-pages") return deployToCloudflare(opts, config.deploy.cloudflareProject);
       if (target === "cloudflare-workers") return deployToWorkers(opts, config.deploy.cloudflareWorker ?? config.deploy.cloudflareProject, config.site);
-      if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages, cloudflare-workers or cloudflare-pages.`);
+      if (target === "netlify") {
+        if (config.deploy.target !== "netlify") throw new VageError('Set deploy.target to "netlify" in vage.config.ts, so the build writes Netlify\'s _redirects and _headers.');
+        return deployToNetlify(opts, config.deploy.netlifySite, config.site);
+      }
+      if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages, cloudflare-workers, cloudflare-pages or netlify.`);
       const { publish } = await import("../deploy/publish.js");
       const pages = await import("../deploy/github-pages.js");
       // Stop before pushing a site GitHub Pages would serve from a subfolder (its links would break).
@@ -489,7 +494,9 @@ cli
       else if (opts.urls) urls = opts.urls.split(",").map((u) => abs(u.trim()));
       else if (opts.changedSince) {
         const { changedPageRoutes } = await import("../deploy/git.js");
-        urls = (await changedPageRoutes(root, opts.changedSince)).map(abs);
+        // Deleted pages are submitted too (so engines drop them); drafts and scheduled pages aren't live yet.
+        const unpublished = new Set([...model.draftRoutes, ...model.skippedScheduled.map((s) => s.route)]);
+        urls = (await changedPageRoutes(root, opts.changedSince)).filter((r) => !unpublished.has(r)).map(abs);
         if (!urls.length) return opts.json ? print({ ok: true, submitted: 0 }) : console.log(`No page changes since ${opts.changedSince}.`);
       } else throw new VageError("Choose what to submit: --changed-since <ref>, --urls <list>, or --all.");
 
@@ -632,6 +639,34 @@ async function deployToWorkers(opts: PublishFlags & { project?: string }, config
   const deployment = await deployCloudflareWorkers(root, { plan, siteUrl });
   if (opts.json) print({ ok: deployment.status !== "failure", target: "cloudflare-workers", deployment });
   else if (deployment.status === "success") console.log(`Deployed and verified: ${deployment.pageUrl} (${deployment.mode === "first-deploy" ? "first deploy" : `version ${deployment.versionId}`})`);
+  else console.log(`Deployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}`);
+  if (deployment.status === "failure") process.exit(1);
+}
+
+async function deployToNetlify(opts: PublishFlags & { project?: string }, configuredSite: string | undefined, siteUrl: string | undefined) {
+  const site = opts.project ?? configuredSite;
+  if (!site) throw new VageError("No Netlify site. Pass --project <site name or ID> or set deploy.netlifySite in vage.config.ts (create the site in Netlify first).");
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(site)) throw new VageError(`"${site}" isn't a Netlify site name or ID (lowercase letters, digits and hyphens).`);
+  const root = path.resolve(opts.root);
+  const { check } = await import("../checks/check.js");
+  const checked = await check(root);
+  if (checked.errors) throw new VageError(`vage check found ${checked.errors} error(s). Fix them before deploying.`);
+  const result = await build(root);
+  const { deployNetlify, NETLIFY_CLI } = await import("../deploy/netlify.js");
+
+  const steps = [
+    `upload ${result.outDir} (${result.pages.length} page(s), ${result.files.length} generated file(s)) to the Netlify site "${site}" (production)`,
+    `runs: npx ${NETLIFY_CLI} deploy --dir dist --prod --no-build --site ${site}`,
+    `verifies: ${siteUrl ?? "the site's Netlify URL"} answers 200`,
+  ];
+  const lines = ["Deploy plan (Netlify)", ...steps.map((s) => `  • ${s}`)];
+  if (!(await askConfirm(lines, opts))) {
+    if (opts.dryRun) return opts.json ? print({ ok: true, dryRun: true, target: "netlify", site, steps }) : console.log("Dry run: nothing deployed.");
+    return opts.json ? print({ ok: false, status: "aborted" }) : console.log("Nothing deployed.");
+  }
+  const deployment = await deployNetlify(root, { site, siteUrl });
+  if (opts.json) print({ ok: deployment.status !== "failure", target: "netlify", deployment });
+  else if (deployment.status === "success") console.log(`Deployed and verified: ${deployment.pageUrl}${deployment.deployId ? ` (deploy ${deployment.deployId})` : ""}`);
   else console.log(`Deployment ${deployment.status === "failure" ? "FAILED" : "not confirmed"}: ${deployment.reason}`);
   if (deployment.status === "failure") process.exit(1);
 }

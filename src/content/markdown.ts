@@ -36,6 +36,10 @@ export const frontmatterSchema = z.looseObject({
   dateModified: isoDate.optional().describe("ISO date or datetime; also the sitemap <lastmod>."),
   order: z.number().finite().optional().describe('Position in navigation lists (lower first). Used by collection(pages, { sort: "order" }) and tree().'),
   navTitle: singleLine.min(1).optional().describe("Shorter title for menus and breadcrumbs. Defaults to the title."),
+  tags: z
+    .array(singleLine.regex(/[\p{L}\p{N}]/u, "each tag needs a letter or digit (it becomes the address /tags/<tag>/)"))
+    .optional()
+    .describe('Topics, e.g. [SEO, AI]. Each tag gets a page at /tags/<tag>/ listing its pages (tags.pages); collection(pages, { tag: "SEO" }) picks them.'),
 });
 
 export type Frontmatter = z.output<typeof frontmatterSchema>;

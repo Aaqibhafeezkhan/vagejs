@@ -49,6 +49,17 @@ describe("dev server", () => {
     expect(await (await get(`${url}/images/note.txt`)).text()).toBe("public file\n");
   });
 
+  it("serves tag pages", async () => {
+    const root = copyFixture();
+    write(root, "src/pages/about.md", "---\ntitle: About\ndescription: About us.\ntags: [Team]\n---\n# About\n");
+    const { url } = await start(root);
+    expect((await get(`${url}/tags/team`)).headers.get("location")).toBe("/tags/team/");
+    const res = await get(`${url}/tags/team/`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('href="/about/"');
+    expect((await get(`${url}/tags/nope/`)).status).toBe(404);
+  });
+
   it("picks up edits and new pages without a restart", async () => {
     const root = copyFixture();
     const { url } = await start(root);

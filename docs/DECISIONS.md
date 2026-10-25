@@ -170,6 +170,18 @@ Still by design (documented): `vage.config.ts`, layouts and the optional Lightho
 - `prepublishOnly` runs typecheck, all tests and the end-to-end tests (which pack and install both tarballs, as users will). The e2e tests clear the `npm_config_dry_run` npm passes to child processes, so `npm publish --dry-run` is a faithful rehearsal.
 - Releases after the first use npm trusted publishing from `.github/workflows/release.yml` (OIDC: no stored token; provenance automatic), behind a GitHub environment with required reviewers. The first publish is manual, because trusted publishing is configured on an existing package. See `docs/RELEASING.md`.
 
+## 0.5.0: sections, scheduling, tags, Netlify
+
+- **Heading ids are added after sanitizing**, on DOMPurify's output tree (like AVIF `<picture>`). Ids added earlier would pass DOMPurify's clobbering filter, which drops ids such as `title` or `images`; vagejs sites run no client code of their own, so plain slugs are kept. Only h2 and h3: those are the sections people link to. Slugs keep letters in any script, so non-Latin headings still get readable ids.
+- **`link-fragment` is a warning**, not an error: the page still loads, only the scroll target is missing. Files that aren't rendered pages (PDFs, redirect pages) aren't checked.
+- **Scheduled pages are skipped like drafts**, from the same places (`collectPages` and `renderSite`), so lists, feeds, the sitemap and `llms.txt` agree. A date-only value uses the build machine's calendar, the same as `vage new post`; CI usually runs in UTC. vagejs doesn't run a scheduler: a build on the day publishes the page.
+- **Tag pages are generated Markdown rendered through the normal pipeline** (`renderPage` with `source`), so they get the same head tags, checks, sitemap entries and Markdown copies as other pages. Names are written as escaped HTML, never as Markdown. Tags match by address (`tagSlug`), so spellings that would share a URL are one tag. A page of the owner's own at a tag address is an error rather than silently winning. Per-tag feeds were left out.
+- **Netlify uses the same `_headers` as Cloudflare** (tested on Netlify in October 2026) and its own `_redirects` with forced `301!`, because Netlify serves an existing file (the HTML forwarding page) before a non-forced rule. The deploy pins `netlify-cli@27.12.1`, passes `--no-build` (vagejs built `dist/`) and never `--auth`. `--target netlify` requires `deploy.target: "netlify"`, so the build that gets uploaded has Netlify's files.
+
+### 0.5.0 verification status
+
+Netlify deploys are tested with a fake runner (command, JSON parsing, token redaction, live check); the `_headers` file was checked on a real Netlify site before this release, the deploy command itself was not run against Netlify in tests.
+
 ## Not implemented
 
-Bing Webmaster Tools API, Netlify/Vercel, CMS content sources, hreflang/multi-language, base paths, sitemap indexes.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, hreflang/multi-language, base paths, sitemap indexes, per-tag feeds.

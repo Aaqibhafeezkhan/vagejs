@@ -148,7 +148,7 @@ describe("vage CLI (packed package)", () => {
     expect(res.stdout).toMatch(/npm install\n {2}npm start\n/); // next steps point to the command that opens the browser
     const pkg = JSON.parse(fs.readFileSync(path.join(work, "fresh-site", "package.json"), "utf8"));
     expect(pkg.scripts.start).toBe("vage dev --open");
-    expect(pkg.devDependencies.vagejs).toBe("^0.4.0");
+    expect(pkg.devDependencies.vagejs).toBe("^0.5.0");
     expect(spawnSync(process.execPath, [createBin(runner)], { encoding: "utf8" }).stderr).toMatch(/Usage: npm create vagejs@latest/);
   }, 300_000);
 
@@ -191,13 +191,14 @@ describe("vage CLI (packed package)", () => {
     const npx = (args: string[]) => npxSpawn(["vage", ...args], { cwd: site, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     expect(npx(["indexnow", "--all"]).stderr).toMatch(/IndexNow is not configured/);
     expect(npx(["deploy", "--target", "cloudflare-pages", "--dry-run"]).stderr).toMatch(/No Cloudflare Pages project/);
-    expect(npx(["deploy", "--target", "netlify"]).stderr).toMatch(/Unknown --target "netlify"/);
+    expect(npx(["deploy", "--target", "ftp"]).stderr).toMatch(/Unknown --target "ftp"/);
+    expect(npx(["deploy", "--target", "netlify"]).stderr).toMatch(/Set deploy.target to "netlify"/);
   }, 120_000);
 
   it("prints help and version", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
     for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy", "connect", "disconnect", "report", "guidelines", "indexnow"]) expect(help.stdout).toContain(cmd);
-    expect(vage(["--version"], work).stdout).toContain("0.4.0");
+    expect(vage(["--version"], work).stdout).toContain("0.5.0");
   });
 });

@@ -7,7 +7,7 @@ import { copySource, htmlToMarkdown, markdownCopy, markdownCopyPath } from "../d
 import { robotsTxt } from "../discovery/robots.js";
 import { SITEMAP_URL_LIMIT, sitemapXml } from "../discovery/sitemap.js";
 import { copyCanonicalsFit, headersFile } from "../deploy/headers.js";
-import { cloudflareRedirects } from "../deploy/redirects.js";
+import { cloudflareRedirects, netlifyRedirects } from "../deploy/redirects.js";
 import { findSecrets } from "../deploy/secrets.js";
 import { rulePack } from "../guidelines/pack.js";
 import { absoluteUrl } from "../seo/urls.js";
@@ -17,7 +17,8 @@ import { escapeHtml } from "./html.js";
 import { renderPage, type RenderedPage } from "./render.js";
 import { parseFrontmatter } from "../content/markdown.js";
 import { sharpResize } from "../content/optimize.js";
-import { collectPages } from "./pages.js";
+import { scheduledFor } from "./dates.js";
+import { collection, collectPages, tagList, type PageSummary } from "./pages.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "./routes.js";
 
 export interface SitePage extends RenderedPage {
@@ -51,6 +52,8 @@ export interface SiteModel {
   skippedDrafts: string[];
   /** Routes of draft pages; links to them are broken in production. */
   draftRoutes: string[];
+  /** Pages whose datePublished is still ahead: skipped until a build on or after that date. */
+  skippedScheduled: { source: string; route: string; date: string }[];
   notFound?: SitePage;
   redirects: SiteRedirect[];
   /** Generated discovery files: output path -> content. */
@@ -72,7 +75,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
         `Review what changed with "vage guidelines", then update guidelines.rulePack in vage.config.ts.`,
     );
   }
-  const model: SiteModel = { site, pageErrors: [], pages: [], skippedDrafts: [], draftRoutes: [], redirects: [], files: new Map(), warnings: [] };
+  const model: SiteModel = { site, pageErrors: [], pages: [], skippedDrafts: [], draftRoutes: [], skippedScheduled: [], redirects: [], files: new Map(), warnings: [] };
   const collect = options.collectErrors === true;
   const attempt = async (file: string, route: string | undefined, work: () => Promise<void>) => {
     try {
@@ -91,15 +94,36 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   for (const entry of discoverRoutes(pagesDir)) {
     const source = path.relative(root, entry.file);
     await attempt(entry.file, entry.route, async () => {
-      // Drafts are skipped before rendering, so their fields can't fail a build.
-      if (parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file).frontmatter.draft) {
+      // Drafts and scheduled pages are skipped before rendering, so their fields can't fail a build.
+      const { frontmatter } = parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file);
+      if (frontmatter.draft) {
         model.skippedDrafts.push(source);
         model.draftRoutes.push(entry.route);
+        return;
+      }
+      const date = scheduledFor(frontmatter.datePublished);
+      if (date) {
+        model.skippedScheduled.push({ source, route: entry.route, date });
         return;
       }
       const page = await renderPage({ root, file: entry.file, route: entry.route, site, load, analytics: true, pages, resize });
       model.pages.push({ ...page, route: entry.route, source, outFile: entry.outFile });
     });
+  }
+  if (site.tags.pages) {
+    // Only published pages can clash: a draft or scheduled page at a tag address isn't in the build.
+    const taken = new Map(model.pages.map((p) => [p.route, p.source]));
+    for (const tag of tagList(pages)) {
+      const file = path.join(pagesDir, "tags", `${tag.slug}.md`);
+      const source = `(tag "${tag.name}")`;
+      await attempt(file, tag.route, async () => {
+        if (taken.has(tag.route)) {
+          throw new VageError(`${taken.get(tag.route)} and the tag "${tag.name}" both make ${tag.route}. Rename one, or set tags.pages: false in vage.config.ts.`);
+        }
+        const page = await renderPage({ root, file, route: tag.route, site, load, analytics: true, pages, resize, source: tagPageSource(site, tag.name, collection(pages, { tag: tag.name, sort: "date" })) });
+        model.pages.push({ ...page, route: tag.route, source, outFile: `${tag.route.slice(1)}index.html` });
+      });
+    }
   }
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) {
@@ -118,6 +142,24 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   model.redirects = buildRedirects(site, new Set(model.pages.map((p) => p.route)));
   addDiscoveryFiles(root, model, markdown);
   return model;
+}
+
+/** A tag page's Markdown: a heading and the tagged pages, newest first. Written as HTML so tag and page names can't become Markdown. */
+export function tagPageSource(site: SiteConfig, name: string, tagged: PageSummary[]): string {
+  const items = tagged.map((p) => `<li><a href="${escapeHtml(p.route)}">${escapeHtml(p.title)}</a>${p.description ? `: ${escapeHtml(p.description)}` : ""}</li>`);
+  const description = `Pages${site.title ? ` on ${site.title}` : ""} tagged ${name}.`;
+  return [
+    "---",
+    `title: ${JSON.stringify(`Tagged: ${name}`)}`,
+    `description: ${JSON.stringify(description)}`,
+    ...(site.tags.layout ? [`layout: ${site.tags.layout}`] : []),
+    "---",
+    "",
+    `<h1>Tagged: ${escapeHtml(name)}</h1>`,
+    "",
+    `<ul>\n${items.join("\n")}\n</ul>`,
+    "",
+  ].join("\n");
 }
 
 /** Pages that should appear in sitemap.xml and llms.txt: indexable and canonical to themselves. */
@@ -177,10 +219,12 @@ function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string,
   }
   const indexNow = site.integrations.indexNow;
   if (indexNow) generate(`${indexNow.key}.txt`, () => `${indexNow.key}\n`);
-  // Cloudflare Pages and Workers static assets both read _redirects and _headers.
+  // Cloudflare Pages, Workers static assets and Netlify all read _redirects and _headers.
+  const netlify = site.deploy.target === "netlify";
   const cloudflare = site.deploy.target === "cloudflare-pages" || site.deploy.target === "cloudflare-workers";
   if (cloudflare && model.redirects.length) generate("_redirects", () => cloudflareRedirects(model.redirects));
-  if (cloudflare && site.security.headers) {
+  if (netlify && model.redirects.length) generate("_redirects", () => netlifyRedirects(model.redirects));
+  if ((cloudflare || netlify) && site.security.headers) {
     const html = [...model.pages, ...(model.notFound ? [model.notFound] : []), ...model.redirects].map((p) => p.html);
     // Each Markdown copy names its HTML page as canonical, so search engines don't index both.
     const copies = site.seo.markdownCopies && site.site ? listed.map((p) => ({ path: `/${markdownCopyPath(p.route)}`, canonical: p.meta.canonical! })).filter((c) => /^\/[A-Za-z0-9._~\/-]+$/.test(c.path) && /^[^\s<>]+$/.test(c.canonical)) : [];

@@ -42,6 +42,9 @@ vagejs is tested on Windows on every change.
 - **Order a menu or sidebar:** set `order:` (lower first) and optionally a short `navTitle:` in each page's frontmatter (shown as `p.label`), then build the menu in a layout with `tree(pages, "/docs/")`. For previous/next links in the same order use `neighbors(flatten(tree(pages, "/docs/")), page.route)`. For a flat section, `collection(pages, { under: "/docs/", sort: "order", includeIndex: true })` works too. `breadcrumbs(pages, page.route)` gives the trail from the home page.
 - **Add an RSS feed for the blog:** `seo: { feeds: [{ under: "/blog/" }] }` in `vage.config.ts` writes `/blog/feed.xml`, newest `datePublished` first (undated posts last, without a date).
 - **Help AI tools read the site:** `seo: { markdownCopies: true }` publishes a Markdown copy of every listed page (`/docs/cli/` becomes `/docs/cli.md`), converted from the page's `<main>`, so it contains exactly what the page shows (including content a layout builds from frontmatter), and `llms.txt` links to them. In layouts, add `data-vage-copy="skip"` to repeated extras such as share links or a call to action to leave them out of the copy. On Cloudflare, each copy gets a canonical `Link` header pointing to its page. `seo: { lastmod: "git" }` dates the sitemap from git history (needs full history in CI: `fetch-depth: 0`).
+- **Link to a section:** every `##` and `###` heading gets an id from its text (`## Quick start` becomes `id="quick-start"`), so link to `/docs/setup/#quick-start`. `npm run check` warns when a `#section` matches no id on the target page (`link-fragment`). Write `<h2 id="...">` in Markdown for an id of your own. Ids are only kept unique within the page content, so avoid headings that repeat an id the layout uses (such as `main`); `markdown: { headingIds: false }` turns automatic ids off.
+- **Schedule a post:** give it a future `datePublished` (and no `draft: true`). It stays out of builds, lists, feeds and the sitemap until a build on or after that day; `npm run build` lists it as `(scheduled for <date>, skipped)`. A date goes live on that day in the build machine's time zone (UTC on most CI); use a datetime such as `2026-11-01T09:00:00+05:30` for an exact time. Nothing rebuilds the site by itself: the owner needs a deploy on that day (for example a scheduled GitHub Actions workflow). `vage indexnow --changed-since` skips drafts and scheduled pages; once the page is live, submit it with `--urls`.
+- **Tag pages:** `tags: [SEO, AI]` in frontmatter. Each tag gets a page at `/tags/<tag>/` listing its pages, newest first (`tags: { layout: "<name>" }` picks its layout, `tags: { pages: false }` turns them off). In layouts, `collection(pages, { tag: "SEO" })` picks tagged pages and `tagList(pages)` lists every tag with its `route` and `count`. Tags are matched by their address, so "SEO" and "seo" are the same tag.
 - **Rename a page:** move the file, then add `redirects: { "/old-slug/": "/new-slug/" }` to `vage.config.ts`.
 - **Hide a page from search:** `noindex: true` (it stays published). To unpublish, use `draft: true` or delete it.
 - **AI crawler policy:** set `seo.robots.aiTraining` / `aiSearch` only on the owner's instruction.
@@ -75,10 +78,11 @@ canonical: /other/       # canonical override (path or absolute URL); page then 
 image: /images/og.png    # og:image (made absolute using `site`)
 type: article            # og:type + Article JSON-LD (default: website)
 author: Jane Doe         # Article author
-datePublished: 2026-01-31
+datePublished: 2026-01-31  # a future date schedules the page: it's skipped until a build on or after that day
 dateModified: 2026-02-15 # also the sitemap <lastmod> (otherwise datePublished, or git with seo.lastmod: "git")
 order: 2                 # position in menus built with tree() or sort: "order" (lower first)
 navTitle: Pricing        # shorter label for menus and breadcrumbs (PageSummary.label)
+tags: [SEO, AI]          # each tag gets a page at /tags/<tag>/
 ---
 ```
 
@@ -99,7 +103,7 @@ Hacked sites are usually abused for hidden spam links and doorway pages. vagejs 
 
 HTML inside Markdown is sanitized: scripts, event handlers, `javascript:` links, iframes and forms are removed. Embeds (e.g. video) belong in a layout, which is trusted code. The owner can trust all authors with `markdown: { html: "allow" }`; don't set that yourself. Values inside `{ }` in frontmatter that contain a comma or colon must be quoted; `vage check` warns about empty values (`frontmatter-empty`). Never put secrets in `public/` (it is published, and the build refuses secret-looking files and symlinks there). `npm run dev -- --host` exposes the dev server to your network; it serves only pages and `public/`, but use it only on trusted networks.
 
-With `deploy.target: "cloudflare-workers"` or `"cloudflare-pages"`, the build writes `_headers` with security headers and a Content-Security-Policy computed from the pages (inline scripts are allowed by hash). Don't use inline event handlers (`onclick=`); add sources the site really needs to `security.cspSources`.
+With `deploy.target: "cloudflare-workers"`, `"cloudflare-pages"` or `"netlify"`, the build writes `_headers` with security headers and a Content-Security-Policy computed from the pages (inline scripts are allowed by hash). Don't use inline event handlers (`onclick=`); add sources the site really needs to `security.cspSources`.
 
 ## Layouts
 
@@ -124,14 +128,14 @@ From the published pages and config (never from `public/`; a hand-written `publi
 - `sitemap.xml`: indexable, self-canonical, non-draft pages. Needs `site`.
 - `llms.txt` (+ `llms-full.txt` with `llmsTxt: { full: true }`): same pages. An emerging convention; not a guarantee that AI tools use it.
 - Redirects: `redirects: { "/old/": "/new/" }` become noindex meta-refresh pages (dev server answers 301).
-- With `seo.feeds`: `<section>/feed.xml` (RSS). With `seo.markdownCopies`: `/<path>.md` copies of listed pages. With `images.optimize`: resized images in `/_vage/img/`.
+- Tag pages at `/tags/<tag>/` for every tag in frontmatter (`tags.pages`). With `seo.feeds`: `<section>/feed.xml` (RSS). With `seo.markdownCopies`: `/<path>.md` copies of listed pages. With `images.optimize`: resized images in `/_vage/img/`.
 
 
 ## Config
 
 `vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`,
-`seo: { robots, sitemap, llmsTxt, structuredData, feeds, markdownCopies, lastmod }`, `redirects`, `markdown`,
-`images: { optimize, widths, quality, sizes }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject }`,
+`seo: { robots, sitemap, llmsTxt, structuredData, feeds, markdownCopies, lastmod }`, `redirects`, `markdown: { html, inlineStyles, headingIds }`, `tags: { pages, layout }`,
+`images: { optimize, widths, quality, sizes }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject, netlifySite }`,
 `security: { headers, csp, cspSources, outboundLinks, spamPatterns }`, `integrations`, `guidelines`.
 Keys not in this list are an error; `npx vage info --json` has the full schema.
 
@@ -151,13 +155,14 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 - `npx vage deploy` with `deploy: { target: "cloudflare-workers", cloudflareWorker: "<name>" }`: Cloudflare's current way to host static sites. Uploads a new version and switches all traffic to it, so custom domains stay up. For custom domains or routes, the owner adds a `wrangler.jsonc` (vagejs then uses it). Config redirects become real 301s (`_redirects`).
 - `npx vage deploy --target cloudflare-pages --project <name>`: older Cloudflare Pages projects. Non-production branches get preview URLs. Cloudflare now turns new Pages projects into Workers; use `cloudflare-workers` for new sites.
 - Both Cloudflare targets report success only when Wrangler succeeds and the site responds. They need `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` or `npx wrangler login`.
+- `npx vage deploy` with `deploy: { target: "netlify", netlifySite: "<site name or ID>" }`: uploads `dist/` to the Netlify site's production deploy (create the site in Netlify first). The build writes Netlify's `_headers` (security headers) and `_redirects` (config redirects as forced 301s). It reports success only when netlify-cli succeeds and the site responds. Needs `NETLIFY_AUTH_TOKEN` or `npx netlify-cli login`.
 - `npx vage deploy`: GitHub Pages (default target). Adds `.github/workflows/deploy.yml` (if missing), publishes, enables Pages via `gh` if needed, then waits for the Actions run. It says "deployed" only when GitHub reports success.
 
 After deploying, `npx vage indexnow --changed-since HEAD~1` (needs `integrations.indexNow.key`) tells IndexNow search engines about changed pages. It's a hint, not a guarantee of indexing; ask the owner first.
 
 GitHub Pages needs a custom domain or a `<user>.github.io` repository, because vagejs does not support base paths yet; `vage deploy` stops before pushing when the site would land in a subfolder.
 
-Other static hosts (Vercel, Netlify and the like) work without a vagejs deploy command: build command `npm run build`, output folder `dist`, no framework preset. Config redirects become small forwarding pages there, and the `_headers` security headers apply only on Cloudflare.
+Other static hosts (Vercel and the like) work without a vagejs deploy command: build command `npm run build`, output folder `dist`, no framework preset. Config redirects become small forwarding pages there, and the `_headers` security headers apply only on Cloudflare and Netlify.
 `.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
 
 ## Analytics and search reports
@@ -177,7 +182,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Not implemented yet
 
-Bing Webmaster Tools API, Netlify/Vercel adapters, CMS content sources, multi-language sites, base paths. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites, base paths. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Favicon
 
