@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-10-26)
 
 ### Added
 - **Contact forms for Cloudflare Workers sites.** `contact: { to, from }` in `vage.config.ts`, plus `contactForm(site)` in a layout: a plain HTML form (no JavaScript) with a hidden spam trap. `vage deploy` adds a Worker that ships with vagejs (`dist/worker/contact.js`): it emails each message through Cloudflare Email Routing with Reply-To set to the sender, limits each visitor to `contact.perMinute` messages a minute, and redirects to your "sent" or "not sent" page. Everything else is still served from your files. `vage check` reports a wrong target, missing result pages or a missing form; a project with its own `wrangler.jsonc` is told exactly what to add. The dev server shows the sent page without emailing anyone.
