@@ -60,7 +60,7 @@ describe("tags", () => {
     write(root, "src/pages/tags/seo.md", "---\ntitle: SEO\ndescription: Mine.\ndraft: true\n---\n# SEO\n");
     expect((await build(root)).pages.map((p) => p.route)).toContain("/tags/seo/"); // a draft there doesn't clash
     write(root, "src/pages/tags/seo.md", "---\ntitle: SEO\ndescription: Mine.\n---\n# SEO\n");
-    await expect(build(root)).rejects.toThrow(/tags\/seo\.md and the tag "SEO" both make \/tags\/seo\//);
+    await expect(build(root)).rejects.toThrow(/tags[\\/]seo\.md and the tag "SEO" both make \/tags\/seo\//);
     const clash = (await check(root)).findings.find((f) => f.rule === "page-error");
     expect(clash?.message).toMatch(/both make \/tags\/seo\//);
     const config = path.join(root, "vage.config.ts");

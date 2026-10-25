@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { check, type Finding } from "../src/checks/check.js";
 import { copyFixture, write } from "./helpers.js";
@@ -45,13 +46,13 @@ description: ${longDescription}
     const titleWarning = findings.find((f) => f.rule === "title-length");
     const descriptionWarning = findings.find((f) => f.rule === "meta-description-length");
 
-    expect(titleWarning).toMatchObject({ severity: "warning", source: "src/pages/index.md" });
-    expect(titleWarning?.message).toContain("src/pages/index.md");
+    expect(titleWarning).toMatchObject({ severity: "warning", source: path.join("src", "pages", "index.md") });
+    expect(titleWarning?.message).toContain(path.join("src", "pages", "index.md"));
     // The layout adds the site name, so the rendered title is longer than the frontmatter one.
     expect(Number(/is (\d+) characters/.exec(titleWarning?.message ?? "")?.[1])).toBeGreaterThan(61);
     expect(titleWarning?.message).toContain("may be shortened in search results");
-    expect(descriptionWarning).toMatchObject({ severity: "warning", source: "src/pages/index.md" });
-    expect(descriptionWarning?.message).toContain("src/pages/index.md");
+    expect(descriptionWarning).toMatchObject({ severity: "warning", source: path.join("src", "pages", "index.md") });
+    expect(descriptionWarning?.message).toContain(path.join("src", "pages", "index.md"));
     expect(descriptionWarning?.message).toContain("161 characters");
     expect(descriptionWarning?.message).toContain("may be shortened in search results");
   });
