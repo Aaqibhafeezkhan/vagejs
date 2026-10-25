@@ -34,7 +34,12 @@ describe("vage check", () => {
     const root = copyFixture();
     const longTitle = "T".repeat(61);
     const longDescription = "D".repeat(161);
-    write(root, "src/pages/index.md", `---\ntitle: ${longTitle}\ndescription: ${longDescription}\n---\n# Home\n`);
+    write(root, "src/pages/index.md", `---
+title: ${longTitle}
+description: ${longDescription}
+---
+# Home
+`);
 
     const findings = (await check(root)).findings.filter((f) => f.page === "/");
     const titleWarning = findings.find((f) => f.rule === "title-length");
