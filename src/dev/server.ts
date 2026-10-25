@@ -47,6 +47,16 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   });
 
   server.middlewares.use(async (req, res, next) => {
+    if (req.method === "POST") {
+      // The contact form: nothing is emailed in development; show the "sent" page.
+      const contact = (await loadConfig(root, load).catch(() => undefined))?.contact;
+      if (contact && (req.url ?? "").split(/[?#]/)[0] === contact.path) {
+        req.resume();
+        server.config.logger.info(`Contact form (dev): not emailed. On the live site it goes to ${contact.to}.`);
+        return redirect(res, contact.sent, 303);
+      }
+      return next();
+    }
     if (req.method !== "GET" && req.method !== "HEAD") return next();
     const urlPath = req.url ?? "/";
     const pathname = urlPath.split(/[?#]/)[0]!;

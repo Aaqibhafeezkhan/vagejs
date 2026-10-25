@@ -11,7 +11,7 @@ describe("createProject", () => {
     const dir = path.join(tmp(), "My Site");
     const result = createProject(dir, "file:../vagejs.tgz");
     expect(result.files).toEqual(
-      expect.arrayContaining([".gitignore", "AGENTS.md", "CLAUDE.md", "package.json", "vage.config.ts", "src/pages/index.md", "src/layouts/default.ts", "public/favicon.svg", "public/favicon.ico", "public/apple-touch-icon.png", ".github/workflows/ci.yml", ".env.example"]),
+      expect.arrayContaining([".gitignore", "AGENTS.md", "CLAUDE.md", "package.json", "vage.config.ts", "src/pages/index.md", "src/layouts/default.ts", "public/favicon.svg", "public/favicon.ico", "public/apple-touch-icon.png", ".github/workflows/ci.yml", ".github/workflows/scheduled.yml", ".env.example"]),
     );
     expect(result.files).not.toContain("_gitignore");
     const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));

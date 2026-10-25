@@ -216,6 +216,17 @@ export const configSchema = z.strictObject({
       sizes: z.string().regex(/^[^<>"]+$/).default("(max-width: 48rem) 100vw, 48rem").describe('The sizes attribute: how wide images display, so browsers pick the right file.'),
     })
     .default({ optimize: false, widths: [480, 960, 1600], quality: 75, avif: false, sizes: "(max-width: 48rem) 100vw, 48rem" }),
+  contact: z
+    .strictObject({
+      to: z.email().describe("Where messages go. Must be a verified destination address in Cloudflare Email Routing."),
+      from: z.email().describe("The sender address, on a domain with Cloudflare Email Routing turned on, e.g. contact@example.com."),
+      path: z.string().regex(/^\/(?:[\w-]+\/)+$/, 'must be a page address like "/contact/"').default("/contact/").describe("The page whose form posts the message (the form's action)."),
+      sent: z.string().regex(/^\/(?:[\w-]+\/)*$/, 'must be a page address like "/contact/sent/"').default("/contact/sent/").describe("Page shown after a message is sent."),
+      failed: z.string().regex(/^\/(?:[\w-]+\/)*$/, 'must be a page address like "/contact/not-sent/"').default("/contact/not-sent/").describe("Page shown when a message can't be sent."),
+      perMinute: z.number().int().min(1).max(100).default(3).describe("Messages one visitor (IP address) may send per minute."),
+    })
+    .optional()
+    .describe("A contact form emailed through Cloudflare Email Routing (cloudflare-workers target). Put contactForm(site) in a layout; vage deploy adds the Worker."),
   tags: z
     .strictObject({
       pages: z.boolean().default(true).describe("Generate a page at /tags/<tag>/ for every tag used in page frontmatter, listing its pages, newest first."),

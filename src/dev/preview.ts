@@ -70,8 +70,8 @@ function isFile(file: string): boolean {
   return fs.existsSync(file) && fs.statSync(file).isFile();
 }
 
-export function redirect(res: ServerResponse, location: string) {
-  res.statusCode = 301;
+export function redirect(res: ServerResponse, location: string, status = 301) {
+  res.statusCode = status;
   res.setHeader("Location", location);
   res.end();
 }

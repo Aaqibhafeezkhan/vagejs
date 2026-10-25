@@ -1,9 +1,12 @@
 import { execFile } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 export const PAGES_WORKFLOW = ".github/workflows/deploy.yml";
 
 /**
- * GitHub Actions workflow: check and build on every push to `branch`, then
+ * GitHub Actions workflow: check and build on every push to `branch` and once a day
+ * (so pages with a future datePublished go live on their day), then
  * deploy dist/ to GitHub Pages. Action majors checked 2026-10-23 against
  * https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
  * and each action's latest release. Least privilege: only the deploy job can write to Pages.
@@ -14,6 +17,8 @@ export function pagesWorkflow(branch: string): string {
 on:
   push:
     branches: [${JSON.stringify(branch)}]
+  schedule:
+    - cron: "15 0 * * *" # daily, so scheduled pages go live on their day
   workflow_dispatch:
 
 concurrency:
@@ -58,8 +63,22 @@ jobs:
 
 export type Runner = (cmd: string, args: string[], cwd: string) => Promise<{ code: number; stdout: string; stderr: string }>;
 
+/**
+ * npm's npx script, for Windows: there `npx` is npx.cmd, which Node only runs through a
+ * shell (and a shell would re-parse the arguments). Running npx-cli.js with node avoids both.
+ */
+export function npxCli(env: Record<string, string | undefined> = process.env, execPath = process.execPath): string | undefined {
+  const candidates = [
+    env.npm_execpath && path.join(path.dirname(env.npm_execpath), "npx-cli.js"),
+    path.join(path.dirname(execPath), "node_modules", "npm", "bin", "npx-cli.js"),
+  ];
+  return candidates.find((f): f is string => Boolean(f) && fs.existsSync(f as string));
+}
+
 export const runCommand: Runner = (cmd, args, cwd) =>
   new Promise((resolve) => {
+    const cli = cmd === "npx" && process.platform === "win32" ? npxCli() : undefined;
+    if (cli) [cmd, args] = [process.execPath, [cli, ...args]];
     execFile(cmd, args, { cwd, maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
       const code = (err as { code?: unknown } | null)?.code;
       resolve({ code: !err ? 0 : code === "ENOENT" ? 127 : typeof code === "number" ? code : 1, stdout, stderr });

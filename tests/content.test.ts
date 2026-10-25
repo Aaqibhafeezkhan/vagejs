@@ -19,6 +19,12 @@ describe("parseMarkdown", () => {
     expect(() => parseMarkdown("# No frontmatter\n", "x.md")).toThrow(/Invalid frontmatter[\s\S]*title[\s\S]*at x\.md/);
   });
 
+  it("explains a value with a colon in it, and how to quote it", () => {
+    expect(() => parseMarkdown("---\ntitle: A\ndescription: Copy prompts: add pages, fix errors\n---\n# A\n", "/x/page.md")).toThrow(
+      /The value of "description" on line 3 contains ": ", so YAML reads it as another key\. Wrap the value in quotes:\n  description: "Copy prompts: add pages, fix errors"/,
+    );
+  });
+
   it("reports invalid YAML with the file path", () => {
     expect(() => parseMarkdown("---\ntitle: [unclosed\n---\n", "bad.md")).toThrow(/Invalid YAML frontmatter[\s\S]*bad\.md/);
   });

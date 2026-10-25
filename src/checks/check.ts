@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse, type HTMLElement } from "node-html-parser";
 import { createBuildLoader } from "../core/loader.js";
+import { normalizeRequestPath, routeForPage } from "../core/routes.js";
+import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
 import { externalHost, hiddenReason, isEmptyLink, LINK_LOCK, linkTarget, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
 
@@ -60,7 +62,7 @@ export async function check(root: string, options: { strict?: boolean } = {}): P
   const loader = await createBuildLoader(root);
   try {
     const model = await renderSite(root, loader.load, { collectErrors: true });
-    const findings = checkSite(root, model);
+    const findings = [...checkSite(root, model), ...(await checkRemovedPages(root, model))];
     const errors = findings.filter((f) => f.severity === "error").length;
     const warnings = findings.length - errors;
     return {
@@ -99,6 +101,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   }
   findings.push(...checkDuplicates(listedPages(model)));
   findings.push(...checkRobots(model));
+  findings.push(...checkContact(model, outputs));
   findings.push(...checkRedirectTargets(model, outputs));
   findings.push(...checkOutboundLinks(root, model));
   return findings;
@@ -139,6 +142,16 @@ function checkPage(
 
   if (!doc.querySelector("html")?.getAttribute("lang")) {
     add({ rule: "html-lang", severity: "error", message: "<html> has no lang attribute.", docs: DOCS.lang });
+  }
+  const idCounts = new Map<string, number>();
+  for (const el of doc.querySelectorAll("[id]")) idCounts.set(el.getAttribute("id")!, (idCounts.get(el.getAttribute("id")!) ?? 0) + 1);
+  const duplicateIds = [...idCounts].filter(([, n]) => n > 1).map(([id]) => `"${id}"`);
+  if (duplicateIds.length) {
+    add({
+      rule: "id-duplicate",
+      severity: "warning",
+      message: `More than one element has the id ${duplicateIds.join(", ")}. Links to that #section and labels that point to it reach only the first. Rename the heading (or set its id), or change the id in the layout.`,
+    });
   }
   const titles = doc.querySelectorAll("title");
   if (titles.length !== 1 || !titles[0]!.text.trim()) {
@@ -195,7 +208,7 @@ function checkPage(
   }
 
   const site = model.site;
-  if (site.deploy.target === "cloudflare-pages" && site.security.headers && site.security.csp === "enforce") {
+  if (["cloudflare-pages", "cloudflare-workers", "netlify"].includes(site.deploy.target) && site.security.headers && site.security.csp === "enforce") {
     for (const el of doc.querySelectorAll("*")) {
       const handler = Object.keys(el.attributes).find((a) => /^on[a-z]+$/i.test(a));
       if (handler) {
@@ -354,6 +367,59 @@ function checkJsonLd(raw: string, add: (f: Omit<Finding, "page" | "source">) => 
       }
     }
   }
+}
+
+/** The contact form needs the Workers target, its result pages, and a page whose form posts to it. */
+function checkContact(model: SiteModel, outputs: Set<string>): Finding[] {
+  const contact = model.site.contact;
+  if (!contact) return [];
+  const findings: Finding[] = [];
+  if (model.site.deploy.target !== "cloudflare-workers") {
+    findings.push({ rule: "contact", severity: "error", message: `contact needs deploy.target "cloudflare-workers" (it emails through Cloudflare Email Routing); the target is "${model.site.deploy.target}".` });
+  }
+  for (const [key, route] of [["sent", contact.sent], ["failed", contact.failed]] as const) {
+    if (!outputs.has(`${route}index.html`)) findings.push({ rule: "contact", severity: "error", message: `contact.${key} is ${route}, but there's no published page there. Create it (e.g. src/pages${route.replace(/\/$/, "")}.md).` });
+  }
+  const action = (a: string | undefined) => a !== undefined && normalizeRequestPath(new URL(a, "http://x").pathname) === contact.path;
+  if (!model.pages.some((p) => parse(p.html).querySelectorAll("form").some((f) => action(f.getAttribute("action"))))) {
+    findings.push({ rule: "contact", severity: "warning", message: `No page has a form that posts to ${contact.path}. Add contactForm(site) from "vagejs" to the layout of that page.` });
+  }
+  return findings;
+}
+
+/**
+ * Pages deleted or moved since the last commit whose old address would now be a 404:
+ * suggests the redirect (with the new address when git saw a rename). Quietly skipped
+ * outside a git repository or before the first commit. Pages that were drafts don't count.
+ */
+async function checkRemovedPages(root: string, model: SiteModel): Promise<Finding[]> {
+  let diff: string;
+  try {
+    const res = await gitRaw(root, ["diff", "--name-status", "-M", "--relative", "HEAD", "--", "src/pages"]);
+    if (res.code !== 0) return [];
+    diff = res.stdout;
+  } catch {
+    return []; // git isn't installed
+  }
+  const live = new Set([...model.pages.map((p) => p.route), ...model.draftRoutes, ...model.skippedScheduled.map((s) => s.route)]);
+  const redirected = new Set(Object.keys(model.site.redirects).map(normalizeRequestPath));
+  const findings: Finding[] = [];
+  for (const line of diff.split("\n").filter(Boolean)) {
+    const [status, from, to] = line.split("\t");
+    if (!from || !(status === "D" || status?.startsWith("R"))) continue;
+    const route = routeForPage(from.replace(/^src\/pages\//, ""));
+    if (!route || live.has(route) || redirected.has(route)) continue;
+    const before = await gitRaw(root, ["show", `HEAD:./${from}`]);
+    if (before.code === 0 && /^---\r?\n[\s\S]*?^draft:\s*true\s*$/m.test(before.stdout)) continue;
+    const target = to ? routeForPage(to.replace(/^src\/pages\//, "")) : undefined;
+    findings.push({
+      rule: "redirect-missing",
+      severity: "warning",
+      source: from,
+      message: `${from} was ${target ? `moved to ${to}` : "deleted"} since the last commit, so ${route} will stop working for anyone with an old link. Add to vage.config.ts: redirects: { "${route}": "${target ?? "/new-address/"}" }`,
+    });
+  }
+  return findings;
 }
 
 function checkDuplicates(pages: SitePage[]): Finding[] {

@@ -250,7 +250,7 @@ cli
       const config = await loadProjectConfig(path.resolve(opts.root));
       const target = opts.target ?? config.deploy.target;
       if (target === "cloudflare-pages") return deployToCloudflare(opts, config.deploy.cloudflareProject);
-      if (target === "cloudflare-workers") return deployToWorkers(opts, config.deploy.cloudflareWorker ?? config.deploy.cloudflareProject, config.site);
+      if (target === "cloudflare-workers") return deployToWorkers(opts, config.deploy.cloudflareWorker ?? config.deploy.cloudflareProject, config.site, config);
       if (target === "netlify") {
         if (config.deploy.target !== "netlify") throw new VageError('Set deploy.target to "netlify" in vage.config.ts, so the build writes Netlify\'s _redirects and _headers.');
         return deployToNetlify(opts, config.deploy.netlifySite, config.site);
@@ -609,13 +609,18 @@ async function deployToCloudflare(opts: PublishFlags & { project?: string }, con
   if (deployment.status === "failure") process.exit(1);
 }
 
-async function deployToWorkers(opts: PublishFlags & { project?: string }, configuredWorker: string | undefined, siteUrl: string | undefined) {
+async function deployToWorkers(
+  opts: PublishFlags & { project?: string },
+  configuredWorker: string | undefined,
+  siteUrl: string | undefined,
+  site: Pick<import("../core/config.js").SiteConfig, "contact" | "title">,
+) {
   const root = path.resolve(opts.root);
   const { deployCloudflareWorkers, planWorkersDeploy } = await import("../deploy/cloudflare-workers.js");
   const { WRANGLER } = await import("../deploy/cloudflare-pages.js");
   const requested = opts.project ?? configuredWorker;
   if (requested) assertWorkerName(requested);
-  const plan = planWorkersDeploy(root, requested);
+  const plan = planWorkersDeploy(root, requested, site);
   const { check } = await import("../checks/check.js");
   const checked = await check(root);
   if (checked.errors) throw new VageError(`vage check found ${checked.errors} error(s). Fix them before deploying.`);
@@ -624,6 +629,7 @@ async function deployToWorkers(opts: PublishFlags & { project?: string }, config
   const steps = [
     `upload ${result.outDir} (${result.pages.length} page(s), ${result.files.length} generated file(s)) to Worker "${plan.worker}"`,
     plan.config ? `uses ${plan.config.file} (routes and custom domains stay as they are)` : "no wrangler config: a temporary one serves dist/ (with your 404 page)",
+    ...(plan.contact ? [`contact form: POST ${plan.contact.path} is emailed to ${plan.contact.to} from ${plan.contact.from} (vagejs's contact Worker; at most ${plan.contact.perMinute} a minute per visitor)`] : []),
     `runs: npx ${WRANGLER} versions upload, then versions deploy <version>@100% (a brand-new Worker gets wrangler deploy once)`,
     `verifies: ${siteUrl ?? "the Worker's workers.dev URL"} answers 200`,
   ];

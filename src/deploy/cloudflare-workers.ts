@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import type { SiteConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
 import { redact } from "../integrations/http.js";
 import { WRANGLER } from "./cloudflare-pages.js";
@@ -106,9 +108,45 @@ function stripJsonComments(text: string): string {
   return out;
 }
 
+/** The contact form Worker shipped with vagejs (dist/worker/contact.js). */
+export const CONTACT_WORKER = fileURLToPath(new URL("../worker/contact.js", import.meta.url));
+
+type Contact = NonNullable<SiteConfig["contact"]>;
+
+/** Settings the contact Worker reads, passed with --var so a project's own config doesn't have to repeat them. */
+export function contactVars(contact: Contact, siteTitle: string | undefined): string[] {
+  const vars = { CONTACT_TO: contact.to, CONTACT_FROM: contact.from, CONTACT_PATH: contact.path, CONTACT_SENT: contact.sent, CONTACT_FAILED: contact.failed, CONTACT_SITE: siteTitle };
+  return Object.entries(vars).flatMap(([k, v]) => (v ? ["--var", `${k}:${v}`] : []));
+}
+
+/** The bindings the contact Worker needs, for the generated config or to show the owner. */
+export function contactBindings(contact: Contact) {
+  return {
+    main: CONTACT_WORKER,
+    assets: { binding: "ASSETS", run_worker_first: [contact.path] },
+    send_email: [{ name: "EMAIL", destination_address: contact.to }],
+    ratelimits: [{ name: "CONTACT_LIMIT", namespace_id: "1001", simple: { limit: contact.perMinute, period: 60 } }],
+  };
+}
+
+/** What a project's own wrangler config is missing for the contact form, if anything. */
+export function contactConfigProblem(root: string, file: string, contact: Contact): string | undefined {
+  const text = fs.readFileSync(path.join(root, file), "utf8");
+  const missing = [
+    !/vagejs\/dist\/worker\/contact\.js/.test(text) && `"main": "node_modules/vagejs/dist/worker/contact.js"`,
+    !/\bASSETS\b/.test(text) && `"binding": "ASSETS" under "assets"`,
+    !text.includes(contact.path) && `"run_worker_first": ["${contact.path}"] under "assets"`,
+    !/send_email/.test(text) && `"send_email": [{ "name": "EMAIL", "destination_address": "${contact.to}" }]`,
+  ].filter(Boolean);
+  return missing.length ? `${file} needs these for the contact form: ${missing.join("; ")}. (The rate limit is optional: "ratelimits": [{ "name": "CONTACT_LIMIT", "namespace_id": "1001", "simple": { "limit": ${contact.perMinute}, "period": 60 } }].)` : undefined;
+}
+
 export interface WorkersPlan {
   /** The Worker that will actually be deployed. */
   worker: string;
+  /** vage.config.ts contact settings, when the site has a contact form. */
+  contact?: Contact;
+  siteTitle?: string;
   /** The project's wrangler config, if it has one. */
   config?: WranglerConfig;
   warnings: string[];
@@ -118,13 +156,16 @@ export interface WorkersPlan {
  * Decides which Worker gets deployed, and refuses setups where the plan and what
  * wrangler would actually do differ (another Worker name, or a folder other than dist/).
  */
-export function planWorkersDeploy(root: string, requested: string | undefined): WorkersPlan {
+export function planWorkersDeploy(root: string, requested: string | undefined, site: Pick<SiteConfig, "contact" | "title"> = {}): WorkersPlan {
   const config = readWranglerConfig(root);
   const warnings: string[] = [];
+  const extra = { contact: site.contact, siteTitle: site.title };
   if (!config) {
     if (!requested) throw new VageError("No Worker name. Pass --project <name>, set deploy.cloudflareWorker, or add a wrangler.jsonc.");
-    return { worker: requested, warnings };
+    return { worker: requested, warnings, ...extra };
   }
+  const problem = site.contact && contactConfigProblem(root, config.file, site.contact);
+  if (problem) throw new VageError(problem, path.join(root, config.file));
   if (!config.name) throw new VageError(`${config.file} has no "name". Add the Worker's name there.`, path.join(root, config.file));
   if (requested && requested !== config.name) {
     throw new VageError(
@@ -142,7 +183,7 @@ export function planWorkersDeploy(root: string, requested: string | undefined): 
   if (config.notFoundHandling !== "404-page" && fs.existsSync(path.join(root, "src", "pages", "404.md"))) {
     warnings.push(`${config.file}: add "not_found_handling": "404-page" under "assets", or unknown URLs get an empty 404 instead of your 404 page.`);
   }
-  return { worker: config.name, config, warnings };
+  return { worker: config.name, config, warnings, ...extra };
 }
 
 export interface WorkersDeployment extends DeployStatus {
@@ -188,17 +229,20 @@ export async function deployCloudflareWorkers(
   const configArgs: string[] = options.plan.config ? ["--config", path.join(root, options.plan.config.file)] : [];
   if (!options.plan.config) {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "vage-wrangler-"));
+    const contact = options.plan.contact && contactBindings(options.plan.contact);
     const config = {
       name: worker,
       compatibility_date: COMPATIBILITY_DATE,
-      assets: { directory: path.join(root, "dist"), not_found_handling: "404-page" },
+      ...(contact && { main: contact.main, send_email: contact.send_email, ratelimits: contact.ratelimits }),
+      assets: { directory: path.join(root, "dist"), not_found_handling: "404-page", ...(contact?.assets ?? {}) },
     };
     fs.writeFileSync(path.join(tempDir, "wrangler.json"), JSON.stringify(config, null, 2));
     configArgs.push("--config", path.join(tempDir, "wrangler.json"));
   }
 
   try {
-    const wrangler = (...args: string[]) => run("npx", ["--yes", WRANGLER, ...args, ...configArgs], root);
+    const vars = options.plan.contact ? contactVars(options.plan.contact, options.plan.siteTitle) : [];
+    const wrangler = (...args: string[]) => run("npx", ["--yes", WRANGLER, ...args, ...(args[0] === "versions" && args[1] === "deploy" ? [] : vars), ...configArgs], root);
     const out = (r: { stdout: string; stderr: string }) => redact(`${r.stdout}\n${r.stderr}`, secrets);
     const failReason = (code: number, text: string) => {
       const auth = /auth|login|token|unauthori[sz]ed|10000/i.test(text) ? " Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, or run `npx wrangler login`." : "";

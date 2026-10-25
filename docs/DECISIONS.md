@@ -182,6 +182,14 @@ Still by design (documented): `vage.config.ts`, layouts and the optional Lightho
 
 Netlify deploys are tested with a fake runner (command, JSON parsing, token redaction, live check); the `_headers` file was checked on a real Netlify site before this release, the deploy command itself was not run against Netlify in tests.
 
+## 0.6.0: contact forms and check suggestions
+
+- **The contact Worker ships in the package** (`dist/worker/contact.js`) instead of being generated per site: one reviewed piece of code, configured with `--var` (from `contact` in vage.config.ts) and bindings. The logic lives in `contact-mail.ts` without Cloudflare-only imports so it is tested in Node; `contact.ts` only wires in `cloudflare:email`. It was bundled with `wrangler deploy --dry-run` and run with `wrangler dev` (local email simulation) before release; sending through real Email Routing was tested earlier with the same code on vagejs.com.
+- **A project's own wrangler config is never edited**: `vage deploy` names what it lacks (main, ASSETS binding, run_worker_first, send_email). Variables still come from vage.config.ts via `--var`, so they can't drift.
+- **The honeypot answers like a success** so bots learn nothing; the rate limit uses Cloudflare's binding (10 or 60 second periods only, so the setting is per minute).
+- **`redirect-missing` compares with HEAD only** (what an agent changed before committing), skips pages that were drafts there, and is silent without git. Comparing with the last deploy would need deploy history vagejs doesn't keep.
+- **Windows npx**: Node refuses to run `.cmd` files without a shell (since the 2024 security fix), and a shell would re-parse arguments, so vagejs runs `npx-cli.js` with `process.execPath`. CI runs `npx --version` through the same code on Windows.
+
 ## Not implemented
 
 Bing Webmaster Tools API, a Vercel adapter, CMS content sources, hreflang/multi-language, base paths, sitemap indexes, per-tag feeds.

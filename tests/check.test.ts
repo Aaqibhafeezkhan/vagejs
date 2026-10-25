@@ -87,6 +87,14 @@ noindex: true
     ]);
   });
 
+  it("warns about ids used twice on a page, such as a heading that repeats a layout's id", async () => {
+    const root = copyFixture();
+    write(root, "src/layouts/default.ts", 'export default ({ content }: { content: string }) => `<html lang="en"><head><title>t</title></head><body><main id="main">${content}</main></body></html>`;');
+    write(root, "src/pages/about.md", "---\ntitle: About\ndescription: About us.\n---\n# About\n\n## Main\n");
+    const found = (await check(root)).findings.filter((f) => f.rule === "id-duplicate");
+    expect(found).toEqual([expect.objectContaining({ page: "/about/", severity: "warning", message: expect.stringContaining('the id "main"') })]);
+  });
+
   it("validates JSON-LD written by layouts", async () => {
     const root = copyFixture();
     write(

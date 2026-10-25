@@ -3,6 +3,19 @@
 ## Unreleased
 
 ### Added
+- **Contact forms for Cloudflare Workers sites.** `contact: { to, from }` in `vage.config.ts`, plus `contactForm(site)` in a layout: a plain HTML form (no JavaScript) with a hidden spam trap. `vage deploy` adds a Worker that ships with vagejs (`dist/worker/contact.js`): it emails each message through Cloudflare Email Routing with Reply-To set to the sender, limits each visitor to `contact.perMinute` messages a minute, and redirects to your "sent" or "not sent" page. Everything else is still served from your files. `vage check` reports a wrong target, missing result pages or a missing form; a project with its own `wrangler.jsonc` is told exactly what to add. The dev server shows the sent page without emailing anyone.
+- **`vage check` suggests redirects.** A page deleted or moved since the last commit, without a redirect, is a `redirect-missing` warning with the exact line to add (and the new address when git saw a rename).
+- **`vage check` finds ids used twice on a page** (`id-duplicate`), such as a heading that repeats an id the layout uses.
+- **Scheduled pages publish themselves.** The GitHub Pages workflow `vage deploy` writes now also runs daily (00:15 UTC). New sites get `.github/workflows/scheduled.yml` for Cloudflare and Netlify, off until the owner sets `VAGE_DAILY_DEPLOY=true` and the host's secrets.
+
+### Fixed
+- **`vage deploy` to Cloudflare and Netlify works on Windows.** `npx` is a `.cmd` file there, which Node can't start without a shell; vagejs now runs npm's npx script with Node directly. Tested on Windows in CI.
+- **A colon in a frontmatter value gets a clear fix.** Instead of only YAML's "Nested mappings are not allowed", the error names the field and line and shows the quoted value to paste.
+- The warning about inline event handlers (`onclick=`) now also covers the cloudflare-workers and netlify targets, which get the same Content-Security-Policy.
+
+## 0.5.0 (2026-10-25)
+
+### Added
 - **Heading ids.** Every `##` and `###` heading in page content gets an id made from its text (`## Quick start` becomes `id="quick-start"`), so sections can be linked. Ids written by hand are kept and never reused; repeats get `-2`, `-3`; letters in any script are kept. Turn off with `markdown: { headingIds: false }`. This changes the HTML of existing sites: layouts that add their own heading ids should use these instead.
 - **`vage check` finds `#section` links that go nowhere.** A same-site link whose `#fragment` matches no id (or `<a name>`) on the target page is a `link-fragment` warning; the page would open at the top. `#top` and text fragments are allowed.
 - **Scheduled publishing.** A page with a future `datePublished` is left out of builds, page lists, feeds and the sitemap until a build on or after that date, and `vage build` lists it as scheduled. A date goes live on that day in the build machine's time zone; a datetime with an offset at that moment. Links to a scheduled page fail `vage check`, like links to drafts. The site still needs a build on that day, for example from a scheduled CI workflow.

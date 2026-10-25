@@ -63,9 +63,12 @@ describe("security headers (_headers)", () => {
     expect(() => headersFile([`<html><head>${many}</head></html>`], parseConfig({}))).toThrow(/limited to 2000/);
   });
 
-  it("warns about inline event handlers that the CSP will block", async () => {
-    const root = cf();
-    write(root, "src/layouts/default.ts", 'export default ({ content }: { content: string }) => `<html lang="en"><head><title>t</title></head><body onload="init()"><main>${content}</main></body></html>`;');
-    expect((await check(root)).findings).toContainEqual(expect.objectContaining({ rule: "csp-inline-handler", severity: "warning" }));
+  it("warns about inline event handlers that the CSP will block, on every host that gets the headers", async () => {
+    for (const target of ['"cloudflare-pages", cloudflareProject: "f"', '"cloudflare-workers", cloudflareWorker: "f"', '"netlify", netlifySite: "f"']) {
+      const root = cf();
+      write(root, "vage.config.ts", `export default { site: "https://fixture.example", title: "F", deploy: { target: ${target} } };`);
+      write(root, "src/layouts/default.ts", 'export default ({ content }: { content: string }) => `<html lang="en"><head><title>t</title></head><body onload="init()"><main>${content}</main></body></html>`;');
+      expect((await check(root)).findings).toContainEqual(expect.objectContaining({ rule: "csp-inline-handler", severity: "warning" }));
+    }
   });
 });

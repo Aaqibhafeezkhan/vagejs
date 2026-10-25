@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { confirmPagesDeployment, ensurePagesEnabled, pagesWorkflow, PAGES_WORKFLOW, type Runner, pagesSubfolderProblem } from "../src/deploy/github-pages.js";
+import { confirmPagesDeployment, ensurePagesEnabled, npxCli, pagesWorkflow, PAGES_WORKFLOW, runCommand, type Runner, pagesSubfolderProblem } from "../src/deploy/github-pages.js";
 import { publish, type PublishPlan } from "../src/deploy/publish.js";
 import { findSecrets } from "../src/deploy/secrets.js";
 import { copyFixture, write, EMPTY_GIT_CONFIG } from "./helpers.js";
@@ -152,6 +152,8 @@ describe("GitHub Pages adapter", () => {
     const yml = pagesWorkflow("main");
     expect(yml).toMatch(/build:[\s\S]*permissions:\n      contents: read[\s\S]*npx vage check[\s\S]*npx vage build[\s\S]*upload-pages-artifact@v5/);
     expect(yml).toMatch(/deploy:\n    needs: build[\s\S]*pages: write\n      id-token: write[\s\S]*name: github-pages[\s\S]*deploy-pages@v5/);
+    // Daily, so pages with a future datePublished go live on their day.
+    expect(yml).toMatch(/schedule:\n    - cron: "15 0 \* \* \*"/);
   });
 
   function fakeGh(responses: Record<string, { code?: number; stdout?: string }>): { run: Runner; calls: string[] } {
@@ -220,5 +222,19 @@ describe("GitHub Pages subfolder check", () => {
     expect(pagesSubfolderProblem("https://agevenkat.github.io", undefined)).toBeUndefined();
     expect(pagesSubfolderProblem("https://agevenkat.github.io", "https://notgithub.com/agevenkat/site.git")).toBeUndefined();
     expect(pagesSubfolderProblem("https://agevenkat.github.io", "ssh://git@github.com/agevenkat/site.git")).toBeDefined();
+  });
+});
+
+describe("running npx", () => {
+  it("finds npm's npx script next to node or npm", () => {
+    expect(npxCli()).toMatch(/npx-cli\.js$/);
+    expect(npxCli({}, "/nowhere/node")).toBeUndefined();
+  });
+
+  // On Windows, npx is npx.cmd, which execFile can't start without a shell.
+  it("runs npx on every platform", async () => {
+    const res = await runCommand("npx", ["--version"], process.cwd());
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
