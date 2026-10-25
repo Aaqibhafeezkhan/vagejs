@@ -133,8 +133,9 @@ function checkPage(
   if (titles.length !== 1 || !titles[0]!.text.trim()) {
     add({ rule: "title", severity: "error", message: `Expected exactly one non-empty <title>, found ${titles.length}.`, docs: DOCS.title });
   }
+  // Only pages shown in search results can be shortened there.
   const renderedTitle = titles[0]?.text.trim() ?? "";
-  if (renderedTitle.length > 60) {
+  if (indexable && renderedTitle.length > 60) {
     add({
       rule: "title-length",
       severity: "warning",
@@ -143,7 +144,7 @@ function checkPage(
     });
   }
   const description = doc.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() ?? "";
-  if (description.length > 160) {
+  if (indexable && description.length > 160) {
     add({
       rule: "meta-description-length",
       severity: "warning",
