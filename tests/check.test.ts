@@ -30,6 +30,47 @@ describe("vage check", () => {
     ]);
   });
 
+  it("warns when rendered titles and meta descriptions may be shortened", async () => {
+    const root = copyFixture();
+    const longTitle = "T".repeat(61);
+    const longDescription = "D".repeat(161);
+    write(root, "src/pages/index.md", `---
+title: ${longTitle}
+description: ${longDescription}
+---
+# Home
+`);
+
+    const findings = (await check(root)).findings.filter((f) => f.page === "/");
+    const titleWarning = findings.find((f) => f.rule === "title-length");
+    const descriptionWarning = findings.find((f) => f.rule === "meta-description-length");
+
+    expect(titleWarning).toMatchObject({ severity: "warning", source: "src/pages/index.md" });
+    expect(titleWarning?.message).toContain("src/pages/index.md");
+    // The layout adds the site name, so the rendered title is longer than the frontmatter one.
+    expect(Number(/is (\d+) characters/.exec(titleWarning?.message ?? "")?.[1])).toBeGreaterThan(61);
+    expect(titleWarning?.message).toContain("may be shortened in search results");
+    expect(descriptionWarning).toMatchObject({ severity: "warning", source: "src/pages/index.md" });
+    expect(descriptionWarning?.message).toContain("src/pages/index.md");
+    expect(descriptionWarning?.message).toContain("161 characters");
+    expect(descriptionWarning?.message).toContain("may be shortened in search results");
+  });
+
+  it("skips length warnings on pages kept out of search", async () => {
+    const root = copyFixture();
+    write(root, "src/pages/index.md", `---
+title: ${"T".repeat(61)}
+description: ${"D".repeat(161)}
+noindex: true
+---
+# Home
+`);
+
+    const rules = (await check(root)).findings.filter((f) => f.page === "/").map((f) => f.rule);
+    expect(rules).not.toContain("title-length");
+    expect(rules).not.toContain("meta-description-length");
+  });
+
   it("validates JSON-LD written by layouts", async () => {
     const root = copyFixture();
     write(

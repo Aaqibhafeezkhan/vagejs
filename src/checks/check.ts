@@ -133,6 +133,25 @@ function checkPage(
   if (titles.length !== 1 || !titles[0]!.text.trim()) {
     add({ rule: "title", severity: "error", message: `Expected exactly one non-empty <title>, found ${titles.length}.`, docs: DOCS.title });
   }
+  // Only pages shown in search results can be shortened there.
+  const renderedTitle = titles[0]?.text.trim() ?? "";
+  if (indexable && renderedTitle.length > 60) {
+    add({
+      rule: "title-length",
+      severity: "warning",
+      message: `Rendered <title> in "${page.source}" is ${renderedTitle.length} characters; it may be shortened in search results.`,
+      docs: DOCS.title,
+    });
+  }
+  const description = doc.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() ?? "";
+  if (indexable && description.length > 160) {
+    add({
+      rule: "meta-description-length",
+      severity: "warning",
+      message: `Meta description in "${page.source}" is ${description.length} characters; it may be shortened in search results.`,
+      docs: DOCS.description,
+    });
+  }
   if (indexable && !doc.querySelector('meta[name="description"]')?.getAttribute("content")) {
     add({
       rule: "meta-description",

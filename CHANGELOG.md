@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- `vage check` warns when rendered page titles exceed 60 characters or meta descriptions exceed 160, noting that they may be shortened in search results.
+
 ### Changed
 - Windows setup notes in the README and the starter's `AGENTS.md` (contributed by @chinmayee5599, #7).
 
