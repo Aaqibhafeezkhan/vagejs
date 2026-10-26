@@ -194,6 +194,12 @@ Netlify deploys are tested with a fake runner (command, JSON parsing, token reda
 
 - **Sites in a subfolder are a build-time prefix** (issue #4): `site` keeps its path (`https://owner.github.io/repo`), so absolute URLs built from it are right, while routes, layouts, checks, the dev server and the editor keep working with root paths. The build adds the prefix to root-relative URLs in real tags (never in text, code samples, comments or script bodies), `<style>`, inline styles, meta refresh and CSS files from `public/`. Other `public/` files (JavaScript, manifests, SVG, HTML) aren't rewritten. Cloudflare, Netlify and the contact form stay root-only, since those sites are served from a domain root.
 
+## 0.10.0 and 0.11.0: languages, components, islands
+
+- **Languages are folders, translations are paths.** `lang` stays the main language at the root; `i18n.locales` folders hold the others, and `fr/about.md` translates `about.md` unless `translationOf` names another page. No translation keys to keep in sync. hreflang is only written between pages that are indexable and canonical to themselves.
+- **Components render at build time** through the same Vite loader as layouts. React, Vue and MDX are optional peer dependencies resolved from the project, so sites without them install nothing. MDX pages are trusted code, like layouts.
+- **Islands are opt-in per element** (`client:load`, `client:visible`, `client:idle`, React only). Server JSX compiles to a virtual `vage:jsx` runtime that turns such elements into placeholders; they are rendered with `renderToString` after the page (never inside the page's render, which breaks hooks) with their own `useId` prefix. Components in `src/components/` are tagged with file and export at load time, so the build bundles exactly the islands used, with Vite, into `/_vage/islands/` (one loader, one entry per island, shared chunks). Islands inside islands are refused: the browser bundle uses plain React and couldn't hydrate them. Pages without islands still send no JavaScript; `vage audit` counts island code including React.
+
 ## Not implemented
 
-Bing Webmaster Tools API, a Vercel adapter, CMS content sources, hreflang/multi-language, sitemap indexes, per-tag feeds.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, sitemap indexes, per-tag feeds, per-language llms.txt, Vue islands.

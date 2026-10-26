@@ -20,6 +20,7 @@ export const ISLANDS_DIR = "_vage/islands";
 export const JSX_SOURCE = "vage:jsx";
 const RUNTIME_ID = "\0vage:jsx-runtime";
 const DEV_RUNTIME_ID = "\0vage:jsx-dev-runtime";
+const CREATE_ELEMENT_ID = "\0vage:jsx";
 
 export interface IslandSource {
   key: string;
@@ -35,6 +36,16 @@ export function islandRegistry(): Map<string, IslandSource> {
   return (g.__vageIslands ??= new Map());
 }
 
+/** Island useId prefixes, unique within a page ("vi0-", "vi1-"…); reset per page by renderPage. */
+export function resetIslandIds(): void {
+  (globalThis as { __vageIslandSeq?: number }).__vageIslandSeq = 0;
+}
+
+export function nextIslandPrefix(): string {
+  const g = globalThis as { __vageIslandSeq?: number };
+  return `vi${(g.__vageIslandSeq = (g.__vageIslandSeq ?? 0) + 1) - 1}-`;
+}
+
 /** Keys of the islands on a rendered page. */
 export function islandKeys(html: string): string[] {
   return [...new Set([...html.matchAll(/<vage-island\b[^>]*\bdata-island="([\w-]+)"/g)].map((m) => m[1]!))];
@@ -47,47 +58,71 @@ export function injectIslandRuntime(html: string): string {
   return html.replace(/<\/head>/i, `    ${tag}\n  </head>`);
 }
 
-const directives = (create: string) => `
+/**
+ * The island part of the server JSX runtime. island() validates a client: element and
+ * returns an empty <vage-island data-vage-pending=N> placeholder: the component itself is
+ * rendered by renderReact after the page (components.ts), never inside the page's render,
+ * which would break hooks called later in the same component.
+ */
+const ISLAND_CODE = `
 const WHEN = ["load", "visible", "idle"];
-function island(create, type, props, rest) {
+const hasDirective = (type, props) => typeof type !== "string" && props != null && Object.keys(props).some((k) => k.startsWith("client:"));
+function plainData(key, value) {
+  const raw = this[key];
+  const plain = raw === null || ["string", "boolean", "undefined"].includes(typeof raw) || (typeof raw === "number" && Number.isFinite(raw)) ||
+    (typeof raw === "object" && [Object.prototype, Array.prototype, null].includes(Object.getPrototypeOf(raw)));
+  if (!plain) throw Object.assign(new Error(key), { vageProp: true });
+  return value;
+}
+function island(make, type, props) {
   const label = (type && (type.displayName || type.name)) || "Component";
   const found = Object.keys(props).filter((k) => k.startsWith("client:"));
   if (found.length > 1) throw new Error("<" + label + "> has " + found.join(" and ") + ": use one client: directive.");
   const when = found[0].slice("client:".length);
+  const tag = "<" + label + " client:" + when + ">";
   if (!WHEN.includes(when)) throw new Error("client:" + when + " on <" + label + "> isn't a vagejs directive. Use client:load, client:visible or client:idle.");
   const source = type && type.__vageIsland;
-  if (!source) throw new Error("<" + label + " client:" + when + "> must be a function component exported from a file in src/components/, so vagejs knows which code to send to the browser.");
+  if (!source) throw new Error(tag + " must be a function component exported from a file in src/components/, so vagejs knows which code to send to the browser.");
   const own = {};
-  for (const k of Object.keys(props)) if (!k.startsWith("client:")) own[k] = props[k];
-  if (own.children !== undefined) throw new Error("<" + label + " client:" + when + "> can't have content between its tags yet. Pass text as a prop instead.");
+  for (const k of Object.keys(props)) if (!k.startsWith("client:") && k !== "key" && k !== "ref") own[k] = props[k];
+  if (own.children !== undefined) throw new Error(tag + " can't have content between its tags yet. Pass text as a prop instead.");
   let json;
   try {
-    json = JSON.stringify(own, (k, v) => {
-      if (typeof v === "function" || typeof v === "symbol" || typeof v === "bigint") throw new Error(k);
-      return v;
-    });
+    json = JSON.stringify(own, plainData);
   } catch (err) {
-    throw new Error("Props of <" + label + " client:" + when + "> must be plain data (text, numbers, true/false, lists and objects). \\"" + err.message + "\\" isn't.");
+    if (!err.vageProp) throw new Error("Props of " + tag + " contain a loop (an object that refers to itself); they must be plain data.");
+    throw new Error("Props of " + tag + " must be plain data (text, numbers, true/false, lists and plain objects). \\"" + err.message + "\\" isn't (functions, dates, maps and NaN can't be sent to the browser).");
   }
-  const render = globalThis.__vageRenderIsland;
-  if (!render) throw new Error("client: directives work in React layouts and MDX pages.");
+  const pending = globalThis.__vageIslandPending;
+  if (!pending) throw new Error("client: directives work in React layouts and MDX pages.");
+  if (pending.filling) throw new Error(tag + " is inside another interactive component. Only the outermost component can have a client: directive.");
   (globalThis.__vageIslands ??= new Map()).set(source.key, source);
-  return ${create}("vage-island", { "data-island": source.key, "data-when": when, "data-props": json, dangerouslySetInnerHTML: { __html: render(type, own) } }, ...rest);
+  const id = pending.items.push({ type, props: own }) - 1;
+  return make({ "data-island": source.key, "data-when": when, "data-props": json, "data-vage-pending": String(id) });
 }
-const hasDirective = (type, props) => typeof type !== "string" && props != null && Object.keys(props).some((k) => k.startsWith("client:"));
 `;
 
 const RUNTIME_CODE = `import { jsx as reactJsx, jsxs as reactJsxs, Fragment } from "react/jsx-runtime";
-${directives("reactJsx")}
+${ISLAND_CODE}
 export { Fragment };
-export const jsx = (type, props, ...rest) => (hasDirective(type, props) ? island(reactJsx, type, props, rest) : reactJsx(type, props, ...rest));
-export const jsxs = (type, props, ...rest) => (hasDirective(type, props) ? island(reactJsx, type, props, rest) : reactJsxs(type, props, ...rest));
+export const jsx = (type, props, key, ...more) => (hasDirective(type, props) ? island((a) => reactJsx("vage-island", a, key), type, props) : reactJsx(type, props, key, ...more));
+export const jsxs = (type, props, key, ...more) => (hasDirective(type, props) ? island((a) => reactJsx("vage-island", a, key), type, props) : reactJsxs(type, props, key, ...more));
 `;
 
 const DEV_RUNTIME_CODE = `import { jsxDEV as reactJsxDEV, Fragment } from "react/jsx-dev-runtime";
-${directives("reactJsxDEV")}
+${ISLAND_CODE}
 export { Fragment };
-export const jsxDEV = (type, props, ...rest) => (hasDirective(type, props) ? island(reactJsxDEV, type, props, rest) : reactJsxDEV(type, props, ...rest));
+export const jsxDEV = (type, props, key, ...more) => (hasDirective(type, props) ? island((a) => reactJsxDEV("vage-island", a, key, false), type, props) : reactJsxDEV(type, props, key, ...more));
+`;
+
+/** What the compiler imports from the bare "vage:jsx" for <X {...props} key={k} />. */
+const CREATE_ELEMENT_CODE = `import { createElement as reactCreateElement, Fragment } from "react";
+${ISLAND_CODE}
+export { Fragment };
+export const createElement = (type, props, ...children) =>
+  hasDirective(type, props)
+    ? island((a) => reactCreateElement("vage-island", props.key != null ? { ...a, key: props.key } : a), type, children.length ? { ...props, children: children.length === 1 ? children[0] : children } : props)
+    : reactCreateElement(type, props, ...children);
 `;
 
 /** A short, stable key for one export of one file: "counter-1a2b3c4d-default". */
@@ -115,11 +150,13 @@ export function islandPlugins(root: string): Plugin[] {
       resolveId(id) {
         if (id === `${JSX_SOURCE}/jsx-runtime`) return RUNTIME_ID;
         if (id === `${JSX_SOURCE}/jsx-dev-runtime`) return DEV_RUNTIME_ID;
+        if (id === JSX_SOURCE) return CREATE_ELEMENT_ID;
         return null;
       },
       load(id) {
         if (id === RUNTIME_ID) return RUNTIME_CODE;
         if (id === DEV_RUNTIME_ID) return DEV_RUNTIME_CODE;
+        if (id === CREATE_ELEMENT_ID) return CREATE_ELEMENT_CODE;
         return null;
       },
     },
@@ -140,7 +177,7 @@ export function islandPlugins(root: string): Plugin[] {
 
 /** The browser loader: finds islands on the page and loads each one when its directive says. */
 const LOADER_CODE = `const start = (el) =>
-  import(new URL("./" + el.dataset.island + ".js", import.meta.url).href).then((m) => m.default(el, JSON.parse(el.dataset.props || "{}")));
+  import(new URL("./" + el.dataset.island + ".js", import.meta.url).href).then((m) => m.default(el, JSON.parse(el.dataset.props || "{}"), el.dataset.idPrefix));
 for (const el of document.querySelectorAll("vage-island[data-island]")) {
   const when = el.dataset.when;
   if (when === "visible" && "IntersectionObserver" in window) {
@@ -184,7 +221,7 @@ export async function bundleIslands(root: string, islands: IslandSource[], optio
           if (!id.startsWith("\0vage-island:")) return null;
           const island = byKey.get(id.slice("\0vage-island:".length))!;
           const importLine = island.name === "default" ? `import Component from ${JSON.stringify(island.file)};` : `import { ${island.name} as Component } from ${JSON.stringify(island.file)};`;
-          return `import { createElement } from "react";\nimport { hydrateRoot } from "react-dom/client";\n${importLine}\nexport default (el, props) => hydrateRoot(el, createElement(Component, props));\n`;
+          return `import { createElement } from "react";\nimport { hydrateRoot } from "react-dom/client";\n${importLine}\nexport default (el, props, identifierPrefix) => hydrateRoot(el, createElement(Component, props), { identifierPrefix });\n`;
         },
       },
     ],

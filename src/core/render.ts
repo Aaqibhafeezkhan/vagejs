@@ -15,7 +15,7 @@ import type { PageSummary } from "./pages.js";
 import { resolveMenus, type MenuItem } from "./menus.js";
 import { pageLang, pageTranslations, type Translation } from "./i18n.js";
 import { componentKind, renderReact, renderVue } from "./components.js";
-import { injectIslandRuntime } from "./islands.js";
+import { injectIslandRuntime, resetIslandIds } from "./islands.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -75,6 +75,7 @@ export async function renderPage(options: {
   source?: string;
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
+  resetIslandIds();
   const source = options.source ?? fs.readFileSync(file, "utf8");
   // An .mdx page is code (it can import components), rendered with React at build time.
   const mdx = options.source === undefined && file.endsWith(".mdx");

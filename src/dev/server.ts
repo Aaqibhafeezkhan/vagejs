@@ -43,11 +43,13 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   // Vite reports "C:/..." on Windows; compare normalized paths, ignoring case there.
   const key = (file: string) => (process.platform === "win32" ? path.resolve(file).toLowerCase() : path.resolve(file));
   const srcKey = key(srcDir.slice(0, -1)) + path.sep;
-  let islandFiles: Promise<Map<string, string>> | undefined;
+  let islandFiles: { keys: string; files: Promise<Map<string, string>> } | undefined;
   server.watcher.on("all", (_event, file) => {
     const config = findConfigFile(root);
     if (key(file).startsWith(srcKey) || (config && key(file) === key(config))) {
+      // A component may have been renamed or deleted: forget islands until pages render again.
       islandFiles = undefined;
+      islandRegistry().clear();
       server.ws.send({ type: "full-reload", path: "*" });
     }
   });
@@ -71,9 +73,12 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
     try {
       const island = /^\/_vage\/islands\/([\w-]+\.js)$/.exec(pathname);
       if (island) {
-        // Bundled on first request after a change, for every island rendered so far.
-        islandFiles ??= bundleIslands(root, [...islandRegistry().values()], { dev: true });
-        const code = (await islandFiles.catch((err) => ((islandFiles = undefined), Promise.reject(err)))).get(island[1]!);
+        // Bundled for every island rendered since the last change, again when a page renders a new one.
+        const sources = [...islandRegistry().values()];
+        const keys = sources.map((s) => s.key).sort().join(" ");
+        if (!islandFiles || islandFiles.keys !== keys) islandFiles = { keys, files: bundleIslands(root, sources, { dev: true }) };
+        const current = islandFiles;
+        const code = (await current.files.catch((err) => ((islandFiles = undefined), Promise.reject(err)))).get(island[1]!);
         if (code === undefined) return send(res, 404, plainPage("404 — Not found", `No island code at ${pathname}`));
         res.setHeader("Content-Type", "text/javascript; charset=utf-8");
         return res.end(code);

@@ -3,7 +3,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Plugin } from "vite";
 import { VageError } from "./errors.js";
-import { islandPlugins, JSX_SOURCE } from "./islands.js";
+import { islandPlugins, JSX_SOURCE, nextIslandPrefix } from "./islands.js";
+
+type IslandPending = { items: { type: unknown; props: object }[]; filling: boolean };
 
 /**
  * React, Vue and MDX support. Components render to HTML at build time; only React
@@ -41,15 +43,30 @@ export function componentKind(file: string): "react" | "vue" | undefined {
 }
 
 type ReactModule = { createElement: (type: unknown, props?: unknown) => unknown };
-type ReactDomServer = { renderToStaticMarkup: (element: unknown) => string; renderToString: (element: unknown) => string };
+type ReactDomServer = { renderToStaticMarkup: (element: unknown) => string; renderToString: (element: unknown, options?: { identifierPrefix?: string }) => string };
 
 /** Renders a React component (a layout or an MDX page) to static HTML. */
 export async function renderReact(root: string, component: unknown, props: object, needed: string): Promise<string> {
   const react = await projectImport<ReactModule>(root, "react", needed, INSTALL.react);
   const server = await projectImport<ReactDomServer>(root, "react-dom/server", needed, INSTALL.react);
-  // Islands are rendered with renderToString, the markup React hydrates in the browser.
-  (globalThis as { __vageRenderIsland?: unknown }).__vageRenderIsland = (type: unknown, own: object) => server.renderToString(react.createElement(type, own));
-  return server.renderToStaticMarkup(react.createElement(component, props));
+  // Islands (client:*) render as empty placeholders; each is filled in afterwards with
+  // renderToString, the markup React hydrates, and its own useId prefix. Everything from here
+  // to the end is synchronous, so concurrent renders (dev server) can't share the list.
+  const pending: IslandPending = { items: [], filling: false };
+  const g = globalThis as { __vageIslandPending?: IslandPending };
+  g.__vageIslandPending = pending;
+  try {
+    const html = server.renderToStaticMarkup(react.createElement(component, props));
+    pending.filling = true;
+    return html.replace(/<vage-island ([^>]*?) data-vage-pending="(\d+)"><\/vage-island>/g, (match, attrs: string, index: string) => {
+      const item = pending.items[Number(index)];
+      if (!item) return match; // hand-written markup, not ours
+      const identifierPrefix = nextIslandPrefix();
+      return `<vage-island ${attrs} data-id-prefix="${identifierPrefix}">${server.renderToString(react.createElement(item.type, item.props), { identifierPrefix })}</vage-island>`;
+    });
+  } finally {
+    g.__vageIslandPending = undefined;
+  }
 }
 
 type VueModule = { createSSRApp: (root: object) => unknown; h: (type: unknown, props?: unknown) => unknown };

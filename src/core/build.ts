@@ -46,6 +46,8 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
     const keys = new Set([...model.pages, ...(model.notFound ? [model.notFound] : [])].flatMap((p) => islandKeys(p.html)));
     if (keys.size) {
       const registry = islandRegistry();
+      const unknown = [...keys].find((k) => !registry.has(k));
+      if (unknown) throw new VageError(`A page contains <vage-island data-island="${unknown}"> that vagejs didn't make. Islands come from client:load, client:visible or client:idle on a component; remove the hand-written element.`);
       for (const [name, code] of await bundleIslands(root, [...keys].map((k) => registry.get(k)!))) outputs.set(`${ISLANDS_DIR}/${name}`, code);
     }
     const assets = new Map<string, string>();
