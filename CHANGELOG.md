@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.9.0 (2026-10-26)
 
 ### Added
 - **"Copy prompt for AI" in the editor.** It copies a prompt with the open page (unsaved edits included), its `vage check` problems and rules against invented facts, ready to paste into ChatGPT, Claude, Gemini or any AI chat. No API key needed.
