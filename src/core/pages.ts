@@ -9,6 +9,7 @@ import { instant, scheduledFor } from "./dates.js";
 import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
 import { discoverRoutes, publicPath, routeKey, type TrailingSlash } from "./routes.js";
+import { pageLang } from "./i18n.js";
 
 /** One published page, as layouts see it in `props.pages`. */
 export interface PageSummary {
@@ -20,6 +21,8 @@ export interface PageSummary {
   /** Menu and breadcrumb text: `navTitle`, or the title. */
   label: string;
   description?: string;
+  /** The page's language: `site.lang`, or its i18n locale folder ("fr" for /fr/...). */
+  lang: string;
   /** Source path relative to the project root, e.g. "src/pages/blog/first-post.md". */
   source: string;
   frontmatter: Frontmatter;
@@ -52,6 +55,7 @@ export async function collectPages(root: string, site: SiteConfig, load: ModuleL
       title: frontmatter.title,
       label: frontmatter.navTitle ?? frontmatter.title,
       description: frontmatter.description,
+      lang: pageLang(site, entry.route),
       source: path.relative(root, entry.file),
       frontmatter,
     });
@@ -85,6 +89,8 @@ export interface CollectionOptions {
   limit?: number;
   /** Only pages with this tag (compared like tag page addresses: "SEO" matches "seo"). */
   tag?: string;
+  /** Only pages in this language (i18n), e.g. the current `page.lang`. */
+  lang?: string;
 }
 
 /**
@@ -101,7 +107,7 @@ export function byOrder(a: PageSummary, b: PageSummary): number {
 
 export function collection(pages: readonly PageSummary[], options: CollectionOptions = {}): PageSummary[] {
   if (!Array.isArray(pages)) throw new VageError("collection(): pass the layout's `pages` as the first argument.");
-  const { under, includeIndex = false, sort = "route", limit, tag } = options;
+  const { under, includeIndex = false, sort = "route", limit, tag, lang } = options;
   if (tag !== undefined && (typeof tag !== "string" || !tagSlug(tag))) throw new VageError(`collection(): "tag" must be a tag name like "SEO" (got ${JSON.stringify(tag)}).`);
   if (under !== undefined && !/^\/(?!\/)/.test(under)) {
     throw new VageError(`collection(): "under" must be a site path starting with "/", like "/blog/" (got ${JSON.stringify(under)}).`);
@@ -109,13 +115,14 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
   if (typeof sort !== "function" && !SORTS.includes(sort)) {
     throw new VageError(`collection(): "sort" must be "date", "order", "title", "route" or a compare function (got ${JSON.stringify(sort)}).`);
   }
+  if (lang !== undefined && (typeof lang !== "string" || !lang)) throw new VageError(`collection(): "lang" must be a language code like "fr" (got ${JSON.stringify(lang)}).`);
   if (typeof includeIndex !== "boolean") throw new VageError(`collection(): "includeIndex" must be true or false (got ${JSON.stringify(includeIndex)}).`);
   if (limit !== undefined && !(Number.isInteger(limit) && limit >= 0)) {
     throw new VageError(`collection(): "limit" must be a whole number of 0 or more (got ${JSON.stringify(limit)}).`);
   }
   const prefix = under ? (under.endsWith("/") ? under : `${under}/`) : undefined;
   const picked = pages.filter(
-    (p) => (!prefix || (routeKey(p.route).startsWith(prefix) && (includeIndex || routeKey(p.route) !== prefix))) && (tag === undefined || (p.frontmatter.tags ?? []).some((t: string) => tagSlug(t) === tagSlug(tag))),
+    (p) => (!prefix || (routeKey(p.route).startsWith(prefix) && (includeIndex || routeKey(p.route) !== prefix))) && (tag === undefined || (p.frontmatter.tags ?? []).some((t: string) => tagSlug(t) === tagSlug(tag))) && (lang === undefined || p.lang === lang),
   );
   const byTitle = (a: PageSummary, b: PageSummary) => a.title.localeCompare(b.title);
   const compare =

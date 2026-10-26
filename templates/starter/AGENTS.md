@@ -46,6 +46,7 @@ vagejs is tested on Windows on every change.
 - **Link to a section:** every `##` and `###` heading gets an id from its text (`## Quick start` becomes `id="quick-start"`), so link to `/docs/setup/#quick-start`. `npm run check` warns when a `#section` matches no id on the target page (`link-fragment`). Write `<h2 id="...">` in Markdown for an id of your own. Ids are only kept unique within the page content, so avoid headings that repeat an id the layout uses (such as `main`); `markdown: { headingIds: false }` turns automatic ids off.
 - **Schedule a post:** give it a future `datePublished` (and no `draft: true`). It stays out of builds, lists, feeds and the sitemap until a build on or after that day; `npm run build` lists it as `(scheduled for <date>, skipped)`. A date goes live on that day in the build machine's time zone (UTC on most CI); use a datetime such as `2026-11-01T09:00:00+05:30` for an exact time. The site must be rebuilt on that day: on GitHub Pages, `.github/workflows/deploy.yml` rebuilds daily at 00:15 UTC; for Cloudflare and Netlify, the owner turns on `.github/workflows/scheduled.yml` (repository variable `VAGE_DAILY_DEPLOY=true` plus the host's secrets). `vage indexnow --changed-since` skips drafts and scheduled pages; once the page is live, submit it with `--urls`.
 - **Tag pages:** `tags: [SEO, AI]` in frontmatter. Each tag gets a page at `/tags/<tag>/` listing its pages, newest first (`tags: { layout: "<name>" }` picks its layout, `tags: { pages: false }` turns them off). In layouts, `collection(pages, { tag: "SEO" })` picks tagged pages and `tagList(pages, site.trailingSlash)` lists every tag with its `route` and `count`. Tags are matched by their address, so "SEO" and "seo" are the same tag.
+- **Multi-language site:** set `i18n: { locales: ["fr"] }` in `vage.config.ts` (`lang` stays the main language). Main-language pages stay where they are; French pages go in `src/pages/fr/`, and `fr/about.md` is the translation of `about.md`. A translated address (`fr/a-propos.md`) needs `translationOf: /about/`. vagejs adds hreflang links between translations. In layouts use `<html lang="${page.lang}">`, build a language switcher from `page.translations` (`lang`, `route`, `current`), list one language with `collection(pages, { lang: page.lang })`, and use a separate menu per language (`menus.main`, `menus["main-fr"]`). `npm run check` reports a wrong `<html lang>`, a bad `translationOf`, two pages for the same translation, and (as warnings) missing translations. Never translate pages unless the owner asked for that language.
 - **Add a contact form (Cloudflare Workers sites):** only with the owner, who sets up Cloudflare Email Routing for the domain and verifies the address that receives messages. Add `contact: { to: "<verified address>", from: "<address on the site's domain>" }` to `vage.config.ts`, put `${contactForm(site)}` (from `vagejs`) in the layout of `src/pages/contact.md`, and create `src/pages/contact/sent.md` and `src/pages/contact/not-sent.md`. `npm run check` reports anything missing (`contact`). The form is plain HTML (no JavaScript) with a hidden spam trap; style it with `.vage-contact`. In `npm run dev`, sending shows the sent page without emailing anyone. `npx vage deploy` adds vagejs's contact Worker: it emails each message with Reply-To set to the sender, at most `contact.perMinute` (default 3) a minute per visitor. A project with its own `wrangler.jsonc` must add the Worker and bindings there; `vage deploy` names what's missing.
 - **Rename a page:** move the file (`git mv`, so git sees the rename), then add `redirects: { "/old-slug/": "/new-slug/" }` to `vage.config.ts`. `npm run check` warns about pages moved or deleted since the last commit without a redirect (`redirect-missing`) and shows the line to add. It also warns when an id appears twice on a page (`id-duplicate`), for example a heading that repeats an id the layout uses.
 - **Hide a page from search:** `noindex: true` (it stays published). To unpublish, use `draft: true` or delete it.
@@ -87,6 +88,7 @@ navTitle: Pricing        # shorter label for menus and breadcrumbs (PageSummary.
 tags: [SEO, AI]          # each tag gets a page at /tags/<tag>/
 ---
 ```
+translationOf: /about/   # i18n only: the main-language page a translated address translates
 
 Do not invent titles, descriptions, dates, authors or facts. Ask the site owner.
 
@@ -113,11 +115,11 @@ With `deploy.target: "cloudflare-workers"`, `"cloudflare-pages"` or `"netlify"`,
 Write layouts with the `html` template tag from `vagejs`: every `${value}` is escaped automatically, arrays are joined,
 and `null`/`undefined`/`false` render nothing. `content` is already-rendered, sanitized HTML: insert it with `raw(content)`.
 Never wrap frontmatter or other text in `raw()`. `html` escapes text but doesn't check URLs: if a link target comes from frontmatter, allow only paths starting with `/` and `https:` links. (Plain template strings still work; then escape every value with `escapeHtml`.)
-`page.url` is the absolute canonical URL (when `site` is set and the page is indexable).
-`pages` lists every published page (`route`, `url`, `title`, `description`, `frontmatter`); pick and sort with `collection()`.
+`page.url` is the absolute canonical URL (when `site` is set and the page is indexable). `page.lang` is the page's language (use it for `<html lang>`); with `i18n`, `page.translations` lists its language versions.
+`pages` lists every published page (`route`, `url`, `title`, `description`, `lang`, `frontmatter`); pick and sort with `collection()`.
 
 The layout must contain `</head>`. vagejs inserts these before it, skipping any the layout already writes:
-meta description, robots noindex, canonical, Open Graph, `twitter:card`, and JSON-LD
+meta description, robots noindex, canonical, hreflang (with `i18n`), Open Graph, `twitter:card`, and JSON-LD
 (WebSite + configured Organization on `/`, Article for `type: article`). If the layout writes its own
 `application/ld+json`, automatic JSON-LD is skipped. Helpers: `organization`, `website`, `article`,
 `breadcrumbList`, `jsonLdScript` from `vagejs`. Only mark up what is visible on the page.
@@ -135,7 +137,7 @@ From the published pages and config (never from `public/`; a hand-written `publi
 
 ## Config
 
-`vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`, `trailingSlash`,
+`vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`, `i18n: { locales }`, `trailingSlash`,
 `seo: { robots, sitemap, llmsTxt, structuredData, feeds, markdownCopies, lastmod }`, `redirects`, `markdown: { html, inlineStyles, headingIds }`, `tags: { pages, layout }`, `contact: { to, from, path, sent, failed, perMinute }`,
 `images: { optimize, widths, quality, sizes }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject, netlifySite }`,
 `security: { headers, csp, cspSources, outboundLinks, spamPatterns }`, `integrations`, `guidelines`.
@@ -186,7 +188,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Not implemented yet
 
-Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, translated llms.txt and per-language sitemaps. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Favicon
 

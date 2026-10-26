@@ -36,6 +36,11 @@ export const frontmatterSchema = z.looseObject({
   dateModified: isoDate.optional().describe("ISO date or datetime; also the sitemap <lastmod>."),
   order: z.number().finite().optional().describe('Position in navigation lists (lower first). Used by collection(pages, { sort: "order" }) and tree().'),
   navTitle: singleLine.min(1).optional().describe("Shorter title for menus and breadcrumbs. Defaults to the title."),
+  translationOf: z
+    .string()
+    .regex(/^\/(?!\/)[^?#]*$/, 'must be a page address like "/about/"')
+    .optional()
+    .describe("Multi-language sites (i18n): the main-language page this page translates, when its address differs, e.g. translationOf: /about/ on fr/a-propos.md."),
   tags: z
     .array(singleLine.regex(/[\p{L}\p{N}]/u, "each tag needs a letter or digit (it becomes the address /tags/<tag>/)"))
     .optional()

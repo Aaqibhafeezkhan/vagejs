@@ -1,6 +1,7 @@
 import type { SiteConfig } from "../core/config.js";
 import { publicPath } from "../core/routes.js";
 import { instant } from "../core/dates.js";
+import { pageLang } from "../core/i18n.js";
 import type { SitePage } from "../core/site.js";
 
 export interface FeedConfig {
@@ -73,7 +74,7 @@ export function rssFeed(site: SiteConfig, feed: FeedConfig, pages: SitePage[], o
     <title>${xml(title)}</title>
     <link>${xml(`${origin}${publicPath(feed.under, site.trailingSlash)}`)}</link>
     <description>${xml(description)}</description>
-    <language>${xml(site.lang)}</language>
+    <language>${xml(pageLang(site, feed.under))}</language>
     <atom:link href="${xml(self)}" rel="self" type="application/rss+xml" />${newest ? `\n    <lastBuildDate>${rfc822(newest)}</lastBuildDate>` : ""}
 ${body}
   </channel>

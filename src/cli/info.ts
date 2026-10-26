@@ -31,6 +31,7 @@ export function frameworkInfo(cli: CAC, version: string) {
         "src/pages/about.md -> /about/",
         "src/pages/blog/index.md -> /blog/",
         "src/pages/blog/post.md -> /blog/post/",
+        "with i18n: { locales: [\"fr\"] }, src/pages/fr/about.md -> /fr/about/, the French version of about.md (translationOf: /about/ for a translated address)",
         "src/pages/404.md -> dist/404.html (not a route)",
         "files or folders starting with _ are ignored",
         "two files mapping to one route is an error",
@@ -43,10 +44,10 @@ export function frameworkInfo(cli: CAC, version: string) {
       export: "default export ({ content, page, site, pages, menus }) => html`...` (or a string). The HTML must contain </head>.",
       props: {
         content: "the page's rendered, sanitized HTML: insert with raw(content)",
-        page: "{ route, title, description, url (absolute canonical, when indexable), frontmatter }",
+        page: "{ route, title, description, url (absolute canonical, when indexable), lang (use for <html lang>), translations (with i18n: [{ lang, route, url, current }]), frontmatter }",
         site: "the resolved vage.config.ts",
         menus: "config menus by name, e.g. menus.main: [{ label, href?, current, active, external, items }] (config { page: '/x/' } entries resolve to the page's route and label); current = this page (aria-current=\"page\"), active = this page, a page below href, or an active sub-item; with trailingSlash \"never\", page entries and href paths lose their final slash",
-        pages: "every published page { route, url, title, label, description, source, frontmatter }, sorted by route, read-only (label = navTitle or title)",
+        pages: "every published page { route, url, title, label, description, lang, source, frontmatter }, sorted by route, read-only (label = navTitle or title)",
       },
       helpers: {
         html: "template tag from vagejs: escapes every ${value}; arrays are joined; null/undefined/false render nothing",

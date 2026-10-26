@@ -6,6 +6,7 @@ import { parseFrontmatter } from "../content/markdown.js";
 import { scheduledFor } from "../core/dates.js";
 import { normalizeRequestPath, outFileFor, publicPath, routeForPage, routeKey } from "../core/routes.js";
 import { menuEntries, sitePath } from "../core/menus.js";
+import { pageLang, translationKey } from "../core/i18n.js";
 import { basePath, siteOrigin } from "../core/base.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
@@ -104,6 +105,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
     checkPage(page, doc, model, outputs, drafts, scheduled, anchors, add);
   }
   findings.push(...checkDuplicates(listedPages(model)));
+  findings.push(...checkTranslations(model));
   findings.push(...checkRobots(model));
   findings.push(...checkContact(model, outputs));
   findings.push(...checkRedirectTargets(model, outputs));
@@ -148,8 +150,16 @@ function checkPage(
     });
   }
 
-  if (!doc.querySelector("html")?.getAttribute("lang")) {
+  const htmlLang = doc.querySelector("html")?.getAttribute("lang");
+  if (!htmlLang) {
     add({ rule: "html-lang", severity: "error", message: "<html> has no lang attribute.", docs: DOCS.lang });
+  } else if (model.site.i18n && htmlLang !== pageLang(model.site, page.route)) {
+    add({
+      rule: "html-lang",
+      severity: "error",
+      message: `<html lang="${htmlLang}"> doesn't match the page's language "${pageLang(model.site, page.route)}" (from its folder). Use page.lang in the layout: <html lang="\${page.lang}">.`,
+      docs: DOCS.lang,
+    });
   }
   const idCounts = new Map<string, number>();
   for (const el of doc.querySelectorAll("[id]")) idCounts.set(el.getAttribute("id")!, (idCounts.get(el.getAttribute("id")!) ?? 0) + 1);
@@ -461,6 +471,49 @@ function checkDuplicates(pages: SitePage[]): Finding[] {
       if (routes.length > 1) {
         findings.push({ rule, severity: "warning", message: `"${value}" is used by ${routes.join(", ")}. Make each page's ${rule.split("-")[0]} unique.` });
       }
+    }
+  }
+  return findings;
+}
+
+/** i18n: translationOf points at a real main-language page, one page per language per translation, and translations that are missing. */
+function checkTranslations(model: SiteModel): Finding[] {
+  const site = model.site;
+  if (!site.i18n) return [];
+  const findings: Finding[] = [];
+  // Generated tag pages aren't translated.
+  const pages = model.pages.filter((p) => !p.source.startsWith("("));
+  const mainRoutes = new Set(pages.filter((p) => pageLang(site, p.route) === site.lang).map((p) => p.route));
+  const seen = new Map<string, SitePage>();
+  for (const p of pages) {
+    const lang = pageLang(site, p.route);
+    const at = { page: p.route, source: p.source };
+    const target = p.frontmatter.translationOf;
+    if (typeof target === "string") {
+      if (lang === site.lang) {
+        findings.push({ ...at, rule: "translation", severity: "error", message: `translationOf is only for pages in a language folder (${site.i18n.locales.map((l) => `src/pages/${l}/`).join(", ")}); this page is in the main language. Remove it.` });
+      } else if (!mainRoutes.has(routeKey(target))) {
+        findings.push({ ...at, rule: "translation", severity: "error", message: `translationOf: ${target} is not a published page in the main language (${site.lang}). Use the address of the page this one translates.` });
+      }
+    }
+    const key = `${lang} ${translationKey(site, p.route, p.frontmatter)}`;
+    const other = seen.get(key);
+    if (other) {
+      findings.push({ ...at, rule: "translation", severity: "error", message: `${p.source} and ${other.source} are both the "${lang}" version of ${translationKey(site, p.route, p.frontmatter)}. Keep one, or point translationOf at a different page.` });
+    } else seen.set(key, p);
+  }
+  for (const p of pages) {
+    if (p.meta.noindex || pageLang(site, p.route) !== site.lang) continue;
+    const have = new Set((p.meta.translations ?? []).map((t) => t.lang));
+    const missing = site.i18n.locales.filter((l) => !have.has(l));
+    if (missing.length) {
+      findings.push({
+        page: p.route,
+        source: p.source,
+        rule: "translation-missing",
+        severity: "warning",
+        message: `No ${missing.join(", ")} version of this page. Add ${missing.map((l) => `src/pages/${l}/${p.source.replace(/^src\/pages\//, "")}`).join(", ")} (or a page with translationOf: ${publicPath(p.route, site.trailingSlash)}).`,
+      });
     }
   }
   return findings;

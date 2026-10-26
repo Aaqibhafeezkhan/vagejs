@@ -4,7 +4,7 @@ import { html, raw, type Layout } from "vagejs";
 const layout: Layout = ({ content, page, site, menus }) => {
   const title = site.title && site.title !== page.title ? `${page.title} | ${site.title}` : page.title;
   return html`<!doctype html>
-<html lang="${site.lang}">
+<html lang="${page.lang}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

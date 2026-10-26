@@ -72,7 +72,7 @@ describe("html", () => {
   it("default layout escapes metadata and keeps content as HTML", async () => {
     const html = await defaultLayout({
       content: "<p>body</p>",
-      page: { route: "/", title: "A <b>", frontmatter: { title: "A <b>", draft: false, noindex: false, type: "website" } },
+      page: { route: "/", title: "A <b>", lang: "fr", translations: [], frontmatter: { title: "A <b>", draft: false, noindex: false, type: "website" } },
       site: { title: "Site", lang: "fr", redirects: {}, seo: { robots: false, sitemap: false, llmsTxt: false, structuredData: false } },
     });
     expect(html).toContain('<html lang="fr">');

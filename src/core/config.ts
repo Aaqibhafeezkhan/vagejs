@@ -229,7 +229,17 @@ export const configSchema = z.strictObject({
     .describe("The site's address, e.g. https://example.com, or with a subfolder for GitHub Pages project sites: https://owner.github.io/repo (links like /about/ then get the /repo prefix in the build). Needed for canonical URLs and sitemap.xml."),
   title: z.string().min(1).optional().describe("Site name: page titles, og:site_name, llms.txt heading."),
   description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
-  lang: z.string().min(1).default("en").describe("<html lang> value."),
+  lang: z.string().min(1).default("en").describe("<html lang> value; with i18n, the main language (its pages stay at the root)."),
+  i18n: z
+    .strictObject({
+      locales: z
+        .array(z.string().regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, 'must be a language code like "fr" or "pt-BR"'))
+        .min(1)
+        .refine((l) => new Set(l).size === l.length, "must not repeat a language")
+        .describe('Other languages, e.g. ["fr", "de"]. Pages in src/pages/fr/ are French and served at /fr/...; fr/about.md is the translation of about.md.'),
+    })
+    .optional()
+    .describe("Multi-language sites: sets <html lang> per page, adds hreflang links between translations, and vage check reports missing ones."),
   trailingSlash: z
     .enum(["always", "never"])
     .default("always")
@@ -355,6 +365,7 @@ export const configSchema = z.strictObject({
 
 /** Settings that need the site at the root of its domain. */
 const rootOnly = configSchema.superRefine((c, ctx) => {
+  if (c.i18n?.locales.includes(c.lang)) ctx.addIssue({ code: "custom", path: ["i18n", "locales"], message: `"${c.lang}" is the main language (lang); list only the other languages` });
   if (!basePath(c.site)) return;
   if (c.deploy.target !== "github-pages") ctx.addIssue({ code: "custom", path: ["site"], message: `a site in a subfolder (${c.site}) works with the github-pages target or any static host's files, not the ${c.deploy.target} target: those sites are served from the root of a domain` });
   if (c.contact) ctx.addIssue({ code: "custom", path: ["contact"], message: "contact forms need a Cloudflare Workers site at the root of a domain, not a site in a subfolder" });

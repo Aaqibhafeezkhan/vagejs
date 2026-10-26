@@ -5,6 +5,7 @@ import { escapeHtml } from "../core/html.js";
 import { feedTitle } from "../discovery/feed.js";
 import { article, jsonLdScript, organization, website, type Thing } from "./jsonld.js";
 import { publicPath } from "../core/routes.js";
+import type { Translation } from "../core/i18n.js";
 import { absoluteUrl } from "./urls.js";
 
 export interface PageMeta {
@@ -14,6 +15,8 @@ export interface PageMeta {
   /** Absolute canonical URL, when `site` is configured and the page is indexable. */
   canonical?: string;
   noindex: boolean;
+  /** Language versions of the page (i18n), for hreflang links; set when rendering. */
+  translations?: Translation[];
 }
 
 export function pageMeta(site: SiteConfig, route: string, frontmatter: Frontmatter, notFound = false): PageMeta {
@@ -47,6 +50,18 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
       exists: /<link[^>]+rel=["']canonical["']/i,
       html: `<link rel="canonical" href="${escapeHtml(m.canonical)}" />`,
     });
+  }
+
+  // hreflang: every indexable language version, itself included, plus x-default for the main language.
+  const alternates = m.canonical ? (m.translations ?? []).filter((t) => t.url) : [];
+  if (alternates.length > 1) {
+    const link = (lang: string, url: string): Tag => ({
+      exists: new RegExp(`<link[^>]+hreflang=["']${lang}["']`, "i"),
+      html: `<link rel="alternate" hreflang="${escapeHtml(lang)}" href="${escapeHtml(url)}" />`,
+    });
+    for (const t of alternates) tags.push(link(t.lang, t.url!));
+    const main = alternates.find((t) => t.lang === site.lang);
+    if (main) tags.push(link("x-default", main.url!));
   }
 
   tags.push(meta("property", "og:title", fm.title));

@@ -13,6 +13,7 @@ import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
 import type { PageSummary } from "./pages.js";
 import { resolveMenus, type MenuItem } from "./menus.js";
+import { pageLang, pageTranslations, type Translation } from "./i18n.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -23,6 +24,10 @@ export interface LayoutProps {
     description?: string;
     /** Absolute canonical URL, when `site` is set and the page is indexable. */
     url?: string;
+    /** The page's language: `site.lang`, or its i18n locale folder ("fr" for /fr/...). Use it for <html lang>. */
+    lang: string;
+    /** With i18n: every language version of this page, itself included (`current: true`), for a language switcher. Empty otherwise. */
+    translations: Translation[];
     frontmatter: Frontmatter;
   };
   site: SiteConfig;
@@ -90,9 +95,11 @@ export async function renderPage(options: {
   const layout = await applyLayoutFields(root, frontmatter, load, file);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const pageRoute = publicPath(route, site.trailingSlash);
+  const translations = options.notFound ? [] : pageTranslations(site, { route: pageRoute, url: meta.canonical }, frontmatter, options.pages ?? []);
+  meta.translations = translations;
   const result = await layout({
     content,
-    page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
+    page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, lang: pageLang(site, route), translations: clonePlain(translations), frontmatter },
     site,
     pages: options.pages ?? [],
     menus: resolveMenus(site, pageRoute, options.pages ?? []),
@@ -175,7 +182,7 @@ function validateLayoutFields(frontmatter: Frontmatter, schema: FieldSchema, lay
 export const defaultLayout: Layout = ({ content, page, site }) => {
   const title = site.title && site.title !== page.title ? `${page.title} | ${site.title}` : page.title;
   return `<!doctype html>
-<html lang="${escapeHtml(site.lang)}">
+<html lang="${escapeHtml(page.lang)}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
