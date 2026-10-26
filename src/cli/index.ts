@@ -7,7 +7,7 @@ import { cac } from "cac";
 import { check, type Finding } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
-import { TEXT_OPTIONS, typedText } from "./args.js";
+import { textOptions } from "./args.js";
 import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
 import { absoluteUrl } from "../seo/urls.js";
 import { installAndStart, packageManager } from "./start.js";
@@ -195,8 +195,8 @@ cli
 cli
   .command("mcp", "Run an MCP server over stdio so AI assistants can check this site (read-only tools; needs @modelcontextprotocol/sdk)")
   .option("--root <dir>", "Project root", { default: "." })
-  .action((opts: { root: string }) =>
-    run({}, async () => {
+  .action((opts: { root: string; json?: boolean }) =>
+    run(opts, async () => {
       const { startMcpServer } = await import("../mcp/server.js");
       await startMcpServer(opts.root, { version, info: () => frameworkInfo(cli, version) });
     }),
@@ -566,10 +566,7 @@ function usageError(err: unknown): unknown {
 }
 
 async function run(opts: { json?: boolean }, fn: () => unknown): Promise<void> {
-  const raw = opts as Record<string, unknown>;
-  for (const name of Object.keys(TEXT_OPTIONS)) {
-    if (typeof raw[name] === "number") raw[name] = typedText(name, raw[name], process.argv);
-  }
+  textOptions(opts as Record<string, unknown>, process.argv);
   try {
     await fn();
   } catch (err) {
