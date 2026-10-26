@@ -1,6 +1,6 @@
 {
   "name": "vagejs",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "description": "A free static site generator for AI website development: Markdown pages with built-in SEO, llms.txt, checks, spam protection and safe deploys.",
   "keywords": [
     "static-site-generator",

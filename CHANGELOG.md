@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.2 (2026-10-26)
+
+### Fixed
+- **`vage info --json` no longer lists multi-language sites as not implemented.** AI assistants read that list to avoid promising missing features, so they would have skipped a feature that shipped in 0.10. The list now names what's really missing: sitemap indexes, a separate `llms.txt` and sitemap per language, and interactive Vue components.
+
 ## 0.11.1 (2026-10-26)
 
 ### Fixed
