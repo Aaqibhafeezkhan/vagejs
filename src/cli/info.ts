@@ -119,7 +119,9 @@ export function frameworkInfo(cli: CAC, version: string) {
       "A Vercel deploy adapter (Vercel serves dist/ as plain files)",
       "RSS feeds per tag",
       "CMS / external content-source adapters",
-      "hreflang / multi-language sites, sitemap indexes",
+      "Sitemap indexes (over 50,000 URLs)",
+      "Per-language llms.txt and sitemaps (multi-language sites share one of each)",
+      "Vue interactive islands (client:* works with React components)",
     ],
   };
 }
