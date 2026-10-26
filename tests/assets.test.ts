@@ -27,16 +27,23 @@ const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dis
 const assetName = (html: string, re: RegExp) => re.exec(html)?.[1];
 
 describe("assets: minified stylesheets and fingerprinted copies", () => {
-  it("minifies stylesheets from public/ by default, and can leave them as written", async () => {
+  it("minifies stylesheets when asked, keeping fallbacks for older browsers", async () => {
     const root = siteWithAssets();
+    await build(root);
+    expect(read(root, "extra.css")).toBe("p { color: #ff0000; }\n");
+    expect(read(root, "about/index.html")).toContain('href="/styles.css"');
+
+    write(root, "public/fallbacks.css", "a { height: 100vh; height: 100dvh; color: #123456; color: oklch(60% 0.1 200); background: light-dark(#fff, #000); }\nb { *zoom: 1; color: red; }\n");
+    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", assets: { minifyCss: true } };\n');
     await build(root);
     expect(read(root, "extra.css")).toBe("p{color:red}");
     expect(fs.readFileSync(path.join(root, "public/extra.css"), "utf8")).toBe("p { color: #ff0000; }\n");
-    expect(read(root, "about/index.html")).toContain('href="/styles.css"');
-
-    write(root, "vage.config.ts", 'export default { site: "https://fixture.example", title: "Fixture Site", assets: { minifyCss: false } };\n');
-    await build(root);
-    expect(read(root, "extra.css")).toBe("p { color: #ff0000; }\n");
+    const minified = read(root, "fallbacks.css");
+    expect(minified).toContain("height:100vh");
+    expect(minified).toContain("height:100dvh");
+    expect(minified).toContain("color:#123456");
+    expect(minified).toContain("light-dark(#fff,#000)");
+    expect(minified).toContain("b{color:red}"); // an old hack doesn't stop the rest of the file
   });
 
   it("points pages at fingerprinted copies, follows fonts and @import, and keeps the originals", async () => {
@@ -52,11 +59,11 @@ describe("assets: minified stylesheets and fingerprinted copies", () => {
     expect(html).toContain('src="/images/logo.png"');
 
     const sheet = read(root, css!.slice(1));
-    expect(sheet).toContain(`url(${font})`);
+    expect(sheet).toContain(`url("${font}")`);
     expect(sheet).toMatch(/@import "\/_vage\/assets\/extra\.[0-9a-f]{10}\.css"/);
     expect(sheet).toContain("url(/images/logo.png)");
     expect(read(root, font!.slice(1))).toBe("font-bytes-1");
-    expect(read(root, "styles.css")).toContain("url(/fonts/a.woff2)"); // the original stays (minified)
+    expect(read(root, "styles.css")).toContain('url("/fonts/a.woff2")'); // the original stays
     expect(read(root, "_headers")).toContain("/_vage/assets/*\n  Cache-Control: public, max-age=31536000, immutable");
 
     // Same files, same names; a changed font renames the font and the stylesheet that uses it.
@@ -77,13 +84,36 @@ describe("assets: minified stylesheets and fingerprinted copies", () => {
     const html = read(root, "about/index.html");
     const css = assetName(html, /href="\/repo(\/_vage\/assets\/styles\.[0-9a-f]{10}\.css)"/);
     expect(css).toBeTruthy();
-    expect(read(root, css!.slice(1))).toMatch(/url\(\/repo\/_vage\/assets\/fonts\/a\.[0-9a-f]{10}\.woff2\)/);
+    expect(read(root, css!.slice(1))).toMatch(/url\("\/repo\/_vage\/assets\/fonts\/a\.[0-9a-f]{10}\.woff2"\)/);
   });
 
   it("writes no cache rule without fingerprinting", async () => {
     const root = siteWithAssets(", deploy: { target: 'cloudflare-workers' }");
     await build(root);
     expect(read(root, "_headers")).not.toContain("immutable");
+  });
+
+  it("makes relative references in fingerprinted stylesheets work from their new folder", async () => {
+    const root = siteWithAssets(", assets: { fingerprint: true }");
+    write(root, "public/css/site.css", '.hero { background: url(../images/logo.png); } .x { background: image-set("../images/logo.png" 1x); } .y { background: url("data:image/png;base64,AA=="); }\n');
+    write(root, "src/layouts/default.ts", LAYOUT.replace('<link rel="stylesheet" href="/styles.css" />', '<link rel="stylesheet" href="/styles.css" /><link rel="stylesheet" href="/css/site.css" />'));
+    await build(root);
+    const name = assetName(read(root, "about/index.html"), /href="(\/_vage\/assets\/css\/site\.[0-9a-f]{10}\.css)"/);
+    const sheet = read(root, name!.slice(1));
+    expect(sheet).toContain("url(/images/logo.png)");
+    expect(sheet).toContain('image-set("/images/logo.png" 1x)');
+    expect(sheet).toContain('url("data:image/png;base64,AA==")');
+  });
+
+  it("leaves module scripts, modulepreload and script code alone", () => {
+    const rename = new Map([
+      ["/app.js", "/_vage/assets/app.0123456789.js"],
+      ["/styles.css", "/_vage/assets/styles.0123456789.css"],
+    ]);
+    const html = '<script type="module" src="/app.js"></script><link rel="modulepreload" href="/app.js"><script>const tag = \'<link rel="stylesheet" href="/styles.css">\';</script><script src="/app.js" defer></script>';
+    expect(withAssetNames(html, rename)).toBe(
+      '<script type="module" src="/app.js"></script><link rel="modulepreload" href="/app.js"><script>const tag = \'<link rel="stylesheet" href="/styles.css">\';</script><script src="/_vage/assets/app.0123456789.js" defer></script>',
+    );
   });
 
   it("only renames stylesheet, script and preload references", () => {

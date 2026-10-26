@@ -43,7 +43,7 @@ describe("loadConfig", () => {
       trailingSlash: "always",
       redirects: {},
       images: { optimize: false, widths: [480, 960, 1600], quality: 75, avif: false, sizes: "(max-width: 48rem) 100vw, 48rem" },
-      assets: { minifyCss: true, fingerprint: false },
+      assets: { minifyCss: false, fingerprint: false },
       menus: {},
       tags: { pages: true },
       markdown: { html: "sanitize", inlineStyles: false, headingIds: true },

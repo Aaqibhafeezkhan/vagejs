@@ -255,13 +255,13 @@ export const configSchema = z.strictObject({
     .describe('Named menus for layouts, e.g. { main: [{ page: "/docs/" }, { label: "GitHub", href: "https://github.com/..." }], footer: [{ label: "Learn", items: [...] }] }. Layouts get them in props.menus, with current and active set for each page.'),
   assets: z
     .strictObject({
-      minifyCss: z.boolean().default(true).describe("Minify stylesheets from public/ in the build (the files in public/ stay as you wrote them)."),
+      minifyCss: z.boolean().default(false).describe("Minify stylesheets from public/ in the build (the files in public/ stay as you wrote them). Fallbacks for older browsers (Safari 14, Chrome and Firefox 100) are kept."),
       fingerprint: z
         .boolean()
         .default(false)
-        .describe("Also publish each stylesheet, script and font from public/ under /_vage/assets/ with a name made from its content, point pages at those copies, and let Cloudflare and Netlify cache them for a year. A changed file gets a new name, so visitors never keep an old one. The originals stay where they are. Scripts that load other files from public/ by path should leave this off."),
+        .describe("Also publish each stylesheet, script and font from public/ under /_vage/assets/ with a name made from its content, point pages at those copies, and let Cloudflare and Netlify cache them for a year. A changed file gets a new name, so visitors never keep an old one. The originals stay where they are. Module scripts (type=module, and .mjs files) keep their names, because their imports are relative; leave this off if another script loads files from public/ by path."),
     })
-    .default({ minifyCss: true, fingerprint: false }),
+    .default({ minifyCss: false, fingerprint: false }),
   images: z
     .strictObject({
       optimize: z.boolean().default(false).describe('Make resized WebP copies of images in page content and offer them with srcset. Needs "sharp" in the project (npm install --save-dev sharp).'),
