@@ -10,6 +10,8 @@ Thanks for helping. vagejs is a young project, so bug reports, docs fixes and sm
 - **Improve the docs**: the website's docs live in a separate repository, so open an issue here describing the change and we'll update them.
 - **Security issues** go to private reporting, never public issues: see [SECURITY.md](SECURITY.md).
 
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
+
 ## Set up
 
 You need Node.js 22.12 or newer and git.
