@@ -133,10 +133,14 @@ export async function resolveLayout(
   pageFile: string,
 ): Promise<{ layout: Layout; schema?: FieldSchema }> {
   const base = path.join(root, "src", "layouts", name ?? "default");
-  const file = LAYOUT_EXTENSIONS.map((ext) => base + ext).find((f) => fs.existsSync(f));
+  const files = LAYOUT_EXTENSIONS.map((ext) => base + ext).filter((f) => fs.existsSync(f));
+  if (files.length > 1) {
+    throw new VageError(`More than one layout is named "${name ?? "default"}": ${files.map((f) => `src/layouts/${path.basename(f)}`).join(", ")}. Keep one (delete or rename the others).`, files[1]);
+  }
+  const file = files[0];
   if (!file) {
     if (!name) return { layout: defaultLayout };
-    throw new VageError(`Layout "${name}" not found. Expected src/layouts/${name}.ts`, pageFile);
+    throw new VageError(`Layout "${name}" not found. Expected src/layouts/${name}.ts (or .tsx, .jsx, .vue).`, pageFile);
   }
   const mod = await load(file);
   const schema = mod.frontmatter as FieldSchema | undefined;

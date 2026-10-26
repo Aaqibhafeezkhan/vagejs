@@ -52,8 +52,10 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
     });
   }
 
-  // hreflang: every indexable language version, itself included, plus x-default for the main language.
-  const alternates = m.canonical ? (m.translations ?? []).filter((t) => t.url) : [];
+  // hreflang: every language version that is indexable and canonical to itself (a page whose
+  // canonical points elsewhere isn't a separate version), itself included, plus x-default.
+  const ownUrl = (t: { route: string; url?: string }) => t.url !== undefined && t.url === absoluteUrl(site.site, t.route);
+  const alternates = m.canonical && m.canonical === absoluteUrl(site.site, publicPath(m.route, site.trailingSlash)) ? (m.translations ?? []).filter(ownUrl) : [];
   if (alternates.length > 1) {
     const link = (lang: string, url: string): Tag => ({
       exists: new RegExp(`<link[^>]+hreflang=["']${lang}["']`, "i"),

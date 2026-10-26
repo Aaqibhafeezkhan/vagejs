@@ -221,7 +221,7 @@ function listPages(root: string, site: SiteConfig) {
   // MDX pages are code; they're edited in a text editor.
   const files = discoverRoutes(pagesDir, site.trailingSlash).filter((e) => e.file.endsWith(".md")).map((e) => ({ file: e.file, route: publicPath(e.route, site.trailingSlash) as string | null }));
   const notFound = findNotFoundPage(pagesDir);
-  if (notFound) files.push({ file: notFound, route: null });
+  if (notFound?.endsWith(".md")) files.push({ file: notFound, route: null });
   return files.map(({ file, route }) => {
     const source = path.relative(root, file).split(path.sep).join("/");
     try {

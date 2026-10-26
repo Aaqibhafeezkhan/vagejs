@@ -57,6 +57,27 @@ describe("multi-language sites (i18n)", () => {
     expect(read(root, "fr/blog/feed.xml")).toContain("<language>fr</language>");
   });
 
+  it("leaves a translation canonicalised to another page out of hreflang", async () => {
+    const root = i18nSite();
+    write(root, "src/pages/de/ueber-uns.md", "---\ntitle: Über uns\ndescription: Wer wir sind.\ntranslationOf: /about/\ncanonical: /about/\n---\n# Über uns\n");
+    await build(root);
+    const about = read(root, "about/index.html");
+    expect(about).toContain('hreflang="fr"');
+    expect(about).not.toContain('hreflang="de"');
+    // The German page itself points elsewhere, so it gets no hreflang links.
+    expect(read(root, "de/ueber-uns/index.html")).not.toContain("hreflang");
+  });
+
+  it("keeps a main-language feed to the main language", async () => {
+    const root = i18nSite();
+    write(root, "vage.config.ts", CONFIG.replace('feeds: [{ under: "/fr/blog/" }]', 'feeds: [{ under: "/" }]'));
+    write(root, "src/pages/blog/post.md", "---\ntitle: Post\ndescription: An English post.\ndatePublished: 2026-01-02\n---\n# Post\n");
+    await build(root);
+    const feed = read(root, "feed.xml");
+    expect(feed).toContain("https://fixture.example/blog/post/");
+    expect(feed).not.toContain("/fr/");
+  });
+
   it("leaves sites without i18n unchanged", async () => {
     const root = copyFixture();
     await build(root);

@@ -36,7 +36,8 @@ function rfc822(iso: string): string {
  */
 export function rssFeed(site: SiteConfig, feed: FeedConfig, pages: SitePage[], origin: string): string {
   const items = pages
-    .filter((p) => p.route.startsWith(feed.under) && p.route !== feed.under)
+    // With i18n, a feed lists only its own language: "/" doesn't include /fr/... pages.
+    .filter((p) => p.route.startsWith(feed.under) && p.route !== feed.under && pageLang(site, p.route) === pageLang(site, feed.under))
     .sort((a, b) => {
       // Compare as instants: "2026-10-23T23:00:00-05:00" is after "2026-10-24".
       const ta = instant(a.frontmatter.datePublished);

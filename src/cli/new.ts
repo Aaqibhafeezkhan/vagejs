@@ -84,9 +84,9 @@ export function createPage(root: string, kind: "page" | "post", name: string, op
   const route = slug === "index" ? "/" : `/${slug.replace(/(^|\/)index$/, "")}/`.replace(/\/+/g, "/");
   const rel = path.join("src", "pages", `${slug}.md`);
   const file = path.join(pagesDir, `${slug}.md`);
-  // A page at /x/ can come from x.md or x/index.md: refuse either, never overwrite.
+  // A page at /x/ can come from x.md or x/index.md (or .mdx): refuse any of them, never overwrite.
   const twin = slug.endsWith("/index") ? path.join(pagesDir, `${slug.slice(0, -"/index".length)}.md`) : path.join(pagesDir, slug, "index.md");
-  for (const existing of [file, twin]) {
+  for (const existing of [file, twin].flatMap((f) => [f, `${f}x`])) {
     if (fs.existsSync(existing)) throw new VageError(`${path.relative(path.resolve(root), existing)} already exists, so ${route} is taken. Pick another name, or edit that file.`);
   }
 

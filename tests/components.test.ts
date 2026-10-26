@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { check } from "../src/checks/check.js";
 import { build } from "../src/core/build.js";
+import { createPage } from "../src/cli/new.js";
 import { copyFixture, write } from "./helpers.js";
 
 /** The fixture with this repo's node_modules, so react, vue, @vitejs/plugin-vue and @mdx-js/mdx resolve from the site. */
@@ -98,6 +99,30 @@ Our plans, from **{1 + 1}** options:
     write(root, "src/pages/pricing.mdx", "---\ntitle: Pricing\ndescription: Plans and prices.\n---\n\n# Pricing\n\n[Gone](/nowhere/)\n");
     const result = await check(root);
     expect(result.findings).toContainEqual(expect.objectContaining({ source: "src/pages/pricing.mdx", severity: "error", message: expect.stringContaining("/nowhere/") }));
+  });
+
+  it("refuses two layouts with the same name", async () => {
+    const root = siteWithPackages();
+    write(root, "src/layouts/default.ts", "export default ({ content }) => `<html><head><title>t</title></head><body>${content}</body></html>`;\n");
+    write(root, "src/layouts/default.tsx", REACT_LAYOUT);
+    await expect(build(root)).rejects.toThrow(/More than one layout is named "default": src\/layouts\/default\.ts, src\/layouts\/default\.tsx/);
+  });
+
+  it("uses 404.mdx as the 404 page", async () => {
+    const root = siteWithPackages();
+    fs.rmSync(path.join(root, "src/pages/404.md"));
+    write(root, "src/pages/404.mdx", "---\ntitle: Not found\n---\n\n# Not found {2 + 2}\n");
+    const result = await build(root);
+    expect(result.pages.some((p) => p.route === "/404/")).toBe(false);
+    expect(read(root, "404.html")).toContain("Not found 4");
+    write(root, "src/pages/404.md", "---\ntitle: Not found\n---\n# Not found\n");
+    await expect(build(root)).rejects.toThrow(/Both 404\.md and 404\.mdx/);
+  });
+
+  it("vage new doesn't create a page an .mdx page already has", () => {
+    const root = copyFixture();
+    write(root, "src/pages/pricing.mdx", "---\ntitle: Pricing\n---\n# Pricing\n");
+    expect(() => createPage(root, "page", "pricing")).toThrow(/pricing\.mdx already exists/);
   });
 
   it("names the package to install when one is missing", async () => {

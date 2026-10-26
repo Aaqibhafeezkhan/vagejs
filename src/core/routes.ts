@@ -34,6 +34,7 @@ export function outFileFor(route: string, mode: TrailingSlash): string {
 }
 
 export const NOT_FOUND_PAGE = "404.md";
+const NOT_FOUND_PAGES = [NOT_FOUND_PAGE, "404.mdx"];
 
 /**
  * Maps src/pages/**\/*.md (and *.mdx) to routes:
@@ -41,7 +42,7 @@ export const NOT_FOUND_PAGE = "404.md";
  *   about.md       -> /about/
  *   blog/index.md  -> /blog/
  *   blog/post.md   -> /blog/post/
- * Files and directories starting with "_" are ignored. The top-level 404.md is
+ * Files and directories starting with "_" are ignored. The top-level 404.md (or 404.mdx) is
  * not a route; use findNotFoundPage() for it.
  */
 export function discoverRoutes(pagesDir: string, mode: TrailingSlash = "always"): RouteEntry[] {
@@ -49,7 +50,7 @@ export function discoverRoutes(pagesDir: string, mode: TrailingSlash = "always")
   const routes = new Map<string, RouteEntry>();
 
   for (const rel of walk(pagesDir)) {
-    if (rel === NOT_FOUND_PAGE) continue;
+    if (NOT_FOUND_PAGES.includes(rel)) continue;
     const segments = routeSegments(rel);
     const route = segments.length ? `/${segments.join("/")}/` : "/";
     const file = path.join(pagesDir, rel);
@@ -75,14 +76,15 @@ function routeSegments(rel: string): string[] {
 
 /** Route for a page path relative to src/pages (works for deleted files too). */
 export function routeForPage(rel: string): string | undefined {
-  if (!/\.mdx?$/.test(rel) || rel === NOT_FOUND_PAGE || rel.split("/").some((s) => s.startsWith("_") || s.startsWith("."))) return undefined;
+  if (!/\.mdx?$/.test(rel) || NOT_FOUND_PAGES.includes(rel) || rel.split("/").some((s) => s.startsWith("_") || s.startsWith("."))) return undefined;
   const segments = routeSegments(rel);
   return segments.length ? `/${segments.join("/")}/` : "/";
 }
 
 export function findNotFoundPage(pagesDir: string): string | undefined {
-  const file = path.join(pagesDir, NOT_FOUND_PAGE);
-  return fs.existsSync(file) ? file : undefined;
+  const found = NOT_FOUND_PAGES.map((name) => path.join(pagesDir, name)).filter((file) => fs.existsSync(file));
+  if (found.length > 1) throw new VageError("Both 404.md and 404.mdx exist in src/pages. Keep one of them.", found[1]);
+  return found[0];
 }
 
 /** Normalizes a request path ("/about", "/about/index.html") to a route key ("/about/"). */

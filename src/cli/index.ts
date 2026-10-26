@@ -210,7 +210,7 @@ cli
       if (opts.json) return print(info);
       console.log(`vagejs ${info.version}\n`);
       for (const c of info.commands) console.log(`  ${c.usage.padEnd(28)} ${c.description}`);
-      console.log(`\nConfig: ${info.config.files.join(" | ")}. Pages: ${info.routing.pagesDir}/**/*.md`);
+      console.log(`\nConfig: ${info.config.files.join(" | ")}. Pages: ${info.routing.pagesDir}/**/*.md (and .mdx)`);
       console.log("Run `vage info --json` for full config and frontmatter JSON Schemas.");
     }),
   );
