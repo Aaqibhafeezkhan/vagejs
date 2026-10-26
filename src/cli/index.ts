@@ -260,6 +260,10 @@ cli
       const { loadProjectConfig } = await import("../core/project-config.js");
       const config = await loadProjectConfig(path.resolve(opts.root));
       const target = opts.target ?? config.deploy.target;
+      // _redirects and _headers are written only for the configured host; --target alone would deploy without them.
+      if ((target === "cloudflare-pages" || target === "cloudflare-workers") && !config.deploy.target.startsWith("cloudflare-")) {
+        throw new VageError(`Set deploy.target to "${target}" in vage.config.ts, so the build writes Cloudflare's _redirects and _headers (redirects and security headers).`);
+      }
       if (target === "cloudflare-pages") return deployToCloudflare(opts, config.deploy.cloudflareProject);
       if (target === "cloudflare-workers") return deployToWorkers(opts, config.deploy.cloudflareWorker ?? config.deploy.cloudflareProject, config.site, config);
       if (target === "netlify") {

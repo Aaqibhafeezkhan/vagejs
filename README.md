@@ -168,12 +168,12 @@ Moving a site that used addresses without a trailing slash (`/about`, not `/abou
 ```bash
 npx vage deploy:github --remote https://github.com/you/site.git   # check, build, safe commit + push (asks first)
 npx vage deploy                                                  # GitHub Pages via Actions (project repositories: site: "https://<user>.github.io/<repo>")
-npx vage deploy --target cloudflare-workers --project my-site    # Cloudflare Workers: new version, no downtime
-npx vage deploy --target cloudflare-pages --project my-site      # older Cloudflare Pages projects
+npx vage deploy --target cloudflare-workers --project my-site    # Cloudflare Workers: new version, no downtime (deploy.target: "cloudflare-workers")
+npx vage deploy --target cloudflare-pages --project my-site      # older Cloudflare Pages projects (deploy.target: "cloudflare-pages")
 npx vage deploy --target netlify --project my-site               # Netlify production deploy (deploy.target: "netlify")
 ```
 
-Every deploy shows its plan and asks for confirmation (`--dry-run` to preview, `--yes` to skip). It reports success only after the host confirms.
+Every deploy shows its plan and asks for confirmation (`--dry-run` to preview, `--yes` to skip). It reports success only after the host confirms. Cloudflare and Netlify deploys need `deploy.target` set to that host in `vage.config.ts`, so the build writes its `_redirects` and `_headers`.
 
 Cloudflare now creates new static sites as Workers, so use `cloudflare-workers` for new projects. For a custom domain, add a `wrangler.jsonc` with your `routes`; vagejs uses it and switches versions without re-attaching domains, so the site stays up during deploys.
 

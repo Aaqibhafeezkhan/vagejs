@@ -190,7 +190,9 @@ describe("vage CLI (packed package)", () => {
     const site = path.join(work, "site");
     const npx = (args: string[]) => npxSpawn(["vage", ...args], { cwd: site, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     expect(npx(["indexnow", "--all"]).stderr).toMatch(/IndexNow is not configured/);
-    expect(npx(["deploy", "--target", "cloudflare-pages", "--dry-run"]).stderr).toMatch(/No Cloudflare Pages project/);
+    // Cloudflare targets need deploy.target in config too, or the build would skip _redirects and _headers.
+    expect(npx(["deploy", "--target", "cloudflare-pages", "--dry-run"]).stderr).toMatch(/Set deploy.target to "cloudflare-pages"/);
+    expect(npx(["deploy", "--target", "cloudflare-workers", "--dry-run"]).stderr).toMatch(/Set deploy.target to "cloudflare-workers"/);
     expect(npx(["deploy", "--target", "ftp"]).stderr).toMatch(/Unknown --target "ftp"/);
     expect(npx(["deploy", "--target", "netlify"]).stderr).toMatch(/Set deploy.target to "netlify"/);
   }, 120_000);
