@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0 (2026-10-26)
+
+### Added
+- **Minified stylesheets (`assets: { minifyCss: true }`).** Stylesheets in `public/` are minified in the build with lightningcss (part of Vite, so nothing new to install). Fallbacks for older browsers are kept (Safari 14, Chrome and Firefox 100: `height: 100vh` before `height: 100dvh` stays), `light-dark()` is left as written, and the files in `public/` don't change. Off by default.
+- **Fingerprinted assets (`assets: { fingerprint: true }`).** Each stylesheet, script and font in `public/` is also published under `/_vage/assets/` with a name made from its content (`/_vage/assets/styles.3f9a1c2b4d.css`); pages and stylesheets point to those copies, and on Cloudflare and Netlify `_headers` lets browsers cache them for a year. A changed file gets a new name (a changed font renames the stylesheet that uses it too), so visitors never keep an old copy. The originals stay where they were for links from elsewhere, relative references inside stylesheets keep working, and subfolder sites get the prefix. Module scripts (`type="module"`, `.mjs`) keep their names, because their imports are relative. `vage verify` compares the live site using the same names. Off by default.
+
 ## 0.11.3 (2026-10-26)
 
 ### Changed
