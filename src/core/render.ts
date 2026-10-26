@@ -110,9 +110,10 @@ export async function renderPage(options: {
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs"];
 
 /** A Zod schema a layout can export as `frontmatter` to declare its own fields. */
-type FieldSchema = { safeParse: (data: unknown) => { success: boolean; data?: unknown; error?: unknown }; strict?: () => FieldSchema };
+export type FieldSchema = { safeParse: (data: unknown) => { success: boolean; data?: unknown; error?: unknown }; strict?: () => FieldSchema };
 
-async function resolveLayout(
+/** Loads `src/layouts/<name>` (or the built-in default) and its `frontmatter` schema, if it exports one. */
+export async function resolveLayout(
   root: string,
   name: string | undefined,
   load: ModuleLoader,

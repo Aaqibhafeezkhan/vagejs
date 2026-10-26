@@ -12,6 +12,7 @@ import { collection, collectPages, tagList } from "../core/pages.js";
 import { renderSite, tagPageSource } from "../core/site.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath, publicPath, routeKey } from "../core/routes.js";
 import { devAccessGuard } from "./guard.js";
+import { editorEnabled, editorPlugin } from "./editor.js";
 import { listenOrExplain, type ServeOptions } from "./listen.js";
 import { redirect } from "./preview.js";
 
@@ -31,7 +32,7 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
 
   const server = await createServer({
     ...baseViteConfig(root),
-    plugins: [devAccessGuard(root, new Set(Object.keys(DISCOVERY_FILES)))],
+    plugins: [devAccessGuard(root, new Set(Object.keys(DISCOVERY_FILES))), editorPlugin(root, editorEnabled(options.host))],
     server: { port: options.port, strictPort: options.port !== undefined, host: options.host },
   });
   const load = viteLoader(server);

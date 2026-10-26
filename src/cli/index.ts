@@ -9,6 +9,7 @@ import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
 import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
 import { startDevServer } from "../dev/server.js";
+import { EDITOR_PATH, editorEnabled } from "../dev/editor.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { directUrl, printUrls } from "../dev/listen.js";
 import { createInterface } from "node:readline/promises";
@@ -52,6 +53,8 @@ cli
       const server = await startDevServer(opts.root, { port: parsePort(opts.port), host: opts.host });
       const direct = directUrl(server.httpServer?.address());
       printUrls("vagejs dev server", server.resolvedUrls?.local[0], direct, server.resolvedUrls?.network);
+      const home = server.resolvedUrls?.local[0] ?? direct;
+      if (editorEnabled(opts.host) && home) console.log(`  editor: ${new URL(EDITOR_PATH, home).href}`);
       const target = direct ?? server.resolvedUrls?.local[0] ?? server.resolvedUrls?.network[0];
       if (opts.open && target) openBrowser(target);
     }),

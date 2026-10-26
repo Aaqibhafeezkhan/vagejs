@@ -39,6 +39,8 @@ npm start
 ```
 `npm start` opens the site in your browser. Edit `src/pages/index.md` and the page reloads. (`npm run dev` does the same without opening a browser, and prints the address.)
 
+Prefer forms to files? While the dev server runs, open `/_vage/edit/` (for example `http://localhost:5173/_vage/edit/`): a local editor with every page, its fields, the text with a live preview, image upload and the page's check results. It edits the same files, only works on your own computer, and is never part of the built site.
+
 ### Windows
 
 vagejs works on Windows and is tested on Windows on every change.
