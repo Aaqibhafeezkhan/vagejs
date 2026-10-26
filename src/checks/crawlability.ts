@@ -151,10 +151,12 @@ export async function checkCrawlability(origin: string, options: { fetch?: Fetch
   const url = new URL(origin);
   const publicHost = !url.port && !/^(localhost|\d+\.\d+\.\d+\.\d+|\[.*\])$/i.test(url.hostname) && url.hostname.includes(".");
   if (publicHost && url.protocol === "https:") {
-    const plain = await get(`http://${url.host}/`, { redirect: "manual" });
+    // The site's own address, also for a site in a subfolder (http://owner.github.io/repo/).
+    const home = `http://${url.host}${url.pathname.replace(/\/*$/, "/")}`;
+    const plain = await get(home, { redirect: "manual" });
     const to = plain?.headers.get("location") ?? "";
     if (plain && !(plain.status >= 300 && plain.status < 400 && to.startsWith("https://"))) {
-      out.push({ route: "/", severity: "warning", kind: "redirect-missing", detail: `http://${url.host}/ answers ${plain.status} instead of redirecting to https. Turn on "Always use HTTPS" (or equivalent) at your host.` });
+      out.push({ route: "/", severity: "warning", kind: "redirect-missing", detail: `${home} answers ${plain.status} instead of redirecting to https. Turn on "Always use HTTPS" (or equivalent) at your host.` });
     }
   }
   if (publicHost) {
