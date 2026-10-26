@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0 (2026-10-26)
+
+### Added
+- **Multi-language sites.** `i18n: { locales: ["fr", "de"] }` keeps `lang` as the main language; pages in `src/pages/fr/` are French and served at `/fr/...`, and `fr/about.md` is the translation of `about.md`. A translated address (`de/ueber-uns.md`) names its page with `translationOf: /about/`. Each page gets its own `<html lang>` (layouts get `page.lang`) and hreflang links to its indexable, self-canonical translations plus `x-default`. Layouts get `page.translations` (`lang`, `route`, `url`, `current`) for a language switcher, `pages[].lang`, and `collection(pages, { lang })`. A feed lists only its own language and says so in `<language>`. `vage check` reports a `<html lang>` that doesn't match the page's folder, a `translationOf` that points nowhere or sits on a main-language page, and two pages for one translation (errors), and missing translations (`translation-missing` warnings). Sites without `i18n` don't change.
+- **React and Vue layouts, MDX pages.** A layout can be `src/layouts/<name>.tsx`/`.jsx` (a React component) or `.vue` (a Vue component), with the same props as other layouts; a page can be `.mdx` (Markdown with imported React components, and the usual frontmatter), including `404.mdx`. They render to static HTML at build time: no JavaScript reaches visitors, and components never run in the browser. `react`, `react-dom`, `vue`, `@vitejs/plugin-vue` and `@mdx-js/mdx` are optional peer dependencies; using a feature without its package fails with the install command. MDX pages are trusted code (not sanitized like `.md` pages); `vage check` still checks their output. The local editor lists `.md` pages only, and `vage new` refuses an address an `.mdx` page already has.
+
+### Changed
+- Two layout files with the same name (for example `default.ts` and `default.js`) are now an error; before, the `.ts` file was used silently.
+- The starter layout writes `<html lang="${page.lang}">` instead of `site.lang` (the same for sites in one language).
+
+### Fixed
+- **`vage check` no longer flags mobile menus.** Links in a closed `<details>` with a `<nav>` inside or around it (a menu button) aren't reported as hidden links. A closed `<details>` outside a `<nav>` still gets a warning.
+
 ## 0.9.0 (2026-10-26)
 
 ### Added
