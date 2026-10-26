@@ -212,10 +212,13 @@ describe("GitHub Pages adapter", () => {
 describe("GitHub Pages subfolder check", () => {
   it("stops a project repository whose site doesn't name its subfolder", () => {
     const problem = pagesSubfolderProblem("https://agevenkat.github.io", "https://github.com/agevenkat/vagejs-host-test.git");
-    expect(problem).toMatch(/https:\/\/agevenkat\.github\.io\/vagejs-host-test\/, a subfolder/);
+    expect(problem).toMatch(/serve this repository at https:\/\/agevenkat\.github\.io\/vagejs-host-test\//);
     expect(problem).toMatch(/site: "https:\/\/agevenkat\.github\.io\/vagejs-host-test"/);
     expect(problem).toMatch(/Custom domain/);
     expect(pagesSubfolderProblem("https://agevenkat.github.io/other", "https://github.com/agevenkat/vagejs-host-test.git")).toBeDefined();
+    // The user site is served at the root, and another owner's address is another site.
+    expect(pagesSubfolderProblem("https://agevenkat.github.io/blog", "https://github.com/agevenkat/agevenkat.github.io.git")).toBeDefined();
+    expect(pagesSubfolderProblem("https://other.github.io/vagejs-host-test", "https://github.com/agevenkat/vagejs-host-test.git")).toBeDefined();
     expect(pagesSubfolderProblem("https://agevenkat.github.io", "git@github.com:agevenkat/site")).toBeDefined();
   });
 

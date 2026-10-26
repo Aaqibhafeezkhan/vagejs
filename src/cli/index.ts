@@ -491,7 +491,9 @@ cli
       const config = site.integrations.indexNow;
       if (!config) throw new VageError('IndexNow is not configured. Add integrations: { indexNow: { key: "<8-128 letters, digits or dashes>" } } and deploy.');
       if (!site.site) throw new VageError('"site" must be set in vage.config.ts to submit URLs.');
-      const abs = (p: string) => absoluteUrl(site.site, p)!;
+      // A path that already has a subfolder site's prefix (/repo/about/) isn't prefixed again.
+      const sub = new URL(site.site).pathname.replace(/\/+$/, "");
+      const abs = (p: string) => (sub && p.startsWith(`${sub}/`) ? `${new URL(site.site!).origin}${p}` : absoluteUrl(site.site, p)!);
 
       let urls: string[];
       if (opts.all) urls = listedPages(model).map((p) => p.meta.canonical!);

@@ -26,7 +26,8 @@ export async function submitIndexNow(options: { site: string; key: string; endpo
   if (urls.length > maxUrls) throw new VageError(`IndexNow accepts at most ${maxUrls} URLs per request; got ${urls.length}.`);
 
   // Without a live key file the endpoint answers 403; check first for a clearer message.
-  const keyLocation = `${new URL(site).origin}/${key}.txt`;
+  // The build writes the key file at the site's root, which is inside the subfolder for a site in one.
+  const keyLocation = `${site.replace(/\/+$/, "")}/${key}.txt`;
   const doFetch = http?.fetch ?? fetch;
   const live = await doFetch(keyLocation, { signal: AbortSignal.timeout(30_000) }).catch(() => undefined);
   if (!live?.ok || (await live.text()).trim() !== key) {

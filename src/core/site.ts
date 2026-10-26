@@ -20,6 +20,7 @@ import { sharpResize } from "../content/optimize.js";
 import { scheduledFor } from "./dates.js";
 import { collection, collectPages, tagList, type PageSummary } from "./pages.js";
 import { menuPageProblems } from "./menus.js";
+import { basePath } from "./base.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath, outFileFor, publicPath, routeKey } from "./routes.js";
 
 export interface SitePage extends RenderedPage {
@@ -190,6 +191,9 @@ function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string,
   }
   if (!site.site) {
     warnings.push('"site" is not set in vage.config.ts: canonical URLs, og:url, sitemap.xml and absolute image URLs are skipped.');
+  }
+  if (basePath(site.site) && site.seo.robots && (site.seo.robots.rules.length || site.seo.robots.aiTraining || site.seo.robots.aiSearch)) {
+    warnings.push(`seo.robots rules have no effect for a site in a subfolder (${site.site}): crawlers only read robots.txt at the root of the domain.`);
   }
   if (site.seo.robots) {
     const robots = site.seo.robots;

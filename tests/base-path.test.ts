@@ -42,6 +42,10 @@ describe("site in a subfolder", () => {
     );
     expect(withBase(html, "")).toBe(html);
     expect(cssWithBase("a{src:url('/f.woff2')} b{x:url(//cdn/c)}", "/repo")).toBe("a{src:url('/repo/f.woff2')} b{x:url(//cdn/c)}");
+    expect(cssWithBase(`@import "/i.css"; a{b:url("/a b.png")} c{d:url( /x.png )} e{f:url(data:x)}`, "/repo")).toBe(`@import "/repo/i.css"; a{b:url("/repo/a b.png")} c{d:url( /repo/x.png )} e{f:url(data:x)}`);
+    expect(withBase(`<textarea><a href="/t"></textarea><meta http-equiv="refresh" content="0;URL='/x/'"><div style="background:url(&quot;/bg.png&quot;)"></div><a HREF = "/up/">u</a>`, "/repo")).toBe(
+      `<textarea><a href="/t"></textarea><meta http-equiv="refresh" content="0;URL='/repo/x/'"><div style="background:url(&quot;/repo/bg.png&quot;)"></div><a HREF = "/repo/up/">u</a>`,
+    );
   });
 
   it("builds pages, files and stylesheets with the subfolder", async () => {
@@ -82,6 +86,7 @@ describe("preview of a site in a subfolder", () => {
     const url = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
     const get = (p: string) => fetch(`${url}${p}`, { redirect: "manual" });
     expect((await get("/")).headers.get("location")).toBe("/repo/");
+    expect((await get("/repo?x=1")).headers.get("location")).toBe("/repo/?x=1");
     expect((await get("/repo/about/")).status).toBe(200);
     expect((await get("/repo/styles.css")).status).toBe(200);
     expect((await get("/repo/about")).headers.get("location")).toBe("/repo/about/");

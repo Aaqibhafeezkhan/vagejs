@@ -124,7 +124,8 @@ export async function checkCrawlability(origin: string, options: { fetch?: Fetch
 
   // 2. robots.txt
   // Read robots.txt in full (Google processes up to 500 KiB), not just the first few KB.
-  const robotsRes = await get(`${origin}/robots.txt`, {}, 512 * 1024);
+  // Crawlers read robots.txt only at the root of the domain, also for a site in a subfolder.
+  const robotsRes = await get(`${new URL(origin).origin}/robots.txt`, {}, 512 * 1024);
   if (robotsRes?.ok) {
     for (const c of CRAWLERS.filter((x) => x.purpose !== "ai-user")) {
       if (robotsBlocks(robotsRes.body, c.token)) {

@@ -56,7 +56,7 @@ function staticHostBehavior(outDir: string, base = ""): Plugin {
         const [fullPath = "/", query] = (req.url ?? "/").split("?");
         let rawPath = fullPath;
         if (base) {
-          if (fullPath === "/" || fullPath === base) return redirect(res, `${base}/`);
+          if (fullPath === "/" || fullPath === base) return redirect(res, `${base}/${query ? `?${query}` : ""}`);
           if (!fullPath.startsWith(`${base}/`)) return notFound(res);
           rawPath = fullPath.slice(base.length);
         }

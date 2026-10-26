@@ -148,15 +148,18 @@ export function pagesSubfolderProblem(site: string | undefined, remote: string |
   const m = remote && /(?:^|[@/])github\.com[/:]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/i.exec(remote.trim());
   if (!m || !site) return undefined;
   const [, owner, repo] = m as unknown as [string, string, string];
-  if (repo.toLowerCase() === `${owner}.github.io`.toLowerCase()) return undefined;
-  if (!/\.github\.io$/i.test(new URL(site).hostname)) return undefined; // a custom domain serves the root
+  const url = new URL(site);
+  if (!/\.github\.io$/i.test(url.hostname)) return undefined; // a custom domain serves the root
+  // <owner>.github.io is served at the domain root; any other repository from /<repo>/.
+  const userSite = repo.toLowerCase() === `${owner}.github.io`.toLowerCase();
+  const address = `https://${owner.toLowerCase()}.github.io${userSite ? "" : `/${repo}`}`;
   // The subfolder is the repository name, written as in the remote.
-  if (basePath(site) === `/${repo}`) return undefined;
-  const address = `https://${owner.toLowerCase()}.github.io/${repo}`;
+  if (url.hostname.toLowerCase() === `${owner}.github.io`.toLowerCase() && basePath(site) === (userSite ? "" : `/${repo}`)) return undefined;
   return (
-    `GitHub Pages will serve this repository at ${address}/, a subfolder, but site in vage.config.ts is ${site}, so links would point to the wrong place. Either:\n` +
-    `  - set site: "${address}" (vagejs then adds /${repo} to every link), or\n` +
+    `GitHub Pages will serve this repository at ${address}/, but site in vage.config.ts is ${site}, so links, canonical URLs and the sitemap would point to the wrong place. Either:\n` +
+    `  - set site: "${address}"${userSite ? "" : ` (vagejs then adds /${repo} to every link)`}, or\n` +
     `  - use your own domain: set site to it and add it in the repository under Settings → Pages → Custom domain.`
   );
 }
+
 

@@ -21,11 +21,17 @@ export function prefixPath(url: string, base: string): string {
 }
 
 const ATTRS = new Set(["href", "src", "action", "formaction", "poster", "data", "xlink:href"]);
-const CSS_URL = /url\(\s*(["']?)(\/(?!\/)[^"')\s]*)\1\s*\)/g;
+// url("/a b.png"), url('/x'), url(&quot;/x&quot;) (in a style attribute), url(/x), and @import "/x.css".
+const CSS_URL = /(url\(\s*)(["']|&quot;)(\/(?!\/)[\s\S]*?)\2(\s*\))|(url\(\s*)(\/(?!\/)[^"')\s]*)(\s*\))|(@import\s+)(["'])(\/(?!\/)[^"']*)\9/g;
 
-/** CSS `url(/...)` references, e.g. fonts and images in a stylesheet from public/. */
+/** CSS root-relative references (`url(/...)`, `@import "/..."`), e.g. fonts and images in a stylesheet from public/. */
 export function cssWithBase(css: string, base: string): string {
-  return base ? css.replace(CSS_URL, (_, q: string, url: string) => `url(${q}${base}${url}${q})`) : css;
+  if (!base) return css;
+  return css.replace(CSS_URL, (...m: (string | undefined)[]) => {
+    if (m[1] !== undefined) return `${m[1]}${m[2]}${base}${m[3]}${m[2]}${m[4]}`;
+    if (m[5] !== undefined) return `${m[5]}${base}${m[6]}${m[7]}`;
+    return `${m[8]}${m[9]}${base}${m[10]}${m[9]}`;
+  });
 }
 
 /**
@@ -38,8 +44,9 @@ export function withBase(html: string, base: string): string {
   if (!base) return html;
   // A start tag, quote-aware so a ">" inside an attribute value (alt="a > b") doesn't end it.
   const TAG = `<[a-zA-Z](?:[^<>"']|"[^"]*"|'[^']*')*>`;
-  const parts = new RegExp(`<!--[\\s\\S]*?-->|(<script\\b(?:[^<>"']|"[^"]*"|'[^']*')*>)[\\s\\S]*?<\\/script\\s*>|(<style\\b[^>]*>)([\\s\\S]*?)(<\\/style\\s*>)|${TAG}`, "g");
-  return html.replace(parts, (match, script?: string, open?: string, css?: string, close?: string) => {
+  // <script> and <textarea> keep their contents as written (code and text); only their own tag is changed.
+  const parts = new RegExp(`<!--[\\s\\S]*?-->|(<(script|textarea)\\b(?:[^<>"']|"[^"]*"|'[^']*')*>)[\\s\\S]*?<\\/\\2\\s*>|(<style\\b[^>]*>)([\\s\\S]*?)(<\\/style\\s*>)|${TAG}`, "gi");
+  return html.replace(parts, (match, script?: string, _name?: string, open?: string, css?: string, close?: string) => {
     if (match.startsWith("<!--")) return match;
     if (script !== undefined) return tagWithBase(script, base) + match.slice(script.length); // src only, never the code
     if (open !== undefined) return `${open}${cssWithBase(css!, base)}${close}`;
@@ -58,7 +65,7 @@ function tagWithBase(tag: string, base: string): string {
     if (ATTRS.has(attr)) next = prefixPath(value.trim(), base);
     else if (attr === "srcset" || attr === "imagesrcset") next = value.replace(/(^|,)(\s*)(\/(?!\/)\S*)/g, (_, sep: string, ws: string, url: string) => `${sep}${ws}${base}${url}`);
     else if (attr === "style") next = cssWithBase(value, base);
-    else if (attr === "content" && refresh) next = value.replace(/(url\s*=\s*)(\/(?!\/))/i, `$1${base}$2`);
+    else if (attr === "content" && refresh) next = value.replace(/(url\s*=\s*['"]?)(\/(?!\/))/i, `$1${base}$2`);
     return next === value ? all : `${space}${name}${eq}${q}${next}${q}`;
   });
 }

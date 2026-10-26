@@ -99,6 +99,20 @@ describe("IndexNow", () => {
     expect(body).toEqual({ host: "fixture.example", key: KEY, keyLocation: `https://fixture.example/${KEY}.txt`, urlList: ["https://fixture.example/a/"] });
   });
 
+  it("finds the key file inside a subfolder site", async () => {
+    let body: Record<string, unknown> = {};
+    const fetched: string[] = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      fetched.push(String(url));
+      if (String(url).endsWith(".txt")) return new Response(`${KEY}\n`);
+      body = JSON.parse(String(init!.body));
+      return json(202);
+    };
+    await submitIndexNow({ site: "https://owner.github.io/repo", key: KEY, endpoint: "https://api.indexnow.org/indexnow", urls: ["https://owner.github.io/repo/a/"], http: { fetch: fetchMock } });
+    expect(fetched[0]).toBe(`https://owner.github.io/repo/${KEY}.txt`);
+    expect(body.keyLocation).toBe(`https://owner.github.io/repo/${KEY}.txt`);
+  });
+
   it("refuses before submitting when the key file is not live or URLs are foreign", async () => {
     const opts = { site: "https://fixture.example", key: KEY, endpoint: "https://api.indexnow.org/indexnow" };
     await expect(submitIndexNow({ ...opts, urls: ["https://fixture.example/"], http: { fetch: async () => new Response("nope", { status: 404 }) } })).rejects.toThrow(/is not live yet/);
