@@ -61,7 +61,8 @@ describe("site in a subfolder", () => {
     expect(read(root, "robots.txt")).toContain("Sitemap: https://fixture.github.io/repo/sitemap.xml");
     expect(read(root, "old/index.html")).toContain('content="0; url=/repo/about/"');
     expect(read(root, "old/index.html")).toContain('<link rel="canonical" href="https://fixture.github.io/repo/about/" />');
-    expect(read(root, "styles.css")).toBe('@font-face { src: url("/repo/fonts/a.woff2"); } body { background: url(/repo/images/logo.png); }\n');
+    // Prefixed, then minified (assets.minifyCss).
+    expect(read(root, "styles.css")).toBe("@font-face{src:url(/repo/fonts/a.woff2)}body{background:url(/repo/images/logo.png)}");
   });
 
   it("checks links as the site sees them, including absolute links into the subfolder", async () => {

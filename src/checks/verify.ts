@@ -1,4 +1,5 @@
 import { basePath, withBase } from "../core/base.js";
+import { planAssets, withAssetNames } from "../core/assets.js";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { parse } from "node-html-parser";
@@ -193,6 +194,7 @@ export async function verifySite(
     if (!origin || !/^https?:\/\/[^/?#]+(\/[^?#]*)?$/.test(origin)) throw new VageError('Pass the live site\'s address with --url https://example.com, or set "site" in vage.config.ts.');
     // The live pages of a site in a subfolder carry the prefix the build adds.
     const base = basePath(model.site.site);
+    const assetPlan = planAssets(root, { ...model.site.assets, base });
     const get = async (url: string, userAgent = BROWSER) => {
       try {
         const res = await doFetch(url, { redirect: "follow", headers: { "user-agent": userAgent, accept: "text/html,application/xhtml+xml,*/*;q=0.8" }, signal: AbortSignal.timeout(20_000) });
@@ -213,7 +215,8 @@ export async function verifySite(
           differences.push({ route: page.route, severity: "error", kind: "unreachable", detail: live.status ? `HTTP ${live.status}` : "no response" });
           continue;
         }
-        const local = fingerprint(withBase(page.html, base), url);
+        // The build points pages at fingerprinted copies of stylesheets and scripts (assets.fingerprint).
+        const local = fingerprint(withBase(withAssetNames(page.html, assetPlan.rename), base), url);
         const livePrint = fingerprint(live.body, url);
         const seen = compare(page.route, local, livePrint);
         differences.push(...seen);

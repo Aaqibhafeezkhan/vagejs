@@ -6,6 +6,7 @@ import { renderSite, type SiteModel } from "./site.js";
 import { publicPath } from "./routes.js";
 import { basePath, cssWithBase, withBase } from "./base.js";
 import { bundleIslands, islandKeys, islandRegistry, ISLANDS_DIR } from "./islands.js";
+import { planAssets, withAssetNames } from "./assets.js";
 
 export const OUT_DIR = "dist";
 
@@ -35,11 +36,14 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
   try {
     // Render everything before touching dist/ so a failed build leaves the previous output intact.
     const model = await renderSite(root, loader.load);
-    const outputs = new Map<string, string>();
+    const outputs = new Map<string, string | Buffer>();
     // A site in a subfolder (site: https://owner.github.io/repo): root-relative URLs get the prefix.
     const base = basePath(model.site.site);
-    for (const page of model.pages) outputs.set(page.outFile, withBase(page.html, base));
-    if (model.notFound) outputs.set(model.notFound.outFile, withBase(model.notFound.html, base));
+    // Minified stylesheets, and fingerprinted copies of stylesheets, scripts and fonts (assets.*).
+    const assetPlan = planAssets(root, { ...model.site.assets, base });
+    for (const page of model.pages) outputs.set(page.outFile, withBase(withAssetNames(page.html, assetPlan.rename), base));
+    if (model.notFound) outputs.set(model.notFound.outFile, withBase(withAssetNames(model.notFound.html, assetPlan.rename), base));
+    for (const [name, data] of assetPlan.files) outputs.set(name, data);
     for (const r of model.redirects) outputs.set(r.outFile, withBase(r.html, base));
     for (const [name, content] of model.files) outputs.set(name, content);
     // Interactive islands (client:load/visible/idle): their browser code, bundled once for the site.

@@ -3,6 +3,7 @@ import { parse } from "node-html-parser";
 import type { SiteConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
 import { ruleData } from "../guidelines/pack.js";
+import { ASSETS_DIR } from "../core/assets.js";
 
 // https://developers.cloudflare.com/pages/configuration/headers/ (rule pack "cloudflare.headers", "csp.providers")
 const { maxLineLength, maxRules } = ruleData<{ maxLineLength: number; maxRules: number }>("cloudflare.headers");
@@ -88,7 +89,7 @@ export function contentSecurityPolicy(pagesHtml: string[], site: SiteConfig): st
  * Markdown copies can name their HTML page as canonical with one rule each, while the
  * file stays within Cloudflare's rule limit (the first rule covers every path).
  */
-export const copyCanonicalsFit = (copies: number) => copies + 1 <= maxRules;
+export const copyCanonicalsFit = (copies: number, otherRules = 0) => copies + 1 + otherRules <= maxRules;
 
 /**
  * Cloudflare Pages / Netlify `_headers` for every path, plus a canonical Link header on
@@ -107,7 +108,10 @@ export function headersFile(pagesHtml: string[], site: SiteConfig, copies: { pat
         "Reduce distinct inline scripts/styles (move them to files in public/), or set security.csp to \"off\".",
     );
   }
-  if (copyCanonicalsFit(copies.length)) {
+  // Fingerprinted copies change name whenever they change, so they can be cached for a year.
+  const fingerprinted = site.assets.fingerprint;
+  if (fingerprinted) lines.push(`/${ASSETS_DIR}/*`, "  Cache-Control: public, max-age=31536000, immutable");
+  if (copyCanonicalsFit(copies.length, fingerprinted ? 1 : 0)) {
     for (const c of copies) lines.push(c.path, `  Link: <${c.canonical}>; rel="canonical"`);
   }
   return `${lines.join("\n")}\n`;

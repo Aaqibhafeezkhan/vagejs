@@ -200,6 +200,11 @@ Netlify deploys are tested with a fake runner (command, JSON parsing, token reda
 - **Components render at build time** through the same Vite loader as layouts. React, Vue and MDX are optional peer dependencies resolved from the project, so sites without them install nothing. MDX pages are trusted code, like layouts.
 - **Islands are opt-in per element** (`client:load`, `client:visible`, `client:idle`, React only). Server JSX compiles to a virtual `vage:jsx` runtime that turns such elements into placeholders; they are rendered with `renderToString` after the page (never inside the page's render, which breaks hooks) with their own `useId` prefix. Components in `src/components/` are tagged with file and export at load time, so the build bundles exactly the islands used, with Vite, into `/_vage/islands/` (one loader, one entry per island, shared chunks). Islands inside islands are refused: the browser bundle uses plain React and couldn't hydrate them. Pages without islands still send no JavaScript; `vage audit` counts island code including React.
 
+## 0.12.0: minified CSS and fingerprinted assets
+
+- **Fingerprinted copies, not renamed files.** `assets.fingerprint` publishes a copy of each stylesheet, script and font from `public/` under `/_vage/assets/` (one `_headers` rule caches the whole folder for a year, so Cloudflare's rule limit isn't touched) and keeps the original, so outside links to `/styles.css` still work. Names come from the published content, after the subfolder prefix and minification, and stylesheets are named after the fonts and `@import`s they point to, so a changed font renames the stylesheet too. Only `<link>` and `<script>` references are rewritten (not `<a>` or images); scripts' own imports aren't, which is why it's opt-in. `vage verify` applies the same names before comparing.
+- **CSS is minified with lightningcss** from Vite's own dependencies (no new package); invalid CSS is published as written.
+
 ## Not implemented
 
 Bing Webmaster Tools API, a Vercel adapter, CMS content sources, sitemap indexes, per-tag feeds, per-language llms.txt, Vue islands.

@@ -237,7 +237,7 @@ function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string,
     const html = [...model.pages, ...(model.notFound ? [model.notFound] : []), ...model.redirects].map((p) => p.html);
     // Each Markdown copy names its HTML page as canonical, so search engines don't index both.
     const copies = site.seo.markdownCopies && site.site ? listed.map((p) => ({ path: `/${markdownCopyPath(p.route)}`, canonical: p.meta.canonical! })).filter((c) => /^\/[A-Za-z0-9._~\/-]+$/.test(c.path) && /^[^\s<>]+$/.test(c.canonical)) : [];
-    if (!copyCanonicalsFit(copies.length)) {
+    if (!copyCanonicalsFit(copies.length, site.assets.fingerprint ? 1 : 0)) {
       warnings.push(`_headers: ${copies.length} Markdown copies need more header rules than Cloudflare allows, so they're published without a canonical Link header.`);
     }
     generate("_headers", () => headersFile(html, site, copies));
