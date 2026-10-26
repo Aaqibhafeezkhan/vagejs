@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1 (2026-10-26)
+
+### Fixed
+- **Command-line values that look like numbers are kept as typed.** `vage indexnow --changed-since 9779582` (a short commit hash made only of digits) failed with "ref.startsWith is not a function", a leading zero (`0777123`) was dropped, and `--root 2026` failed. Text options such as `--changed-since`, `--slug`, `--title`, `-m`, `--project`, `--property-id` and `--root` now get exactly what was typed. When an option is given twice, the last value is used.
+
 ## 0.11.0 (2026-10-26)
 
 ### Added
