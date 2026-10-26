@@ -7,6 +7,7 @@ import { cac } from "cac";
 import { check, type Finding } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
+import { TEXT_OPTIONS, typedText } from "./args.js";
 import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
 import { absoluteUrl } from "../seo/urls.js";
 import { installAndStart, packageManager } from "./start.js";
@@ -565,6 +566,10 @@ function usageError(err: unknown): unknown {
 }
 
 async function run(opts: { json?: boolean }, fn: () => unknown): Promise<void> {
+  const raw = opts as Record<string, unknown>;
+  for (const name of Object.keys(TEXT_OPTIONS)) {
+    if (typeof raw[name] === "number") raw[name] = typedText(name, raw[name], process.argv);
+  }
   try {
     await fn();
   } catch (err) {
