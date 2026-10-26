@@ -19,7 +19,7 @@ import { parseFrontmatter } from "../content/markdown.js";
 import { sharpResize } from "../content/optimize.js";
 import { scheduledFor } from "./dates.js";
 import { collection, collectPages, tagList, type PageSummary } from "./pages.js";
-import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "./routes.js";
+import { discoverRoutes, findNotFoundPage, normalizeRequestPath, outFileFor, publicPath, routeKey } from "./routes.js";
 
 export interface SitePage extends RenderedPage {
   route: string;
@@ -91,7 +91,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   const pages = await collectPages(root, site, load, { skipInvalid: collect });
   // Loaded once for the whole site, so a missing sharp is one clear error, not one per page.
   const resize = site.images.optimize ? await sharpResize(root) : undefined;
-  for (const entry of discoverRoutes(pagesDir)) {
+  for (const entry of discoverRoutes(pagesDir, site.trailingSlash)) {
     const source = path.relative(root, entry.file);
     await attempt(entry.file, entry.route, async () => {
       // Drafts and scheduled pages are skipped before rendering, so their fields can't fail a build.
@@ -116,12 +116,13 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
     for (const tag of tagList(pages)) {
       const file = path.join(pagesDir, "tags", `${tag.slug}.md`);
       const source = `(tag "${tag.name}")`;
-      await attempt(file, tag.route, async () => {
-        if (taken.has(tag.route)) {
-          throw new VageError(`${taken.get(tag.route)} and the tag "${tag.name}" both make ${tag.route}. Rename one, or set tags.pages: false in vage.config.ts.`);
+      const route = routeKey(tag.route);
+      await attempt(file, route, async () => {
+        if (taken.has(route)) {
+          throw new VageError(`${taken.get(route)} and the tag "${tag.name}" both make ${tag.route}. Rename one, or set tags.pages: false in vage.config.ts.`);
         }
-        const page = await renderPage({ root, file, route: tag.route, site, load, analytics: true, pages, resize, source: tagPageSource(site, tag.name, collection(pages, { tag: tag.name, sort: "date" })) });
-        model.pages.push({ ...page, route: tag.route, source, outFile: `${tag.route.slice(1)}index.html` });
+        const page = await renderPage({ root, file, route, site, load, analytics: true, pages, resize, source: tagPageSource(site, tag.name, collection(pages, { tag: tag.name, sort: "date" })) });
+        model.pages.push({ ...page, route, source, outFile: outFileFor(route, site.trailingSlash) });
       });
     }
   }
@@ -137,7 +138,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   // Markdown versions of pages, converted from their sanitized HTML (copies and llms-full.txt).
   const markdown = new Map<string, string>();
   if (site.seo.markdownCopies || (site.seo.llmsTxt && site.seo.llmsTxt.full)) {
-    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(await copySource(p.html, p.content), { route: p.route, origin: site.site }));
+    for (const p of listedPages(model)) markdown.set(p.route, await htmlToMarkdown(await copySource(p.html, p.content), { route: publicPath(p.route, site.trailingSlash), origin: site.site }));
   }
   model.redirects = buildRedirects(site, new Set(model.pages.map((p) => p.route)));
   addDiscoveryFiles(root, model, markdown);
@@ -164,7 +165,7 @@ export function tagPageSource(site: SiteConfig, name: string, tagged: PageSummar
 
 /** Pages that should appear in sitemap.xml and llms.txt: indexable and canonical to themselves. */
 export function listedPages(model: SiteModel): SitePage[] {
-  return model.pages.filter((p) => !p.meta.noindex && p.meta.canonical === absoluteUrl(model.site.site, p.route));
+  return model.pages.filter((p) => !p.meta.noindex && p.meta.canonical === absoluteUrl(model.site.site, publicPath(p.route, model.site.trailingSlash)));
 }
 
 function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string, string>) {
@@ -240,7 +241,7 @@ function addDiscoveryFiles(root: string, model: SiteModel, markdown: Map<string,
       const pages: LlmsPage[] = listed.map((p) => ({
         title: p.frontmatter.title,
         // With Markdown copies, AI tools are pointed at the plain-text version (llmstxt.org).
-        url: site.seo.markdownCopies ? (absoluteUrl(site.site, `/${markdownCopyPath(p.route)}`) ?? `/${markdownCopyPath(p.route)}`) : (absoluteUrl(site.site, p.route) ?? p.route),
+        url: site.seo.markdownCopies ? (absoluteUrl(site.site, `/${markdownCopyPath(p.route)}`) ?? `/${markdownCopyPath(p.route)}`) : (absoluteUrl(site.site, publicPath(p.route, site.trailingSlash)) ?? publicPath(p.route, site.trailingSlash)),
         description: p.frontmatter.description,
         body: markdown.get(p.route) ?? "",
       }));
@@ -303,6 +304,6 @@ function buildRedirects(site: SiteConfig, routes: Set<string>): SiteRedirect[] {
   </body>
 </html>
 `;
-    return { from, to, outFile: path.posix.join(from.slice(1), "index.html"), html };
+    return { from, to, outFile: outFileFor(from, site.trailingSlash), html };
   });
 }

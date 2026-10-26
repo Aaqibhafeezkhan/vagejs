@@ -8,11 +8,11 @@ import { clonePlain } from "./clone.js";
 import { instant, scheduledFor } from "./dates.js";
 import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
-import { discoverRoutes } from "./routes.js";
+import { discoverRoutes, publicPath, routeKey } from "./routes.js";
 
 /** One published page, as layouts see it in `props.pages`. */
 export interface PageSummary {
-  /** URL path with a trailing slash, e.g. "/blog/first-post/". */
+  /** The page's address, e.g. "/blog/first-post/" ("/blog/first-post" with trailingSlash "never"). */
   route: string;
   /** Absolute canonical URL, when `site` is set and the page is indexable. */
   url?: string;
@@ -35,7 +35,7 @@ export interface PageSummary {
 export async function collectPages(root: string, site: SiteConfig, load: ModuleLoader, options: { skipInvalid?: boolean } = {}): Promise<readonly PageSummary[]> {
   const pagesDir = path.join(root, "src", "pages");
   const out: PageSummary[] = [];
-  for (const entry of discoverRoutes(pagesDir)) {
+  for (const entry of discoverRoutes(pagesDir, site.trailingSlash)) {
     let frontmatter: Frontmatter;
     try {
       ({ frontmatter } = parseFrontmatter(fs.readFileSync(entry.file, "utf8"), entry.file));
@@ -47,7 +47,7 @@ export async function collectPages(root: string, site: SiteConfig, load: ModuleL
       throw err;
     }
     out.push({
-      route: entry.route,
+      route: publicPath(entry.route, site.trailingSlash),
       url: pageMeta(site, entry.route, frontmatter).canonical,
       title: frontmatter.title,
       label: frontmatter.navTitle ?? frontmatter.title,
@@ -115,7 +115,7 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
   }
   const prefix = under ? (under.endsWith("/") ? under : `${under}/`) : undefined;
   const picked = pages.filter(
-    (p) => (!prefix || (p.route.startsWith(prefix) && (includeIndex || p.route !== prefix))) && (tag === undefined || (p.frontmatter.tags ?? []).some((t: string) => tagSlug(t) === tagSlug(tag))),
+    (p) => (!prefix || (routeKey(p.route).startsWith(prefix) && (includeIndex || routeKey(p.route) !== prefix))) && (tag === undefined || (p.frontmatter.tags ?? []).some((t: string) => tagSlug(t) === tagSlug(tag))),
   );
   const byTitle = (a: PageSummary, b: PageSummary) => a.title.localeCompare(b.title);
   const compare =
@@ -132,7 +132,7 @@ export function collection(pages: readonly PageSummary[], options: CollectionOpt
               if (ta !== tb && !(Number.isNaN(ta) && Number.isNaN(tb))) return Number.isNaN(ta) ? 1 : Number.isNaN(tb) ? -1 : tb - ta;
               return byTitle(a, b);
             }
-          : (a: PageSummary, b: PageSummary) => a.route.localeCompare(b.route);
+          : (a: PageSummary, b: PageSummary) => routeKey(a.route).localeCompare(routeKey(b.route));
   const sorted = [...picked].sort(compare);
   return limit === undefined ? sorted : sorted.slice(0, limit);
 }
@@ -146,19 +146,21 @@ export interface TagSummary {
   /** The tag as first written in the pages, e.g. "SEO". */
   name: string;
   slug: string;
-  /** "/tags/<slug>/" (generated when tags.pages is on). */
+  /** "/tags/<slug>/" ("/tags/<slug>" with trailingSlash "never"; generated when tags.pages is on). */
   route: string;
   count: number;
 }
 
 /** Every tag the pages use, A to Z, with how many pages have it: for tag clouds and tag menus. */
 export function tagList(pages: readonly PageSummary[]): TagSummary[] {
+  // Tag addresses follow the pages' form: with trailingSlash "never", page routes have no final slash.
+  const mode = pages.some((p) => p.route !== "/" && !p.route.endsWith("/")) ? "never" : "always";
   const tags = new Map<string, TagSummary>();
   for (const p of pages) {
     for (const name of new Set(p.frontmatter.tags ?? [])) {
       const slug = tagSlug(name);
       if (!slug) continue;
-      const t = tags.get(slug) ?? { name, slug, route: `/tags/${slug}/`, count: 0 };
+      const t = tags.get(slug) ?? { name, slug, route: publicPath(`/tags/${slug}/`, mode), count: 0 };
       t.count++;
       tags.set(slug, t);
     }
@@ -168,7 +170,7 @@ export function tagList(pages: readonly PageSummary[]): TagSummary[] {
 
 /** The pages before and after `route` in an ordered list (e.g. from collection()), for "Previous / Next" links. */
 export function neighbors(list: readonly PageSummary[], route: string): { prev?: PageSummary; next?: PageSummary } {
-  const i = list.findIndex((p) => p.route === route);
+  const i = list.findIndex((p) => routeKey(p.route) === routeKey(route));
   if (i === -1) return {};
   return { prev: list[i - 1], next: list[i + 1] };
 }
@@ -178,7 +180,7 @@ export function neighbors(list: readonly PageSummary[], route: string): { prev?:
  * /docs/guides/setup/ -> [Home, Docs, Guides, Setup] (missing levels are skipped).
  */
 export function breadcrumbs(pages: readonly PageSummary[], route: string): PageSummary[] {
-  const byRoute = new Map(pages.map((p) => [p.route, p]));
+  const byRoute = new Map(pages.map((p) => [routeKey(p.route), p]));
   const parts = route.split("/").filter(Boolean);
   const trail: PageSummary[] = [];
   for (let i = 0; i <= parts.length; i++) {
@@ -202,8 +204,8 @@ export interface TreeNode {
 export function tree(pages: readonly PageSummary[], under = "/"): TreeNode[] {
   if (!/^\/(?!\/)/.test(under)) throw new VageError(`tree(): "under" must be a site path starting with "/" (got ${JSON.stringify(under)}).`);
   const prefix = under.endsWith("/") ? under : `${under}/`;
-  const inside = pages.filter((p) => p.route.startsWith(prefix) && p.route !== prefix);
-  const routes = new Set(inside.map((p) => p.route));
+  const inside = pages.filter((p) => routeKey(p.route).startsWith(prefix) && routeKey(p.route) !== prefix);
+  const routes = new Set(inside.map((p) => routeKey(p.route)));
   const parentOf = (route: string): string | undefined => {
     const parts = route.split("/").filter(Boolean);
     for (let i = parts.length - 1; i > 0; i--) {
@@ -213,10 +215,10 @@ export function tree(pages: readonly PageSummary[], under = "/"): TreeNode[] {
     }
     return undefined;
   };
-  const nodes = new Map(inside.map((p) => [p.route, { page: p, children: [] as TreeNode[] }]));
+  const nodes = new Map(inside.map((p) => [routeKey(p.route), { page: p, children: [] as TreeNode[] }]));
   const roots: TreeNode[] = [];
   for (const node of nodes.values()) {
-    const parent = parentOf(node.page.route);
+    const parent = parentOf(routeKey(node.page.route));
     (parent ? nodes.get(parent)!.children : roots).push(node);
   }
   const sort = (list: TreeNode[]) => {

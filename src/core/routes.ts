@@ -2,13 +2,35 @@ import fs from "node:fs";
 import path from "node:path";
 import { VageError } from "./errors.js";
 
+export type TrailingSlash = "always" | "never";
+
 export interface RouteEntry {
-  /** URL path, always with a trailing slash, e.g. "/blog/first-post/". */
+  /** Route key: the URL path with a trailing slash, e.g. "/blog/first-post/", in both trailingSlash modes. */
   route: string;
   /** Absolute path of the source file. */
   file: string;
-  /** Output path relative to the build directory, e.g. "blog/first-post/index.html". */
+  /** Output path relative to the build directory: "blog/first-post/index.html", or "blog/first-post.html" with trailingSlash "never". */
   outFile: string;
+}
+
+/**
+ * Route keys always end in "/" (the home page is "/"). With trailingSlash "never" the
+ * public address drops it ("/about/" -> "/about"): this is what layouts, canonical URLs,
+ * the sitemap and feeds use. Internally, routes are compared as keys in both modes.
+ */
+export function publicPath(route: string, mode: TrailingSlash): string {
+  return mode === "never" && route !== "/" && route.endsWith("/") ? route.slice(0, -1) : route;
+}
+
+/** The route key for a public path or route: "/about" -> "/about/" ("/" stays "/"). */
+export function routeKey(route: string): string {
+  return route.endsWith("/") ? route : `${route}/`;
+}
+
+/** The file a route is written to: "about/index.html", or "about.html" with trailingSlash "never" (served at /about by static hosts). */
+export function outFileFor(route: string, mode: TrailingSlash): string {
+  if (route === "/") return "index.html";
+  return mode === "never" ? `${route.slice(1, -1)}.html` : `${route.slice(1)}index.html`;
 }
 
 export const NOT_FOUND_PAGE = "404.md";
@@ -22,7 +44,7 @@ export const NOT_FOUND_PAGE = "404.md";
  * Files and directories starting with "_" are ignored. The top-level 404.md is
  * not a route; use findNotFoundPage() for it.
  */
-export function discoverRoutes(pagesDir: string): RouteEntry[] {
+export function discoverRoutes(pagesDir: string, mode: TrailingSlash = "always"): RouteEntry[] {
   if (!fs.existsSync(pagesDir)) return [];
   const routes = new Map<string, RouteEntry>();
 
@@ -39,7 +61,7 @@ export function discoverRoutes(pagesDir: string): RouteEntry[] {
         file,
       );
     }
-    routes.set(route, { route, file, outFile: path.posix.join(...segments, "index.html") });
+    routes.set(route, { route, file, outFile: outFileFor(route, mode) });
   }
 
   return [...routes.values()].sort((a, b) => a.route.localeCompare(b.route));

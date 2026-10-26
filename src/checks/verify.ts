@@ -3,6 +3,7 @@ import path from "node:path";
 import { parse } from "node-html-parser";
 import { VageError } from "../core/errors.js";
 import { createBuildLoader } from "../core/loader.js";
+import { publicPath } from "../core/routes.js";
 import { renderSite } from "../core/site.js";
 import { spamHits } from "./integrity.js";
 
@@ -203,7 +204,7 @@ export async function verifySite(
     const queue = [...model.pages];
     const worker = async () => {
       for (let page = queue.shift(); page; page = queue.shift()) {
-        const url = `${origin}${page.route}`;
+        const url = `${origin}${publicPath(page.route, model.site.trailingSlash)}`;
         const live = await get(url);
         if (live.status !== 200) {
           differences.push({ route: page.route, severity: "error", kind: "unreachable", detail: live.status ? `HTTP ${live.status}` : "no response" });

@@ -1,4 +1,5 @@
 import type { SiteConfig } from "../core/config.js";
+import { publicPath } from "../core/routes.js";
 import { instant } from "../core/dates.js";
 import type { SitePage } from "../core/site.js";
 
@@ -51,7 +52,7 @@ export function rssFeed(site: SiteConfig, feed: FeedConfig, pages: SitePage[], o
   const newest = items.find((p) => p.frontmatter.datePublished)?.frontmatter.datePublished; // items are sorted newest first
   const body = items
     .map((p) => {
-      const link = p.meta.canonical ?? `${origin}${p.route}`;
+      const link = p.meta.canonical ?? `${origin}${publicPath(p.route, site.trailingSlash)}`;
       const date = p.frontmatter.datePublished;
       return [
         "    <item>",

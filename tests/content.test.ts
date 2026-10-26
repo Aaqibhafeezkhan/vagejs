@@ -40,6 +40,7 @@ describe("loadConfig", () => {
   it("applies defaults when there is no config file", async () => {
     expect(await loadConfig("/nonexistent", loaderFor(undefined))).toEqual({
       lang: "en",
+      trailingSlash: "always",
       redirects: {},
       images: { optimize: false, widths: [480, 960, 1600], quality: 75, avif: false, sizes: "(max-width: 48rem) 100vw, 48rem" },
       tags: { pages: true },

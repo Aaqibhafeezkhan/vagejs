@@ -5,6 +5,7 @@ import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/m
 import { contentImageSources, imageVariants, sharpResize, type Resize } from "../content/optimize.js";
 import { enhanceTrustedHtml, sanitizeHtml, type ImageVariant } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
+import { publicPath } from "./routes.js";
 import { VageError } from "./errors.js";
 import { clonePlain } from "./clone.js";
 import { escapeHtml, isSafeHtml, type SafeHtml } from "./html.js";
@@ -87,7 +88,7 @@ export async function renderPage(options: {
   const meta = pageMeta(site, route, frontmatter, options.notFound);
   const result = await layout({
     content,
-    page: { route, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
+    page: { route: publicPath(route, site.trailingSlash), title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
     site,
     pages: options.pages ?? [],
   });

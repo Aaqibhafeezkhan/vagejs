@@ -207,6 +207,10 @@ export const configSchema = z.strictObject({
   title: z.string().min(1).optional().describe("Site name: page titles, og:site_name, llms.txt heading."),
   description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
   lang: z.string().min(1).default("en").describe("<html lang> value."),
+  trailingSlash: z
+    .enum(["always", "never"])
+    .default("always")
+    .describe('Page addresses: "always" serves /about/ (written as about/index.html); "never" serves /about (written as about.html), for sites moving from hosts or frameworks that used addresses without the slash. Canonical URLs, the sitemap, feeds, llms.txt and the routes layouts see follow it, and vage check flags links in the other form.'),
   images: z
     .strictObject({
       optimize: z.boolean().default(false).describe('Make resized WebP copies of images in page content and offer them with srcset. Needs "sharp" in the project (npm install --save-dev sharp).'),

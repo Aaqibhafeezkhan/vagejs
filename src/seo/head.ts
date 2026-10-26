@@ -4,9 +4,11 @@ import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
 import { feedTitle } from "../discovery/feed.js";
 import { article, jsonLdScript, organization, website, type Thing } from "./jsonld.js";
+import { publicPath } from "../core/routes.js";
 import { absoluteUrl } from "./urls.js";
 
 export interface PageMeta {
+  /** Route key (always with a trailing slash). */
   route: string;
   frontmatter: Frontmatter;
   /** Absolute canonical URL, when `site` is configured and the page is indexable. */
@@ -16,7 +18,7 @@ export interface PageMeta {
 
 export function pageMeta(site: SiteConfig, route: string, frontmatter: Frontmatter, notFound = false): PageMeta {
   const noindex = notFound || frontmatter.noindex;
-  const canonical = noindex ? undefined : absoluteUrl(site.site, frontmatter.canonical ?? route);
+  const canonical = noindex ? undefined : absoluteUrl(site.site, frontmatter.canonical ?? publicPath(route, site.trailingSlash));
   return { route, frontmatter, canonical, noindex };
 }
 
@@ -56,7 +58,7 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
   tags.push(meta("name", "twitter:card", image ? "summary_large_image" : "summary"));
 
   // Markdown copy for AI tools (seo.markdownCopies), on pages that are listed.
-  if (site.seo.markdownCopies && m.canonical && m.canonical === absoluteUrl(site.site, m.route)) {
+  if (site.seo.markdownCopies && m.canonical && m.canonical === absoluteUrl(site.site, publicPath(m.route, site.trailingSlash))) {
     const href = m.route === "/" ? "/index.md" : `${m.route.slice(0, -1)}.md`;
     tags.push({ exists: /<link[^>]+text\/markdown/i, html: `<link rel="alternate" type="text/markdown" href="${escapeHtml(href)}" />` });
   }

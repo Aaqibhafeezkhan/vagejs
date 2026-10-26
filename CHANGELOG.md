@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **`trailingSlash: "never"`** for sites whose addresses have no trailing slash (`/about`, not `/about/`), such as sites moving from Astro or Next.js with that setting. Pages are written as `about.html`; canonical URLs, `og:url`, the sitemap, RSS feeds, `llms.txt`, tag pages, redirects and the `route` layouts get all use the form without the slash. `collection()`, `tree()`, `breadcrumbs()`, `neighbors()` and `tagList()` work the same in both modes. `vage check` accepts `/about` and flags `/about/` (`link-trailing-slash`), the dev and preview servers redirect `/about/` to `/about`, and a `vercel.json` without `"cleanUrls": true` is an error, because Vercel would answer 404. The default stays `"always"`, so existing sites don't change.
+
 ## 0.6.0 (2026-10-26)
 
 ### Added

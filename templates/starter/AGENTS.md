@@ -134,11 +134,13 @@ From the published pages and config (never from `public/`; a hand-written `publi
 
 ## Config
 
-`vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`,
+`vage.config.ts` keys: `site` (origin only, no path), `title`, `description`, `lang`, `trailingSlash`,
 `seo: { robots, sitemap, llmsTxt, structuredData, feeds, markdownCopies, lastmod }`, `redirects`, `markdown: { html, inlineStyles, headingIds }`, `tags: { pages, layout }`, `contact: { to, from, path, sent, failed, perMinute }`,
 `images: { optimize, widths, quality, sizes }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject, netlifySite }`,
 `security: { headers, csp, cspSources, outboundLinks, spamPatterns }`, `integrations`, `guidelines`.
 Keys not in this list are an error; `npx vage info --json` has the full schema.
+
+`trailingSlash: "never"` (default `"always"`) serves pages at `/about` instead of `/about/`, written as `about.html`. Everything follows it: the routes layouts get, canonical URLs, the sitemap, feeds and `llms.txt`. Write links without the slash then; `vage check` flags the slashed form. On Vercel, add `"cleanUrls": true` to `vercel.json` (`vage check` reports it when missing).
 
 ## Performance and accessibility
 

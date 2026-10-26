@@ -147,6 +147,8 @@ export default defineConfig({
 
 Unknown keys are an error, so typos don't silently do nothing. `npx vage info --json` prints the full schema.
 
+Moving a site that used addresses without a trailing slash (`/about`, not `/about/`)? Set `trailingSlash: "never"`: pages are written as `about.html`, and canonical URLs, the sitemap, feeds, `llms.txt` and the routes layouts see all drop the slash, so existing links and rankings keep working. On Vercel, also add `"cleanUrls": true` to `vercel.json`.
+
 ### Deploy
 
 ```bash

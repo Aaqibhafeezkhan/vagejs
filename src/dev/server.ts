@@ -10,7 +10,7 @@ import { renderPage } from "../core/render.js";
 import { cacheDir } from "../content/optimize.js";
 import { collection, collectPages, tagList } from "../core/pages.js";
 import { renderSite, tagPageSource } from "../core/site.js";
-import { discoverRoutes, findNotFoundPage, normalizeRequestPath } from "../core/routes.js";
+import { discoverRoutes, findNotFoundPage, normalizeRequestPath, publicPath, routeKey } from "../core/routes.js";
 import { devAccessGuard } from "./guard.js";
 import { listenOrExplain, type ServeOptions } from "./listen.js";
 import { redirect } from "./preview.js";
@@ -95,16 +95,17 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
       }
       const target = Object.entries(site.redirects).find(([from]) => normalizeRequestPath(from) === route)?.[1];
       if (target) return redirect(res, target);
-      const entry = discoverRoutes(pagesDir).find((r) => r.route === route);
-      // Match production preview: "/about" -> "/about/".
-      if (entry && !pathname.endsWith("/") && !pathname.endsWith(".html")) {
-        return redirect(res, entry.route + urlPath.slice(pathname.length));
+      const entry = discoverRoutes(pagesDir, site.trailingSlash).find((r) => r.route === route);
+      // Match production preview: "/about" -> "/about/", or "/about/" -> "/about" with trailingSlash "never".
+      const wrongForm = (p: string) => (site.trailingSlash === "never" ? p !== "/" && p.endsWith("/") : !p.endsWith("/")) && !p.endsWith(".html");
+      if (entry && wrongForm(pathname)) {
+        return redirect(res, publicPath(entry.route, site.trailingSlash) + urlPath.slice(pathname.length));
       }
       if (!entry && site.tags.pages && route.startsWith("/tags/")) {
         const pages = await collectPages(root, site, load, { skipInvalid: true });
-        const tag = tagList(pages).find((t) => t.route === route);
+        const tag = tagList(pages).find((t) => routeKey(t.route) === route);
         if (tag) {
-          if (!pathname.endsWith("/")) return redirect(res, tag.route + urlPath.slice(pathname.length));
+          if (wrongForm(pathname)) return redirect(res, tag.route + urlPath.slice(pathname.length));
           const source = tagPageSource(site, tag.name, collection(pages, { tag: tag.name, sort: "date" }));
           const page = await renderPage({ root, file: path.join(pagesDir, "tags", `${tag.slug}.md`), route, site, load, pages, source });
           return send(res, 200, await server.transformIndexHtml(urlPath, page.html));

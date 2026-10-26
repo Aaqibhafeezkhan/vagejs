@@ -4,7 +4,7 @@ import { parse, type HTMLElement } from "node-html-parser";
 import { createBuildLoader } from "../core/loader.js";
 import { parseFrontmatter } from "../content/markdown.js";
 import { scheduledFor } from "../core/dates.js";
-import { normalizeRequestPath, routeForPage } from "../core/routes.js";
+import { normalizeRequestPath, outFileFor, publicPath, routeForPage } from "../core/routes.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
 import { externalHost, hiddenReason, isEmptyLink, LINK_LOCK, linkTarget, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
@@ -84,7 +84,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   for (const e of model.pageErrors) findings.push({ rule: "page-error", severity: "error", message: e.message, source: e.source });
   const outputs = outputPaths(root, model);
   // Pages that failed to render are already reported; links to them aren't broken links on top of that.
-  for (const e of model.pageErrors) if (e.route) outputs.add(`${e.route}index.html`);
+  for (const e of model.pageErrors) if (e.route) outputs.add(`/${outFileFor(e.route, model.site.trailingSlash)}`);
   const drafts = new Set(model.draftRoutes);
   const scheduled = new Map(model.skippedScheduled.map((s) => [s.route, s.date]));
   const pages = model.notFound ? [...model.pages, model.notFound] : model.pages;
@@ -106,6 +106,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   findings.push(...checkContact(model, outputs));
   findings.push(...checkRedirectTargets(model, outputs));
   findings.push(...checkOutboundLinks(root, model));
+  findings.push(...checkVercelCleanUrls(root, model));
   return findings;
 }
 
@@ -120,6 +121,8 @@ function checkPage(
   add: (f: Omit<Finding, "page" | "source">) => void,
 ) {
   const indexable = !page.meta.noindex;
+  // Relative links resolve against the address the browser shows ("/about" with trailingSlash "never").
+  const base = publicPath(page.route, model.site.trailingSlash);
 
   if (model.site.security.spamPatterns) {
     const text = `${doc.querySelector("body")?.text ?? ""} ${doc.querySelectorAll("a[href]").map((a) => a.getAttribute("href")).join(" ")}`;
@@ -233,14 +236,14 @@ function checkPage(
       checkFragment(href, `/${page.outFile}`, anchors, add);
       continue;
     }
-    const target = internalPath(href, page.route, model.site.site);
+    const target = internalPath(href, base, model.site.site);
     if (target === undefined) continue;
     if (target === MALFORMED) {
       add({ rule: "link-broken", severity: "error", message: `Link to "${href}" is a malformed URL.` });
       continue;
     }
     const resolved = resolveOutput(target, outputs);
-    if (resolved === "ok") checkFragment(href, target.endsWith("/") ? `${target}index.html` : target, anchors, add);
+    if (resolved === "ok") checkFragment(href, outputFile(target, outputs), anchors, add);
     if (resolved === "missing") {
       const route = target.endsWith("/") ? target : `${target}/`;
       const date = scheduled.get(route);
@@ -255,6 +258,8 @@ function checkPage(
       });
     } else if (resolved === "needs-slash") {
       add({ rule: "link-trailing-slash", severity: "warning", message: `Link to "${href}" redirects; use "${target}/".` });
+    } else if (resolved === "no-slash") {
+      add({ rule: "link-trailing-slash", severity: "warning", message: `Link to "${href}" redirects; use "${target.slice(0, -1)}" (this site uses trailingSlash: "never").` });
     }
   }
 
@@ -270,7 +275,7 @@ function checkPage(
   ] as const) {
     for (const el of doc.querySelectorAll(selector)) {
       const value = el.getAttribute(attr)!;
-      const target = internalPath(value, page.route, model.site.site);
+      const target = internalPath(value, base, model.site.site);
       if (target !== undefined && (target === MALFORMED || resolveOutput(target, outputs) === "missing")) {
         add({ rule: "asset-missing", severity: "error", message: `<${el.tagName.toLowerCase()} ${attr}="${value}"> does not exist in the build output.` });
       }
@@ -287,7 +292,7 @@ function checkPage(
       add({ rule: "canonical", severity: "error", message: `Canonical "${href}" is not an absolute URL.`, docs: DOCS.canonical });
       continue;
     }
-    const target = internalPath(href, page.route, model.site.site);
+    const target = internalPath(href, base, model.site.site);
     if (target === undefined) {
       add({ rule: "canonical", severity: "warning", message: `Canonical "${href}" points to another site; search engines may credit that site instead of yours.`, docs: DOCS.canonical });
     } else if (target === MALFORMED || resolveOutput(target, outputs) !== "ok") {
@@ -380,7 +385,7 @@ function checkContact(model: SiteModel, outputs: Set<string>): Finding[] {
     findings.push({ rule: "contact", severity: "error", message: `contact needs deploy.target "cloudflare-workers" (it emails through Cloudflare Email Routing); the target is "${model.site.deploy.target}".` });
   }
   for (const [key, route] of [["sent", contact.sent], ["failed", contact.failed]] as const) {
-    if (!outputs.has(`${route}index.html`)) findings.push({ rule: "contact", severity: "error", message: `contact.${key} is ${route}, but there's no published page there. Create it (e.g. src/pages${route.replace(/\/$/, "")}.md).` });
+    if (resolveOutput(route, outputs) === "missing") findings.push({ rule: "contact", severity: "error", message: `contact.${key} is ${route}, but there's no published page there. Create it (e.g. src/pages${route.replace(/\/$/, "")}.md).` });
   }
   const action = (a: string | undefined) => a !== undefined && normalizeRequestPath(new URL(a, "http://x").pathname) === contact.path;
   if (!model.pages.some((p) => parse(p.html).querySelectorAll("form").some((f) => action(f.getAttribute("action"))))) {
@@ -515,6 +520,23 @@ function checkRedirectTargets(model: SiteModel, outputs: Set<string>): Finding[]
   return findings;
 }
 
+/**
+ * Vercel serves about.html at /about only with "cleanUrls": true; without it, every
+ * page of a trailingSlash "never" build answers 404 at its own address.
+ */
+function checkVercelCleanUrls(root: string, model: SiteModel): Finding[] {
+  const file = path.join(root, "vercel.json");
+  if (model.site.trailingSlash !== "never" || !fs.existsSync(file)) return [];
+  let cleanUrls: unknown;
+  try {
+    cleanUrls = (JSON.parse(fs.readFileSync(file, "utf8")) as { cleanUrls?: unknown }).cleanUrls;
+  } catch {
+    return [{ rule: "config", severity: "warning", message: "vercel.json is not valid JSON.", source: "vercel.json" }];
+  }
+  if (cleanUrls === true) return [];
+  return [{ rule: "config", severity: "error", message: 'trailingSlash is "never", so pages are written as about.html: add "cleanUrls": true to vercel.json, or Vercel answers 404 at /about.', source: "vercel.json" }];
+}
+
 function checkRobots(model: SiteModel): Finding[] {
   const robots = model.files.get("robots.txt");
   if (!robots) return [];
@@ -592,10 +614,27 @@ function checkFragment(href: string, outFile: string, anchors: Map<string, Set<s
   add({ rule: "link-fragment", severity: "warning", message: `Link to "${href}": no element with id "${fragment}" on that page, so it opens at the top.` });
 }
 
-function resolveOutput(target: string, outputs: Set<string>): "ok" | "needs-slash" | "missing" {
-  if (target.endsWith("/")) return outputs.has(`${target}index.html`) ? "ok" : "missing";
+/**
+ * How a site path resolves against the build output, the way static hosts serve it:
+ * "/about/" -> about/index.html, "/about" -> about.html (trailingSlash "never") or a file.
+ * "needs-slash" and "no-slash" exist but redirect to the other form first.
+ */
+function resolveOutput(target: string, outputs: Set<string>): "ok" | "needs-slash" | "no-slash" | "missing" {
+  if (target.endsWith("/")) {
+    if (outputs.has(`${target}index.html`)) return "ok";
+    return target !== "/" && outputs.has(`${target.slice(0, -1)}.html`) ? "no-slash" : "missing";
+  }
   if (outputs.has(target)) return "ok";
-  if (!path.posix.extname(target) && outputs.has(`${target}/index.html`)) return "needs-slash";
+  if (!path.posix.extname(target)) {
+    if (outputs.has(`${target}.html`)) return "ok";
+    if (outputs.has(`${target}/index.html`)) return "needs-slash";
+  }
   return "missing";
+}
+
+/** The output file an "ok" site path is served from (for #fragment checks). */
+function outputFile(target: string, outputs: Set<string>): string {
+  if (target.endsWith("/")) return `${target}index.html`;
+  return !outputs.has(target) && outputs.has(`${target}.html`) ? `${target}.html` : target;
 }
 
