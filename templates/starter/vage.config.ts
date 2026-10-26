@@ -7,6 +7,15 @@ export default defineConfig({
   description: "A website built with vagejs.",
   lang: "en",
 
+  // Menus for layouts (props.menus). Edit them here, not in the layout.
+  menus: {
+    main: [
+      { label: "Home", href: "/" },
+      { label: "About", href: "/about/" },
+      { label: "Blog", href: "/blog/" },
+    ],
+  },
+
   seo: {
     robots: {
       // AI crawler policy is your decision; unset means the "*" rules apply.

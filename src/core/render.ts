@@ -12,6 +12,7 @@ import { escapeHtml, isSafeHtml, type SafeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
 import type { PageSummary } from "./pages.js";
+import { resolveMenus, type MenuItem } from "./menus.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -30,6 +31,8 @@ export interface LayoutProps {
    * pick a section and order it, e.g. a blog index or a sidebar.
    */
   pages: readonly PageSummary[];
+  /** The menus from `menus` in vage.config.ts, by name, with `current` and `active` set for this page. */
+  menus: Record<string, MenuItem[]>;
 }
 
 /** Returns the page's HTML: a string, or `html\`...\`` (escapes values automatically). */
@@ -86,11 +89,13 @@ export async function renderPage(options: {
       : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles, variants, headingIds: site.markdown.headingIds });
   const layout = await applyLayoutFields(root, frontmatter, load, file);
   const meta = pageMeta(site, route, frontmatter, options.notFound);
+  const pageRoute = publicPath(route, site.trailingSlash);
   const result = await layout({
     content,
-    page: { route: publicPath(route, site.trailingSlash), title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
+    page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
     site,
     pages: options.pages ?? [],
+    menus: resolveMenus(site, pageRoute),
   });
   const html = isSafeHtml(result) ? result.value : result;
   if (typeof html !== "string") {

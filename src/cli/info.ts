@@ -40,11 +40,12 @@ export function frameworkInfo(cli: CAC, version: string) {
     },
     layouts: {
       file: "src/layouts/<name>.ts, chosen with `layout: <name>` in frontmatter (default: default)",
-      export: "default export ({ content, page, site, pages }) => html`...` (or a string). The HTML must contain </head>.",
+      export: "default export ({ content, page, site, pages, menus }) => html`...` (or a string). The HTML must contain </head>.",
       props: {
         content: "the page's rendered, sanitized HTML: insert with raw(content)",
         page: "{ route, title, description, url (absolute canonical, when indexable), frontmatter }",
         site: "the resolved vage.config.ts",
+        menus: "config menus by name, e.g. menus.main: [{ label, href?, current, active, external, items }]; current = this page (aria-current=\"page\"), active = this page, a page below href, or an active sub-item; site paths follow trailingSlash",
         pages: "every published page { route, url, title, label, description, source, frontmatter }, sorted by route, read-only (label = navTitle or title)",
       },
       helpers: {
@@ -67,7 +68,7 @@ export function frameworkInfo(cli: CAC, version: string) {
       markdownCopies: "seo.markdownCopies: true publishes /<path>.md copies of listed pages, made from each page's <main> and linked with rel=alternate type=text/markdown; layouts mark repeated extras (share links, calls to action) with data-vage-copy=\"skip\". On Cloudflare, _headers gives each copy a canonical Link header to its page",
       lastmod: 'seo.lastmod: "git" takes sitemap <lastmod> from each page\'s last commit (dateModified wins; skipped in shallow clones)',
       images: 'images: { optimize: true } (needs the sharp package) makes resized WebP copies of content images in /_vage/img/ and adds srcset/sizes; images: { avif: true } also makes AVIF copies, offered first through <picture>',
-      navigation: "frontmatter order and navTitle; helpers tree(), breadcrumbs(), neighbors(); PageSummary.label",
+      navigation: "menus in vage.config.ts (props.menus) for header and footer menus; frontmatter order and navTitle; helpers tree(), breadcrumbs(), neighbors(); PageSummary.label",
     },
     checks: {
       "frontmatter-empty": "warning: a frontmatter value came out empty (often a comma or colon inside { } without quotes)",

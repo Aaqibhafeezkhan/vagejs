@@ -86,6 +86,7 @@ Images in `public/` used as `![Alt text](/images/photo.jpg)` get their `width` a
 
 ### Navigation, feeds and AI extras
 
+- `menus` in `vage.config.ts` holds the header and footer menus (links, groups and dropdowns); layouts get them as `props.menus`, with the current page and section marked.
 - `order:` and `navTitle:` in frontmatter, with `tree()`, `breadcrumbs()` and `neighbors()` in layouts, build sidebars, breadcrumbs and previous/next links.
 - `seo: { feeds: [{ under: "/blog/" }] }` writes an RSS feed at `/blog/feed.xml`.
 - `seo: { markdownCopies: true }` publishes a Markdown copy of every listed page (`/docs/cli.md`) for AI tools, made from the page's `<main>`, without comments or raw HTML (layouts leave extras out with `data-vage-copy="skip"`); `seo: { lastmod: "git" }` dates the sitemap from git history (CI needs `fetch-depth: 0`).

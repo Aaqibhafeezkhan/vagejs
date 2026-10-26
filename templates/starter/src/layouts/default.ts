@@ -1,7 +1,7 @@
 import { html, raw, type Layout } from "vagejs";
 
 // `html` escapes every ${value}; `raw(content)` inserts the page's already-sanitized HTML.
-const layout: Layout = ({ content, page, site }) => {
+const layout: Layout = ({ content, page, site, menus }) => {
   const title = site.title && site.title !== page.title ? `${page.title} | ${site.title}` : page.title;
   return html`<!doctype html>
 <html lang="${site.lang}">
@@ -20,9 +20,7 @@ const layout: Layout = ({ content, page, site }) => {
   <body>
     <header>
       <nav aria-label="Main">
-        <a href="/">Home</a>
-        <a href="/about/">About</a>
-        <a href="/blog/">Blog</a>
+        ${(menus.main ?? []).map((item) => html`<a href="${item.href}"${item.current ? raw(' aria-current="page"') : ""}>${item.label}</a>`)}
       </nav>
     </header>
     <main>
