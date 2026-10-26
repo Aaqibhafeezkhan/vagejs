@@ -3,6 +3,7 @@ import path from "node:path";
 import { VageError } from "./errors.js";
 import { createBuildLoader } from "./loader.js";
 import { renderSite, type SiteModel } from "./site.js";
+import { publicPath } from "./routes.js";
 
 export const OUT_DIR = "dist";
 
@@ -59,7 +60,7 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
 
     const result: BuildResult = {
       outDir,
-      pages: model.pages.map((p) => ({ route: p.route, source: p.source, output: p.outFile })),
+      pages: model.pages.map((p) => ({ route: publicPath(p.route, model.site.trailingSlash), source: p.source, output: p.outFile })),
       redirects: model.redirects.map((r) => ({ from: r.from, to: r.to, output: r.outFile })),
       files: [...model.files.keys()],
       skippedDrafts: model.skippedDrafts,
