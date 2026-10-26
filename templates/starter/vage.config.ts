@@ -8,12 +8,9 @@ export default defineConfig({
   lang: "en",
 
   // Menus for layouts (props.menus). Edit them here, not in the layout.
+  // { page: "/about/" } uses that page's navTitle or title; other sites: { label: "GitHub", href: "https://..." }.
   menus: {
-    main: [
-      { label: "Home", href: "/" },
-      { label: "About", href: "/about/" },
-      { label: "Blog", href: "/blog/" },
-    ],
+    main: [{ page: "/" }, { page: "/about/" }, { page: "/blog/" }],
   },
 
   seo: {

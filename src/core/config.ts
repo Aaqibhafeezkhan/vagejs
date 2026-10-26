@@ -25,11 +25,23 @@ const redirectTarget = token.regex(/^(\/(?!\/)|https?:\/\/)/, 'must be a site pa
 
 /** Menu link: a site path ("/docs/", "/docs/#install"), an http(s) URL or a mailto: address. */
 const menuHref = token.regex(/^(\/(?!\/)|https?:\/\/|mailto:)/, 'must be a site path starting with a single "/", an http(s) URL or a mailto: address');
-const menuLink = z.strictObject({ label: z.string().min(1), href: menuHref });
+/** A published page by its address; the entry takes the page's navTitle or title as its label. */
+const menuPage = token.regex(/^\/(?!\/)[^?#]*$/, 'must be a page address like "/pricing/"');
+const menuFields = { label: z.string().min(1).optional(), href: menuHref.optional(), page: menuPage.optional() };
+type MenuFields = { label?: string; href?: string; page?: string };
+const oneTarget = (e: MenuFields) => !(e.href && e.page);
+const labelled = (e: MenuFields) => !!(e.label || e.page);
+const menuLink = z
+  .strictObject(menuFields)
+  .refine(oneTarget, "use href or page, not both")
+  .refine((e) => e.href || e.page, "needs an href or a page")
+  .refine(labelled, "needs a label (only page entries can leave it out)");
 /** A link, or a group with one level of sub-links (a dropdown or a footer column). */
 const menuEntry = z
-  .strictObject({ label: z.string().min(1), href: menuHref.optional(), items: z.array(menuLink).min(1).optional() })
-  .refine((e) => e.href || e.items, "needs an href, items, or both");
+  .strictObject({ ...menuFields, items: z.array(menuLink).min(1).optional() })
+  .refine(oneTarget, "use href or page, not both")
+  .refine((e) => e.href || e.page || e.items, "needs an href, a page or items")
+  .refine(labelled, "needs a label (only page entries can leave it out)");
 const menuName = /^[A-Za-z][\w-]*$/;
 
 const robotsSchema = z.strictObject({
@@ -228,7 +240,7 @@ export const configSchema = z.strictObject({
       }
     })
     .default({})
-    .describe('Named menus for layouts, e.g. { main: [{ label: "Docs", href: "/docs/" }], footer: [{ label: "Learn", items: [...] }] }. Layouts get them in props.menus, with current and active set for each page.'),
+    .describe('Named menus for layouts, e.g. { main: [{ page: "/docs/" }, { label: "GitHub", href: "https://github.com/..." }], footer: [{ label: "Learn", items: [...] }] }. Layouts get them in props.menus, with current and active set for each page.'),
   images: z
     .strictObject({
       optimize: z.boolean().default(false).describe('Make resized WebP copies of images in page content and offer them with srcset. Needs "sharp" in the project (npm install --save-dev sharp).'),

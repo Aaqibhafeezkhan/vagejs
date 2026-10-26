@@ -95,7 +95,7 @@ export async function renderPage(options: {
     page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, frontmatter },
     site,
     pages: options.pages ?? [],
-    menus: resolveMenus(site, pageRoute),
+    menus: resolveMenus(site, pageRoute, options.pages ?? []),
   });
   const html = isSafeHtml(result) ? result.value : result;
   if (typeof html !== "string") {

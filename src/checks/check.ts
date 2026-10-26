@@ -4,7 +4,8 @@ import { parse, type HTMLElement } from "node-html-parser";
 import { createBuildLoader } from "../core/loader.js";
 import { parseFrontmatter } from "../content/markdown.js";
 import { scheduledFor } from "../core/dates.js";
-import { normalizeRequestPath, outFileFor, publicPath, routeForPage } from "../core/routes.js";
+import { normalizeRequestPath, outFileFor, publicPath, routeForPage, routeKey } from "../core/routes.js";
+import { menuEntries } from "../core/menus.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
 import { externalHost, hiddenReason, isEmptyLink, LINK_LOCK, linkTarget, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
@@ -105,6 +106,7 @@ export function checkSite(root: string, model: SiteModel): Finding[] {
   findings.push(...checkRobots(model));
   findings.push(...checkContact(model, outputs));
   findings.push(...checkRedirectTargets(model, outputs));
+  findings.push(...checkMenus(model, outputs));
   findings.push(...checkOutboundLinks(root, model));
   findings.push(...checkVercelCleanUrls(root, model));
   return findings;
@@ -516,6 +518,26 @@ function checkRedirectTargets(model: SiteModel, outputs: Set<string>): Finding[]
     if (target === MALFORMED || resolveOutput(target, outputs) === "missing") {
       findings.push({ rule: "redirect-target", severity: "error", message: `Redirect from "${r.from}" points to "${r.to}", which isn't a page or file on this site.`, source: "vage.config.ts" });
     }
+  }
+  return findings;
+}
+
+/**
+ * Menu entries must lead somewhere, even in menus no layout shows (a theme may show them
+ * later): `page` entries to a published page, `href` site paths to a page or file.
+ */
+function checkMenus(model: SiteModel, outputs: Set<string>): Finding[] {
+  // Pages from src/pages, plus pages that failed to render (reported already); not generated tag pages.
+  const published = new Set([...model.pages.filter((p) => !p.source.startsWith("(")).map((p) => p.route), ...model.pageErrors.flatMap((e) => (e.route ? [e.route] : []))].map(routeKey));
+  const findings: Finding[] = [];
+  for (const e of menuEntries(model.site)) {
+    let problem: string | undefined;
+    if (e.page && !published.has(routeKey(e.page))) problem = `page "${e.page}" isn't a published page in src/pages (moved, deleted, a draft or scheduled?)`;
+    if (e.href) {
+      const target = internalPath(e.href, "/", model.site.site);
+      if (target !== undefined && (target === MALFORMED || resolveOutput(target, outputs) === "missing")) problem = `"${e.href}" isn't a page or file on this site`;
+    }
+    if (problem) findings.push({ rule: "menu-link", severity: "error", message: `${e.at}: ${problem}.`, source: "vage.config.ts" });
   }
   return findings;
 }

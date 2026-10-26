@@ -19,6 +19,7 @@ import { parseFrontmatter } from "../content/markdown.js";
 import { sharpResize } from "../content/optimize.js";
 import { scheduledFor } from "./dates.js";
 import { collection, collectPages, tagList, type PageSummary } from "./pages.js";
+import { menuPageProblems } from "./menus.js";
 import { discoverRoutes, findNotFoundPage, normalizeRequestPath, outFileFor, publicPath, routeKey } from "./routes.js";
 
 export interface SitePage extends RenderedPage {
@@ -89,6 +90,9 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   };
 
   const pages = await collectPages(root, site, load, { skipInvalid: collect });
+  // vage check reports these as menu-link findings instead.
+  const menuProblems = collect ? [] : menuPageProblems(site, pages);
+  if (menuProblems.length) throw new VageError(menuProblems.join("\n"), "vage.config.ts");
   // Loaded once for the whole site, so a missing sharp is one clear error, not one per page.
   const resize = site.images.optimize ? await sharpResize(root) : undefined;
   for (const entry of discoverRoutes(pagesDir, site.trailingSlash)) {
