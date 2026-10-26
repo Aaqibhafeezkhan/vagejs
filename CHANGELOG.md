@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.0 (2026-10-26)
+
+### Added
+- **Interactive islands (React).** Add `client:load`, `client:visible` or `client:idle` to a React component from `src/components/`, in an MDX page or a React layout (`<Counter client:load start={3} />`). It's rendered to HTML as before, then made interactive in the browser: right away, when scrolled into view, or when the browser is idle. The build bundles the loader, one file per island and shared chunks (React's production build) into `/_vage/islands/`; the dev server bundles them on request. Only pages with islands get a script (one `<script type="module">`, allowed by the default CSP), and `vage audit` counts their code, React included (about 215 KB, over the default 100 KB budget). Each island gets its own `useId` prefix. Props must be plain data, islands can't have children or contain other islands, and unknown directives, functions, dates and components from outside `src/components/` fail with a message naming the element. Vue islands aren't supported yet.
+
 ## 0.10.0 (2026-10-26)
 
 ### Added
