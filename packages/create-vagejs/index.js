@@ -8,7 +8,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const args = process.argv.slice(2);
 if (!args.length || args[0].startsWith("-")) {
-  console.error("Usage: npm create vagejs@latest <directory>");
+  console.error("Usage: npm create vagejs@latest <directory> [-- --yes | --no-install]");
   process.exit(1);
 }
 const cli = require.resolve("vagejs/cli");

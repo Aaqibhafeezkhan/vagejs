@@ -9,6 +9,7 @@ import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
 import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
 import { absoluteUrl } from "../seo/urls.js";
+import { installAndStart, packageManager } from "./start.js";
 import { startDevServer } from "../dev/server.js";
 import { editorUrl } from "../dev/editor.js";
 import { startPreviewServer } from "../dev/preview.js";
@@ -33,13 +34,18 @@ interface ServeFlags extends CommonOptions {
 cli
   .command("create <dir>", "Scaffold a new vagejs website")
   .option("--vage-spec <spec>", "Dependency spec for vagejs in the new package.json", { default: `^${version}` })
+  .option("--yes", "Install and start the site without asking")
+  .option("--no-install", "Only create the files (don't offer to install and start)")
   .option("--json", "Print machine-readable JSON")
-  .action((dir: string, opts: { vageSpec: string; json?: boolean }) =>
-    run(opts, () => {
+  .action((dir: string, opts: { vageSpec: string; json?: boolean; yes?: boolean; install?: boolean }) =>
+    run(opts, async () => {
       const result = createProject(dir, assertVageSpec(opts.vageSpec));
       if (opts.json) return print({ ok: true, ...result });
       const rel = path.relative(process.cwd(), result.dir) || ".";
-      console.log(`Created ${result.dir}\n\nNext steps:\n  cd ${rel}\n  npm install\n  npm start\n\nnpm start opens the site in your browser. npm run dev starts it without opening one.`);
+      console.log(`Created ${result.dir}\n`);
+      // Asks only a person at a terminal: AI assistants and CI get the next steps, as before.
+      const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY) && !process.env.CI;
+      process.exitCode = await installAndStart({ dir: result.dir, rel, pm: packageManager(), interactive, yes: opts.yes, install: opts.install });
     }),
   );
 
