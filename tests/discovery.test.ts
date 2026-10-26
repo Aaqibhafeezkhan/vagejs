@@ -132,9 +132,10 @@ describe("discovery files in the build", () => {
 });
 
 describe("config validation", () => {
-  it("normalizes site to its origin and rejects base paths", async () => {
+  it("normalizes site, keeping a subfolder path without the final slash", async () => {
     expect((await config({ site: "https://a.example/" })).site).toBe("https://a.example");
-    await expect(config({ site: "https://a.example/docs/" })).rejects.toThrow(/base paths are not supported/);
+    expect((await config({ site: "https://a.example/docs/" })).site).toBe("https://a.example/docs");
+    await expect(config({ site: "https://a.example/a b/" })).rejects.toThrow(/subfolder path/);
   });
 
   it("accepts true/false/object for toggles", async () => {

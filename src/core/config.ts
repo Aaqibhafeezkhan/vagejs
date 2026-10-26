@@ -3,6 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 import { VageError } from "./errors.js";
 import { ruleData } from "../guidelines/pack.js";
+import { basePath } from "./base.js";
 
 export const CONFIG_FILES = ["vage.config.ts", "vage.config.js", "vage.config.mjs"];
 
@@ -221,10 +222,11 @@ const integrationsSchema = z
 export const configSchema = z.strictObject({
   site: z
     .url({ protocol: /^https?$/ })
-    .refine((s) => new URL(s).pathname === "/", "must be an origin without a path (base paths are not supported yet)")
-    .transform((s) => new URL(s).origin)
+    .refine((s) => !new URL(s).search && !new URL(s).hash, "must not have a ?query or #fragment")
+    .refine((s) => /^(\/[\w.~-]+)*\/?$/.test(new URL(s).pathname), 'a subfolder path may use letters, digits, ".", "_", "~" and "-", e.g. https://owner.github.io/repo')
+    .transform((s) => `${new URL(s).origin}${new URL(s).pathname.replace(/\/+$/, "")}`)
     .optional()
-    .describe("Production origin, e.g. https://example.com. Needed for canonical URLs and sitemap.xml."),
+    .describe("The site's address, e.g. https://example.com, or with a subfolder for GitHub Pages project sites: https://owner.github.io/repo (links like /about/ then get the /repo prefix in the build). Needed for canonical URLs and sitemap.xml."),
   title: z.string().min(1).optional().describe("Site name: page titles, og:site_name, llms.txt heading."),
   description: z.string().min(1).optional().describe("Fallback meta description; llms.txt summary."),
   lang: z.string().min(1).default("en").describe("<html lang> value."),
@@ -351,6 +353,13 @@ export const configSchema = z.strictObject({
     .describe("Old path -> new path or URL. Built as noindex meta-refresh pages; dev answers 301."),
 });
 
+/** Settings that need the site at the root of its domain. */
+const rootOnly = configSchema.superRefine((c, ctx) => {
+  if (!basePath(c.site)) return;
+  if (c.deploy.target !== "github-pages") ctx.addIssue({ code: "custom", path: ["site"], message: `a site in a subfolder (${c.site}) works with the github-pages target or any static host's files, not the ${c.deploy.target} target: those sites are served from the root of a domain` });
+  if (c.contact) ctx.addIssue({ code: "custom", path: ["contact"], message: "contact forms need a Cloudflare Workers site at the root of a domain, not a site in a subfolder" });
+});
+
 export type UserConfig = z.input<typeof configSchema>;
 export type SiteConfig = z.output<typeof configSchema>;
 
@@ -372,7 +381,7 @@ export async function loadConfig(root: string, load: ModuleLoader): Promise<Site
 
 /** Validates a raw config object and applies defaults. */
 export function parseConfig(raw: unknown, file?: string): SiteConfig {
-  const result = configSchema.safeParse(raw ?? {});
+  const result = rootOnly.safeParse(raw ?? {});
   if (!result.success) {
     throw new VageError(`Invalid config:\n${z.prettifyError(result.error)}`, file);
   }

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { basePath, siteOrigin } from "../core/base.js";
 import path from "node:path";
 import { parse } from "node-html-parser";
 import type { SiteConfig } from "../core/config.js";
@@ -43,11 +44,14 @@ export function measurePages(outDir: string, pages: { route: string; outFile: st
       if (seen.has(key)) return;
       seen.add(key);
       weight.requests++;
-      const local = url.host === "local.invalid" || (site !== undefined && url.origin === site);
+      const local = url.host === "local.invalid" || (site !== undefined && url.origin === siteOrigin(site));
       if (!local) return weight.external.push(url.href);
+      // Built pages of a site in a subfolder link to /repo/...; the files are at the root of dist/.
+      const sub = basePath(site);
+      const pathname = sub && url.pathname.startsWith(`${sub}/`) ? url.pathname.slice(sub.length) : url.pathname;
       let rel: string;
       try {
-        rel = decodeURIComponent(url.pathname);
+        rel = decodeURIComponent(pathname);
       } catch {
         return; // malformed URLs are reported by `vage check`
       }

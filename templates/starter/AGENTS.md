@@ -164,7 +164,7 @@ Always ask the site owner before publishing or deploying. Show them the plan fir
 
 After deploying, `npx vage indexnow --changed-since HEAD~1` (needs `integrations.indexNow.key`) tells IndexNow search engines about changed pages. It's a hint, not a guarantee of indexing; ask the owner first.
 
-GitHub Pages needs a custom domain or a `<user>.github.io` repository, because vagejs does not support base paths yet; `vage deploy` stops before pushing when the site would land in a subfolder.
+GitHub Pages serves a repository named anything but `<user>.github.io` from a subfolder, `https://<user>.github.io/<repo>/`. Set `site` to exactly that address (`site: "https://<user>.github.io/<repo>"`) and vagejs adds `/<repo>` to every root-relative link, image, script, stylesheet and CSS `url()` in the build; keep writing links from the site root (`/about/`), never with the subfolder. `npm run preview` serves the site under the subfolder; `npm run dev` stays at `/`. `vage deploy` stops before pushing when `site` doesn't name the repository's subfolder. JavaScript files in `public/` aren't changed, so scripts must not use root paths. Search engines only read `robots.txt` at the root of a domain, so submit the sitemap in Search Console. A site in a subfolder can't use the Cloudflare or Netlify targets or the contact form.
 
 Other static hosts (Vercel and the like) work without a vagejs deploy command: build command `npm run build`, output folder `dist`, no framework preset. Config redirects become small forwarding pages there, and the `_headers` security headers apply only on Cloudflare and Netlify.
 `.github/workflows/ci.yml` runs check, build and audit on every push and PR, and uploads `dist/` as a downloadable preview artifact.
@@ -186,7 +186,7 @@ Off unless configured in `vage.config.ts` under `integrations`. Ask the site own
 
 ## Not implemented yet
 
-Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites, base paths. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites. Do not use or document them as available. A passing `check` does not guarantee indexing, rankings or AI citations.
 
 ## Favicon
 

@@ -159,7 +159,7 @@ Moving a site that used addresses without a trailing slash (`/about`, not `/abou
 
 ```bash
 npx vage deploy:github --remote https://github.com/you/site.git   # check, build, safe commit + push (asks first)
-npx vage deploy                                                  # GitHub Pages via Actions
+npx vage deploy                                                  # GitHub Pages via Actions (project repositories: site: "https://<user>.github.io/<repo>")
 npx vage deploy --target cloudflare-workers --project my-site    # Cloudflare Workers: new version, no downtime
 npx vage deploy --target cloudflare-pages --project my-site      # older Cloudflare Pages projects
 npx vage deploy --target netlify --project my-site               # Netlify production deploy (deploy.target: "netlify")
@@ -230,7 +230,7 @@ vage info     [--json]                            # commands + config/frontmatte
 
 ## Planned, not implemented
 
-Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites, base paths, sitemap indexes.
+Bing Webmaster Tools API, a Vercel adapter, CMS content sources, multi-language sites, sitemap indexes.
 
 ## Security
 

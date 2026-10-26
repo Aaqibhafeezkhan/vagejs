@@ -6,6 +6,7 @@ import { parseFrontmatter } from "../content/markdown.js";
 import { scheduledFor } from "../core/dates.js";
 import { normalizeRequestPath, outFileFor, publicPath, routeForPage, routeKey } from "../core/routes.js";
 import { menuEntries, sitePath } from "../core/menus.js";
+import { basePath, siteOrigin } from "../core/base.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
 import { externalHost, hiddenReason, isEmptyLink, LINK_LOCK, linkTarget, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
@@ -612,10 +613,13 @@ function internalPath(href: string, base: string, site: string | undefined): str
   } catch {
     return MALFORMED;
   }
-  const isInternal = url.host === "internal.invalid" || (site !== undefined && url.origin === site);
-  if (!isInternal) return undefined;
+  // Absolute links to the site count as internal; for a site in a subfolder, only those inside it.
+  const sub = basePath(site);
+  const own = site !== undefined && url.origin === siteOrigin(site) && (!sub || url.pathname === sub || url.pathname.startsWith(`${sub}/`));
+  if (url.host !== "internal.invalid" && !own) return undefined;
+  const pathname = own && sub ? url.pathname.slice(sub.length) || "/" : url.pathname;
   try {
-    return decodeURIComponent(url.pathname);
+    return decodeURIComponent(pathname);
   } catch {
     return MALFORMED;
   }

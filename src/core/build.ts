@@ -4,6 +4,7 @@ import { VageError } from "./errors.js";
 import { createBuildLoader } from "./loader.js";
 import { renderSite, type SiteModel } from "./site.js";
 import { publicPath } from "./routes.js";
+import { basePath, cssWithBase, withBase } from "./base.js";
 
 export const OUT_DIR = "dist";
 
@@ -34,16 +35,24 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
     // Render everything before touching dist/ so a failed build leaves the previous output intact.
     const model = await renderSite(root, loader.load);
     const outputs = new Map<string, string>();
-    for (const page of model.pages) outputs.set(page.outFile, page.html);
-    if (model.notFound) outputs.set(model.notFound.outFile, model.notFound.html);
-    for (const r of model.redirects) outputs.set(r.outFile, r.html);
+    // A site in a subfolder (site: https://owner.github.io/repo): root-relative URLs get the prefix.
+    const base = basePath(model.site.site);
+    for (const page of model.pages) outputs.set(page.outFile, withBase(page.html, base));
+    if (model.notFound) outputs.set(model.notFound.outFile, withBase(model.notFound.html, base));
+    for (const r of model.redirects) outputs.set(r.outFile, withBase(r.html, base));
     for (const [name, content] of model.files) outputs.set(name, content);
     const assets = new Map<string, string>();
     for (const p of [...model.pages, ...(model.notFound ? [model.notFound] : [])]) for (const [k, f] of p.assets) assets.set(k, f);
 
     fs.rmSync(outDir, { recursive: true, force: true });
     const publicDir = path.join(root, "public");
-    if (fs.existsSync(publicDir)) fs.cpSync(publicDir, outDir, { recursive: true });
+    if (fs.existsSync(publicDir)) {
+      fs.cpSync(publicDir, outDir, { recursive: true });
+      if (base) for (const css of cssFiles(publicDir)) {
+        const target = path.join(outDir, path.relative(publicDir, css));
+        fs.writeFileSync(target, cssWithBase(fs.readFileSync(target, "utf8"), base));
+      }
+    }
     for (const [output, content] of outputs) {
       const target = path.resolve(outDir, output);
       // Defense in depth: config is validated, but never write outside dist/.
@@ -72,4 +81,13 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
   } finally {
     await loader.close();
   }
+}
+
+/** Stylesheets in public/ (their url(/...) references need a subfolder site's prefix). */
+function cssFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const file = path.join(dir, e.name);
+    if (e.isDirectory()) return cssFiles(file);
+    return e.isFile() && e.name.endsWith(".css") ? [file] : [];
+  });
 }

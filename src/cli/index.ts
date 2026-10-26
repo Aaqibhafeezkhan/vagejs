@@ -8,6 +8,7 @@ import { check, type Finding } from "../checks/check.js";
 import { build } from "../core/build.js";
 import { VageError } from "../core/errors.js";
 import { assertBranchName, assertCloudflareProject, assertVageSpec, assertWorkerName } from "../core/validate.js";
+import { absoluteUrl } from "../seo/urls.js";
 import { startDevServer } from "../dev/server.js";
 import { editorUrl } from "../dev/editor.js";
 import { startPreviewServer } from "../dev/preview.js";
@@ -261,7 +262,7 @@ cli
       if (target !== "github-pages") throw new VageError(`Unknown --target "${target}". Use github-pages, cloudflare-workers, cloudflare-pages or netlify.`);
       const { publish } = await import("../deploy/publish.js");
       const pages = await import("../deploy/github-pages.js");
-      // Stop before pushing a site GitHub Pages would serve from a subfolder (its links would break).
+      // Stop before pushing a site GitHub Pages would serve from a subfolder that site doesn't name (its links would break).
       const { gitRaw } = await import("../deploy/git.js");
       const origin = opts.remote ?? (await gitRaw(path.resolve(opts.root), ["remote", "get-url", "origin"]).catch(() => undefined))?.stdout?.trim();
       const subfolder = pages.pagesSubfolderProblem(config.site, origin);
@@ -490,7 +491,7 @@ cli
       const config = site.integrations.indexNow;
       if (!config) throw new VageError('IndexNow is not configured. Add integrations: { indexNow: { key: "<8-128 letters, digits or dashes>" } } and deploy.');
       if (!site.site) throw new VageError('"site" must be set in vage.config.ts to submit URLs.');
-      const abs = (p: string) => new URL(p, site.site).href;
+      const abs = (p: string) => absoluteUrl(site.site, p)!;
 
       let urls: string[];
       if (opts.all) urls = listedPages(model).map((p) => p.meta.canonical!);

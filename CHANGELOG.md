@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Sites in a subfolder, such as GitHub Pages project sites** (#4). Set `site: "https://<user>.github.io/<repo>"` and the build adds `/<repo>` to every root-relative link, image, script, stylesheet, form and CSS `url()` (in pages, redirect pages and stylesheets from `public/`), while canonical URLs, the sitemap, feeds, `llms.txt` and Markdown copies use the full address. Keep writing links from the site root (`/about/`): `vage check` checks them as before, and absolute links into the subfolder count as internal. `vage preview` serves the site under `/<repo>/`; the dev server and the editor stay at `/`. `vage deploy` publishes these sites to GitHub Pages, and stops when `site` doesn't name the repository's subfolder. JavaScript files in `public/` aren't changed. Cloudflare, Netlify and contact forms still need a site at the root of a domain.
+
 ## 0.8.0 (2026-10-26)
 
 ### Added

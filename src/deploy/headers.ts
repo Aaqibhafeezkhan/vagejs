@@ -32,7 +32,7 @@ export function contentSecurityPolicy(pagesHtml: string[], site: SiteConfig): st
   const origin = (url: string | undefined) => {
     if (!url || !/^https?:\/\//i.test(url)) return undefined;
     const o = new URL(url).origin;
-    return site.site && o === site.site ? undefined : o;
+    return site.site && o === new URL(site.site).origin ? undefined : o;
   };
 
   for (const html of pagesHtml) {
