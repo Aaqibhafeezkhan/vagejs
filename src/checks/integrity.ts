@@ -34,8 +34,11 @@ export interface Hidden {
 
 /** Why this element (or an ancestor) is hidden from people, if it is. Only inline signals; stylesheets aren't evaluated. */
 export function hiddenReason(el: HTMLElement): Hidden | undefined {
+  // A menu: a <details> menu button (on small screens) with a <nav> in or around it.
+  let inNav = false;
   for (let node: HTMLElement | null = el; node && node.tagName; node = node.parentNode as HTMLElement | null) {
     const tag = node.tagName.toLowerCase();
+    if (tag === "nav") inNav = true;
     const where = node === el ? "" : "inside ";
     const style = node.getAttribute?.("style");
     if (style) {
@@ -47,7 +50,7 @@ export function hiddenReason(el: HTMLElement): Hidden | undefined {
       return { reason: "inside a zero-size <svg>", strength: "strong" };
     }
     if (node.hasAttribute?.("hidden")) return { reason: `inside a hidden <${tag}>`, strength: "soft" };
-    if (tag === "details" && node !== el && !node.hasAttribute("open") && !el.closest?.("summary")) {
+    if (tag === "details" && node !== el && !node.hasAttribute("open") && !el.closest?.("summary") && !inNav && !node.closest?.("nav")) {
       return { reason: "inside a closed <details>", strength: "soft" };
     }
   }

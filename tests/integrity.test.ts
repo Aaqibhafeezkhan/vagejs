@@ -156,6 +156,18 @@ describe("final-review regressions", () => {
     expect(sev).toEqual({ social: "warning", more: "warning", aria: "error", zero: "error", empty: "error" });
   });
 
+  it("doesn't flag a <details> menu button around or inside a <nav>", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", CONFIG(', security: { outboundLinks: "off" }'));
+    write(
+      root,
+      "src/layouts/plain.ts",
+      'export default ({ content }) => `<html lang="en"><head><title>t</title></head><body><header><details><summary>Menu</summary><nav><a href="https://inside.example/">In</a></nav></details><nav><details><summary>More</summary><a href="https://around.example/">Around</a></details></nav></header><main>${content}</main><details><summary>FAQ</summary><a href="https://plain.example/">Plain</a></details></body></html>`;',
+    );
+    const hidden = (await rules(root)).filter((f) => f.rule === "link-hidden").map((f) => /https:\/\/([a-z]+)\./.exec(f.message)![1]);
+    expect([...new Set(hidden)]).toEqual(["plain"]);
+  });
+
   it("accepts real hosts in any spelling and rejects URLs", () => {
     expect(parseHost("Bücher.DE.")).toBe("xn--bcher-kva.de");
     expect(parseHost("xn--e1afmkfd.xn--p1ai")).toBe("xn--e1afmkfd.xn--p1ai");
