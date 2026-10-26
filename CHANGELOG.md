@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 (2026-10-26)
 
 ### Added
 - **A local editor in `vage dev`.** Open the editor address the dev server prints (or `/_vage/edit/` on the dev server, which forwards there) to edit pages without opening files: a list of every page with its status, a form for each page's fields (the built-in ones, the layout's own, and any others in the file), the Markdown text with a live preview, image upload with required alt text, new pages and posts (as drafts), and the page's `vage check` findings after each save, including site settings it affects such as menu entries. Saving rewrites only the fields that changed and keeps comments and field order, and it refuses to overwrite a page that changed since it was opened (by an AI agent, say). The editor exists only alongside the dev server, never in a build. It has its own port, so scripts on the site's pages can't reach it; it runs only when the server listens on this computer (not with `--host`), refuses other host names and other websites, and writes only to pages in `src/pages` and new files in `public/images/`.
