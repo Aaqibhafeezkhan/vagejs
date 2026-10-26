@@ -7,6 +7,7 @@ import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
 import { baseViteConfig, viteLoader } from "../core/loader.js";
 import { componentPlugins } from "../core/components.js";
+import { bundleIslands, islandRegistry } from "../core/islands.js";
 import { renderPage } from "../core/render.js";
 import { cacheDir } from "../content/optimize.js";
 import { collection, collectPages, tagList } from "../core/pages.js";
@@ -34,16 +35,19 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   const server = await createServer({
     ...baseViteConfig(root),
     plugins: [devAccessGuard(root, new Set(Object.keys(DISCOVERY_FILES))), editorPlugin(root, editorEnabled(options.host)), ...(await componentPlugins(root))],
-    server: { port: options.port, strictPort: options.port !== undefined, host: options.host },
+    // preTransformRequests off: Vite would try to compile /_vage/islands/*.js from page <script> tags, which this server bundles itself.
+    server: { port: options.port, strictPort: options.port !== undefined, host: options.host, preTransformRequests: false },
   });
   const load = viteLoader(server);
 
   // Vite reports "C:/..." on Windows; compare normalized paths, ignoring case there.
   const key = (file: string) => (process.platform === "win32" ? path.resolve(file).toLowerCase() : path.resolve(file));
   const srcKey = key(srcDir.slice(0, -1)) + path.sep;
+  let islandFiles: Promise<Map<string, string>> | undefined;
   server.watcher.on("all", (_event, file) => {
     const config = findConfigFile(root);
     if (key(file).startsWith(srcKey) || (config && key(file) === key(config))) {
+      islandFiles = undefined;
       server.ws.send({ type: "full-reload", path: "*" });
     }
   });
@@ -65,6 +69,15 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
     const urlPath = req.url ?? "/";
     const pathname = urlPath.split(/[?#]/)[0]!;
     try {
+      const island = /^\/_vage\/islands\/([\w-]+\.js)$/.exec(pathname);
+      if (island) {
+        // Bundled on first request after a change, for every island rendered so far.
+        islandFiles ??= bundleIslands(root, [...islandRegistry().values()], { dev: true });
+        const code = (await islandFiles.catch((err) => ((islandFiles = undefined), Promise.reject(err)))).get(island[1]!);
+        if (code === undefined) return send(res, 404, plainPage("404 — Not found", `No island code at ${pathname}`));
+        res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+        return res.end(code);
+      }
       const optimized = /^\/_vage\/img\/([\w-]+\.(webp|avif))$/.exec(pathname);
       if (optimized) {
         const file = path.join(cacheDir(root), optimized[1]!);

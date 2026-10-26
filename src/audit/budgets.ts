@@ -4,6 +4,7 @@ import path from "node:path";
 import { parse } from "node-html-parser";
 import type { SiteConfig } from "../core/config.js";
 import type { Finding } from "../checks/check.js";
+import { ISLANDS_DIR } from "../core/islands.js";
 
 export type ResourceKind = "html" | "javascript" | "css" | "image" | "font";
 
@@ -58,6 +59,10 @@ export function measurePages(outDir: string, pages: { route: string; outFile: st
       const file = path.resolve(outDir, `.${rel}`);
       if (!file.startsWith(outDir + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) return; // missing assets are reported by `vage check`
       weight.bytes[kind] += fs.statSync(file).size;
+      if (kind === "javascript") {
+        // Modules it imports load with it (an island's entry imports React's shared chunk).
+        for (const m of fs.readFileSync(file, "utf8").matchAll(/(?:\bfrom|\bimport)\s*["'](\.{1,2}\/[^"']+\.js)["']/g)) add(new URL(m[1]!, url).pathname, "javascript", "/");
+      }
       if (kind === "css") {
         // Fonts and images referenced from stylesheets load with the page too.
         for (const m of fs.readFileSync(file, "utf8").matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) {
@@ -74,6 +79,8 @@ export function measurePages(outDir: string, pages: { route: string; outFile: st
       weight.hasJavaScript = true;
       if (s.getAttribute("src")) add(s.getAttribute("src"), "javascript", route);
     }
+    // Interactive islands: the loader imports each island's code when it starts it.
+    for (const el of doc.querySelectorAll("vage-island[data-island]")) add(`/${ISLANDS_DIR}/${el.getAttribute("data-island")}.js`, "javascript", "/");
     for (const l of doc.querySelectorAll('link[rel="stylesheet"]')) add(l.getAttribute("href"), "css", route);
     for (const l of doc.querySelectorAll('link[rel="preload"][as="font"]')) add(l.getAttribute("href"), "font", route);
     for (const img of doc.querySelectorAll("img")) add(downloadedImage(img), "image", route);

@@ -5,6 +5,7 @@ import { createBuildLoader } from "./loader.js";
 import { renderSite, type SiteModel } from "./site.js";
 import { publicPath } from "./routes.js";
 import { basePath, cssWithBase, withBase } from "./base.js";
+import { bundleIslands, islandKeys, islandRegistry, ISLANDS_DIR } from "./islands.js";
 
 export const OUT_DIR = "dist";
 
@@ -41,6 +42,12 @@ export async function buildSite(root: string): Promise<{ result: BuildResult; mo
     if (model.notFound) outputs.set(model.notFound.outFile, withBase(model.notFound.html, base));
     for (const r of model.redirects) outputs.set(r.outFile, withBase(r.html, base));
     for (const [name, content] of model.files) outputs.set(name, content);
+    // Interactive islands (client:load/visible/idle): their browser code, bundled once for the site.
+    const keys = new Set([...model.pages, ...(model.notFound ? [model.notFound] : [])].flatMap((p) => islandKeys(p.html)));
+    if (keys.size) {
+      const registry = islandRegistry();
+      for (const [name, code] of await bundleIslands(root, [...keys].map((k) => registry.get(k)!))) outputs.set(`${ISLANDS_DIR}/${name}`, code);
+    }
     const assets = new Map<string, string>();
     for (const p of [...model.pages, ...(model.notFound ? [model.notFound] : [])]) for (const [k, f] of p.assets) assets.set(k, f);
 

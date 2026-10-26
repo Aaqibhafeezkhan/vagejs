@@ -3,11 +3,13 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Plugin } from "vite";
 import { VageError } from "./errors.js";
+import { islandPlugins, JSX_SOURCE } from "./islands.js";
 
 /**
- * React, Vue and MDX support. Components render to HTML at build time: nothing runs in
- * the browser. The packages are optional and come from the project, so sites that
- * don't use them install nothing extra.
+ * React, Vue and MDX support. Components render to HTML at build time; only React
+ * components marked client:load/visible/idle also run in the browser (islands.ts).
+ * The packages are optional and come from the project, so sites that don't use them
+ * install nothing extra.
  */
 
 const INSTALL = {
@@ -39,12 +41,14 @@ export function componentKind(file: string): "react" | "vue" | undefined {
 }
 
 type ReactModule = { createElement: (type: unknown, props?: unknown) => unknown };
-type ReactDomServer = { renderToStaticMarkup: (element: unknown) => string };
+type ReactDomServer = { renderToStaticMarkup: (element: unknown) => string; renderToString: (element: unknown) => string };
 
 /** Renders a React component (a layout or an MDX page) to static HTML. */
 export async function renderReact(root: string, component: unknown, props: object, needed: string): Promise<string> {
   const react = await projectImport<ReactModule>(root, "react", needed, INSTALL.react);
   const server = await projectImport<ReactDomServer>(root, "react-dom/server", needed, INSTALL.react);
+  // Islands are rendered with renderToString, the markup React hydrates in the browser.
+  (globalThis as { __vageRenderIsland?: unknown }).__vageRenderIsland = (type: unknown, own: object) => server.renderToString(react.createElement(type, own));
   return server.renderToStaticMarkup(react.createElement(component, props));
 }
 
@@ -76,13 +80,13 @@ export async function componentPlugins(root: string): Promise<Plugin[]> {
       const { compile } = await projectImport<{ compile: (source: string, options: object) => Promise<{ toString(): string }> }>(root, "@mdx-js/mdx", `MDX page ${path.relative(root, file)}`, INSTALL.mdx);
       // Frontmatter is vagejs's, not MDX's: blank it out, keeping line numbers for errors.
       const body = code.replace(FRONTMATTER, (m) => m.replace(/[^\n]/g, ""));
-      return { code: String(await compile(body, { jsxImportSource: "react", development: false })), map: null };
+      return { code: String(await compile(body, { jsxImportSource: JSX_SOURCE, development: false })), map: null };
     },
   };
   const vuePlugin = resolveFrom(root, "@vitejs/plugin-vue");
   if (vuePlugin) {
     const { default: vue } = (await import(pathToFileURL(vuePlugin).href)) as { default: () => Plugin };
-    return [mdx, vue()];
+    return [...islandPlugins(root), mdx, vue()];
   }
   const missingVue: Plugin = {
     name: "vage:vue-missing",
@@ -93,5 +97,5 @@ export async function componentPlugins(root: string): Promise<Plugin[]> {
       return null;
     },
   };
-  return [mdx, missingVue];
+  return [...islandPlugins(root), mdx, missingVue];
 }

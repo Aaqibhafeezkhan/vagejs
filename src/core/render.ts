@@ -15,6 +15,7 @@ import type { PageSummary } from "./pages.js";
 import { resolveMenus, type MenuItem } from "./menus.js";
 import { pageLang, pageTranslations, type Translation } from "./i18n.js";
 import { componentKind, renderReact, renderVue } from "./components.js";
+import { injectIslandRuntime } from "./islands.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -114,7 +115,7 @@ export async function renderPage(options: {
   if (typeof html !== "string") {
     throw new VageError(`Layout "${frontmatter.layout ?? "default"}" must return an HTML string or html\`...\`.`, file);
   }
-  let out = injectHead(html, headTags(site, meta), file);
+  let out = injectHead(injectIslandRuntime(html), headTags(site, meta), file);
   const tags = options.analytics ? analyticsTags(site) : undefined;
   if (tags) out = injectAnalytics(out, tags, file);
   return { html: out, content, frontmatter, body, meta, assets };

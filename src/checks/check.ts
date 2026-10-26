@@ -7,6 +7,7 @@ import { scheduledFor } from "../core/dates.js";
 import { normalizeRequestPath, outFileFor, publicPath, routeForPage, routeKey } from "../core/routes.js";
 import { menuEntries, sitePath } from "../core/menus.js";
 import { pageLang, translationKey } from "../core/i18n.js";
+import { islandKeys, ISLANDS_DIR } from "../core/islands.js";
 import { basePath, siteOrigin } from "../core/base.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
@@ -644,6 +645,8 @@ function outputPaths(root: string, model: SiteModel): Set<string> {
   if (model.notFound) out.add("/404.html");
   for (const r of model.redirects) out.add(`/${r.outFile}`);
   for (const name of model.files.keys()) out.add(`/${name}`);
+  // The island loader is written by the build when a page has islands (client:load etc.).
+  if ([...model.pages, ...(model.notFound ? [model.notFound] : [])].some((p) => islandKeys(p.html).length)) out.add(`/${ISLANDS_DIR}/runtime.js`);
   const walk = (dir: string, prefix: string) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (e.isDirectory()) walk(path.join(dir, e.name), `${prefix}/${e.name}`);

@@ -31,7 +31,7 @@ export function frameworkInfo(cli: CAC, version: string) {
         "src/pages/about.md -> /about/",
         "src/pages/blog/index.md -> /blog/",
         "src/pages/blog/post.md -> /blog/post/",
-        "src/pages/pricing.mdx -> /pricing/ (MDX: Markdown with React components; needs react, react-dom and @mdx-js/mdx)",
+        "src/pages/pricing.mdx -> /pricing/ (MDX: Markdown with React components; needs react, react-dom and @mdx-js/mdx). A React component from src/components/ with client:load, client:visible or client:idle (plain-data props, no children) also runs in the browser; its code is bundled into /_vage/islands/",
         "with i18n: { locales: [\"fr\"] }, src/pages/fr/about.md -> /fr/about/, the French version of about.md (translationOf: /about/ for a translated address)",
         "src/pages/404.md -> dist/404.html (not a route)",
         "files or folders starting with _ are ignored",
