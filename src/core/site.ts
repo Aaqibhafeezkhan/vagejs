@@ -117,7 +117,7 @@ export async function renderSite(root: string, load: ModuleLoader, options: { co
   if (site.tags.pages) {
     // Only published pages can clash: a draft or scheduled page at a tag address isn't in the build.
     const taken = new Map(model.pages.map((p) => [p.route, p.source]));
-    for (const tag of tagList(pages)) {
+    for (const tag of tagList(pages, site.trailingSlash)) {
       const file = path.join(pagesDir, "tags", `${tag.slug}.md`);
       const source = `(tag "${tag.name}")`;
       const route = routeKey(tag.route);

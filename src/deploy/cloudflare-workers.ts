@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SiteConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
+import { publicPath } from "../core/routes.js";
 import { redact } from "../integrations/http.js";
 import { WRANGLER } from "./cloudflare-pages.js";
 import type { DeployStatus, Runner } from "./github-pages.js";
@@ -133,7 +134,8 @@ export function rateLimitNamespace(worker: string): string {
 export function contactBindings(contact: Contact, worker: string) {
   return {
     main: CONTACT_WORKER,
-    assets: { binding: "ASSETS", run_worker_first: [contact.path] },
+    // Both address forms: a form may post to "/contact" on a trailingSlash "never" site.
+    assets: { binding: "ASSETS", run_worker_first: [contact.path, contact.path.slice(0, -1)] },
     send_email: [{ name: "EMAIL", destination_address: contact.to }],
     ratelimits: [{ name: "CONTACT_LIMIT", namespace_id: rateLimitNamespace(worker), simple: { limit: contact.perMinute, period: 60 } }],
   };
@@ -199,10 +201,12 @@ export interface WorkersPlan {
  * Decides which Worker gets deployed, and refuses setups where the plan and what
  * wrangler would actually do differ (another Worker name, or a folder other than dist/).
  */
-export function planWorkersDeploy(root: string, requested: string | undefined, site: Pick<SiteConfig, "contact" | "title"> = {}): WorkersPlan {
+export function planWorkersDeploy(root: string, requested: string | undefined, site: Partial<Pick<SiteConfig, "contact" | "title" | "trailingSlash">> = {}): WorkersPlan {
   const config = readWranglerConfig(root);
   const warnings: string[] = [];
-  const extra = { contact: site.contact, siteTitle: site.title };
+  // The result pages in the site's address form, so the redirect after sending lands without another hop.
+  const contact = site.contact && { ...site.contact, sent: publicPath(site.contact.sent, site.trailingSlash ?? "always"), failed: publicPath(site.contact.failed, site.trailingSlash ?? "always") };
+  const extra = { contact, siteTitle: site.title };
   if (!config) {
     if (!requested) throw new VageError("No Worker name. Pass --project <name>, set deploy.cloudflareWorker, or add a wrangler.jsonc.");
     return { worker: requested, warnings, ...extra };

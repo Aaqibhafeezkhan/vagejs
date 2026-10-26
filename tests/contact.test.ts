@@ -76,6 +76,13 @@ describe("contact Worker", () => {
     expect(sent[0]).toMatchObject({ from: "form@site.example", to: "me@site.example" });
   });
 
+  it("accepts the address without the slash (trailingSlash: \"never\")", async () => {
+    const { e, sent } = env({ CONTACT_SENT: "/contact/sent" });
+    const res = await worker.fetch(post(OK, "https://site.example/contact"), e);
+    expect([res.status, res.headers.get("location")]).toEqual([303, "https://site.example/contact/sent"]);
+    expect(sent).toHaveLength(1);
+  });
+
   it("serves everything else from the site's files", async () => {
     const { e } = env();
     expect(await (await worker.fetch(new Request("https://site.example/contact/"), e)).text()).toBe("asset");
@@ -161,7 +168,7 @@ describe("contact checks and deploys", () => {
       main: CONTACT_WORKER,
       send_email: [{ name: "EMAIL", destination_address: "me@fixture.example" }],
       ratelimits: [{ name: "CONTACT_LIMIT", namespace_id: rateLimitNamespace("site"), simple: { limit: 3, period: 60 } }],
-      assets: { binding: "ASSETS", run_worker_first: ["/contact/"], not_found_handling: "404-page" },
+      assets: { binding: "ASSETS", run_worker_first: ["/contact/", "/contact"], not_found_handling: "404-page" },
     });
     expect(CONTACT_WORKER).toMatch(/worker[\\/]contact\.js$/);
     const upload = r.calls[0]!;

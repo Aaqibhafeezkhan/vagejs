@@ -148,7 +148,7 @@ describe("vage CLI (packed package)", () => {
     expect(res.stdout).toMatch(/npm install\n {2}npm start\n/); // next steps point to the command that opens the browser
     const pkg = JSON.parse(fs.readFileSync(path.join(work, "fresh-site", "package.json"), "utf8"));
     expect(pkg.scripts.start).toBe("vage dev --open");
-    expect(pkg.devDependencies.vagejs).toBe("^0.6.0");
+    expect(pkg.devDependencies.vagejs).toBe("^0.7.0");
     expect(spawnSync(process.execPath, [createBin(runner)], { encoding: "utf8" }).stderr).toMatch(/Usage: npm create vagejs@latest/);
   }, 300_000);
 
@@ -199,6 +199,6 @@ describe("vage CLI (packed package)", () => {
     const help = vage(["--help"], work);
     expect(help.status).toBe(0);
     for (const cmd of ["create", "dev", "build", "check", "audit", "preview", "info", "deploy:github", "deploy", "connect", "disconnect", "report", "guidelines", "indexnow"]) expect(help.stdout).toContain(cmd);
-    expect(vage(["--version"], work).stdout).toContain("0.6.0");
+    expect(vage(["--version"], work).stdout).toContain("0.7.0");
   });
 });

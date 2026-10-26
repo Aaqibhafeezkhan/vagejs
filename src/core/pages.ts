@@ -8,7 +8,7 @@ import { clonePlain } from "./clone.js";
 import { instant, scheduledFor } from "./dates.js";
 import { applyLayoutFields } from "./render.js";
 import { VageError } from "./errors.js";
-import { discoverRoutes, publicPath, routeKey } from "./routes.js";
+import { discoverRoutes, publicPath, routeKey, type TrailingSlash } from "./routes.js";
 
 /** One published page, as layouts see it in `props.pages`. */
 export interface PageSummary {
@@ -151,10 +151,13 @@ export interface TagSummary {
   count: number;
 }
 
-/** Every tag the pages use, A to Z, with how many pages have it: for tag clouds and tag menus. */
-export function tagList(pages: readonly PageSummary[]): TagSummary[] {
-  // Tag addresses follow the pages' form: with trailingSlash "never", page routes have no final slash.
-  const mode = pages.some((p) => p.route !== "/" && !p.route.endsWith("/")) ? "never" : "always";
+/**
+ * Every tag the pages use, A to Z, with how many pages have it: for tag clouds and tag menus.
+ * Pass `site.trailingSlash` for exact tag addresses; without it, the form is read from the page routes.
+ */
+export function tagList(pages: readonly PageSummary[], trailingSlash?: TrailingSlash): TagSummary[] {
+  // With trailingSlash "never", page routes have no final slash.
+  const mode = trailingSlash ?? (pages.some((p) => p.route !== "/" && !p.route.endsWith("/")) ? "never" : "always");
   const tags = new Map<string, TagSummary>();
   for (const p of pages) {
     for (const name of new Set(p.frontmatter.tags ?? [])) {

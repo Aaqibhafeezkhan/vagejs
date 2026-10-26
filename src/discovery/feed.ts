@@ -71,7 +71,7 @@ export function rssFeed(site: SiteConfig, feed: FeedConfig, pages: SitePage[], o
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${xml(title)}</title>
-    <link>${xml(`${origin}${feed.under}`)}</link>
+    <link>${xml(`${origin}${publicPath(feed.under, site.trailingSlash)}`)}</link>
     <description>${xml(description)}</description>
     <language>${xml(site.lang)}</language>
     <atom:link href="${xml(self)}" rel="self" type="application/rss+xml" />${newest ? `\n    <lastBuildDate>${rfc822(newest)}</lastBuildDate>` : ""}

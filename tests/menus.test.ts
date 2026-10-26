@@ -107,11 +107,12 @@ describe("menus", () => {
   });
 
   it("are checked by vage check, even when no layout shows them", async () => {
-    const root = withMenus('{ main: [{ page: "/about/" }, { label: "Old", href: "/old-page/#x" }, { label: "Feed", href: "/robots.txt" }, { label: "Ext", href: "https://example.org/" }], footer: [{ page: "/nope/" }] }');
+    const root = withMenus('{ main: [{ page: "/about/" }, { label: "Old", href: "/old-page/#x" }, { label: "Feed", href: "/robots.txt" }, { label: "Ext", href: "https://example.org/" }, { label: "About", href: "/about" }], footer: [{ page: "/nope/" }] }');
     const result = await check(root);
     const menu = result.findings.filter((f) => f.rule === "menu-link").map((f) => f.message);
     expect(menu).toEqual([
       'menus.main[1]: "/old-page/#x" isn\'t a page or file on this site.',
+      'menus.main[4]: "/about" redirects; write it with a slash at the end.',
       'menus.footer[0]: page "/nope/" isn\'t a published page in src/pages (moved, deleted, a draft or scheduled?).',
     ]);
   });

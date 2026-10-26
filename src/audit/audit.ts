@@ -6,6 +6,7 @@ import type { SiteConfig } from "../core/config.js";
 import { loadProjectConfig } from "../core/project-config.js";
 import { missingKeyMessage, resolveApiKey, type ApiKeyName } from "../integrations/api-keys.js";
 import { VageError } from "../core/errors.js";
+import { publicPath, routeKey } from "../core/routes.js";
 import { startPreviewServer } from "../dev/preview.js";
 import { auditAccessibility } from "./a11y.js";
 import { budgetFindings, measurePages, type PageWeight } from "./budgets.js";
@@ -80,12 +81,12 @@ async function auditLocal(root: string, strategies: Strategy[], options: AuditOp
   if (options.lighthouse || site.performance.lighthouse.enabled) {
     const routes = site.performance.lighthouse.pages;
     const known = new Set(model.pages.map((p) => p.route));
-    const unknown = routes.filter((r) => !known.has(r));
+    const unknown = routes.filter((r) => !known.has(routeKey(r)));
     if (unknown.length) throw new VageError(`performance.lighthouse.pages lists routes that are not published: ${unknown.join(", ")}`);
     const server = await startPreviewServer(root, {});
     try {
       const base = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
-      lab.push(...(await runLighthouse(root, routes.map((r) => base + r), strategies)));
+      lab.push(...(await runLighthouse(root, routes.map((r) => base + publicPath(routeKey(r), site.trailingSlash)), strategies)));
     } finally {
       await server.close();
     }

@@ -67,7 +67,8 @@ export function contactWorker(EmailMessage: EmailMessageClass) {
     async fetch(request: Request, env: ContactEnv): Promise<Response> {
       const url = new URL(request.url);
       const path = env.CONTACT_PATH ?? "/contact/";
-      if (request.method !== "POST" || url.pathname !== path) return env.ASSETS.fetch(request);
+      // Either address form: "/contact/" or "/contact" (trailingSlash "never").
+      if (request.method !== "POST" || (url.pathname !== path && `${url.pathname}/` !== path)) return env.ASSETS.fetch(request);
       const back = (to: string | undefined, fallback: string) => Response.redirect(`${url.origin}${to ?? fallback}`, 303);
       const sent = () => back(env.CONTACT_SENT, "/contact/sent/");
       const failed = () => back(env.CONTACT_FAILED, "/contact/not-sent/");

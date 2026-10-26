@@ -56,13 +56,14 @@ function staticHostBehavior(outDir: string): Plugin {
         const file = path.resolve(outDir, `.${decoded}`);
         if (file !== outDir && !file.startsWith(outDir + path.sep)) return notFound(res);
         const rel = path.relative(outDir, file).split(path.sep).join("/");
-        if (rel && !path.extname(decoded) && isFile(`${file}.html`)) {
+        // Pages may have dots in their names ("/v1.2" -> v1.2.html), so only an existing file wins.
+        if (rel && !isFile(file) && isFile(`${file}.html`)) {
           // Built from the normalized path, like the redirect below.
           if (decoded.endsWith("/")) return redirect(res, `/${encodeURI(rel)}${query ? `?${query}` : ""}`);
           req.url = `/${encodeURI(rel)}.html${query ? `?${query}` : ""}`;
           return next();
         }
-        if (!decoded.endsWith("/") && !path.extname(decoded) && isFile(path.join(file, "index.html"))) {
+        if (!decoded.endsWith("/") && isFile(path.join(file, "index.html"))) {
           // Built from the normalized path, so "//evil.example" can't become a protocol-relative redirect.
           return redirect(res, `/${rel ? `${encodeURI(rel)}/` : ""}${query ? `?${query}` : ""}`);
         }

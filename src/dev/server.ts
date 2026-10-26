@@ -49,11 +49,13 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
   server.middlewares.use(async (req, res, next) => {
     if (req.method === "POST") {
       // The contact form: nothing is emailed in development; show the "sent" page.
-      const contact = (await loadConfig(root, load).catch(() => undefined))?.contact;
-      if (contact && (req.url ?? "").split(/[?#]/)[0] === contact.path) {
+      const site = await loadConfig(root, load).catch(() => undefined);
+      const contact = site?.contact;
+      // Either address form: "/contact/" or "/contact" (trailingSlash "never").
+      if (site && contact && routeKey((req.url ?? "").split(/[?#]/)[0]!) === contact.path) {
         req.resume();
         server.config.logger.info(`Contact form (dev): not emailed. On the live site it goes to ${contact.to}.`);
-        return redirect(res, contact.sent, 303);
+        return redirect(res, publicPath(contact.sent, site.trailingSlash), 303);
       }
       return next();
     }
@@ -103,7 +105,7 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
       }
       if (!entry && site.tags.pages && route.startsWith("/tags/")) {
         const pages = await collectPages(root, site, load, { skipInvalid: true });
-        const tag = tagList(pages).find((t) => routeKey(t.route) === route);
+        const tag = tagList(pages, site.trailingSlash).find((t) => routeKey(t.route) === route);
         if (tag) {
           if (wrongForm(pathname)) return redirect(res, tag.route + urlPath.slice(pathname.length));
           const source = tagPageSource(site, tag.name, collection(pages, { tag: tag.name, sort: "date" }));

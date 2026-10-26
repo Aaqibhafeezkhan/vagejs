@@ -45,7 +45,7 @@ export function frameworkInfo(cli: CAC, version: string) {
         content: "the page's rendered, sanitized HTML: insert with raw(content)",
         page: "{ route, title, description, url (absolute canonical, when indexable), frontmatter }",
         site: "the resolved vage.config.ts",
-        menus: "config menus by name, e.g. menus.main: [{ label, href?, current, active, external, items }] (config { page: '/x/' } entries resolve to the page's route and label); current = this page (aria-current=\"page\"), active = this page, a page below href, or an active sub-item; site paths follow trailingSlash",
+        menus: "config menus by name, e.g. menus.main: [{ label, href?, current, active, external, items }] (config { page: '/x/' } entries resolve to the page's route and label); current = this page (aria-current=\"page\"), active = this page, a page below href, or an active sub-item; with trailingSlash \"never\", page entries and href paths lose their final slash",
         pages: "every published page { route, url, title, label, description, source, frontmatter }, sorted by route, read-only (label = navTitle or title)",
       },
       helpers: {
@@ -73,7 +73,7 @@ export function frameworkInfo(cli: CAC, version: string) {
     checks: {
       "frontmatter-empty": "warning: a frontmatter value came out empty (often a comma or colon inside { } without quotes)",
       "page-error": "error: a page failed to render (bad frontmatter, layout field schema, layout error); other pages are still checked",
-      "menu-link": "error: a menus entry in vage.config.ts points to a page that isn't published or a path that isn't on this site (checked even when no layout shows the menu); a missing page entry also fails the build",
+      "menu-link": "error: a menus entry in vage.config.ts points to a page that isn't published or a path that isn't on this site or redirects (checked even when no layout shows the menu); a missing page entry also fails the build",
       "redirect-target": "error: a redirect points to a path that isn't a page or file on this site",
       "link-unapproved": "error: a link goes to an external domain not listed in links.lock.json (only the site owner approves: vage links approve <domain>)",
       "links-lock-missing": "warning: the site links to external domains and has no links.lock.json yet",

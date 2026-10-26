@@ -5,7 +5,7 @@ import { createBuildLoader } from "../core/loader.js";
 import { parseFrontmatter } from "../content/markdown.js";
 import { scheduledFor } from "../core/dates.js";
 import { normalizeRequestPath, outFileFor, publicPath, routeForPage, routeKey } from "../core/routes.js";
-import { menuEntries } from "../core/menus.js";
+import { menuEntries, sitePath } from "../core/menus.js";
 import { gitRaw } from "../deploy/git.js";
 import { listedPages, renderSite, type SiteModel, type SitePage } from "../core/site.js";
 import { externalHost, hiddenReason, isEmptyLink, LINK_LOCK, linkTarget, outboundHosts, readLinkLock, spamHits } from "./integrity.js";
@@ -534,8 +534,12 @@ function checkMenus(model: SiteModel, outputs: Set<string>): Finding[] {
     let problem: string | undefined;
     if (e.page && !published.has(routeKey(e.page))) problem = `page "${e.page}" isn't a published page in src/pages (moved, deleted, a draft or scheduled?)`;
     if (e.href) {
-      const target = internalPath(e.href, "/", model.site.site);
-      if (target !== undefined && (target === MALFORMED || resolveOutput(target, outputs) === "missing")) problem = `"${e.href}" isn't a page or file on this site`;
+      // The address layouts get: with trailingSlash "never", a final slash is dropped.
+      const href = e.href.startsWith("/") ? sitePath(e.href, model.site) : e.href;
+      const target = internalPath(href, "/", model.site.site);
+      const found = target === undefined ? "ok" : target === MALFORMED ? "missing" : resolveOutput(target, outputs);
+      if (found === "missing") problem = `"${e.href}" isn't a page or file on this site`;
+      else if (found === "needs-slash") problem = `"${e.href}" redirects; write it with a slash at the end`;
     }
     if (problem) findings.push({ rule: "menu-link", severity: "error", message: `${e.at}: ${problem}.`, source: "vage.config.ts" });
   }
@@ -646,12 +650,9 @@ function resolveOutput(target: string, outputs: Set<string>): "ok" | "needs-slas
     if (outputs.has(`${target}index.html`)) return "ok";
     return target !== "/" && outputs.has(`${target.slice(0, -1)}.html`) ? "no-slash" : "missing";
   }
-  if (outputs.has(target)) return "ok";
-  if (!path.posix.extname(target)) {
-    if (outputs.has(`${target}.html`)) return "ok";
-    if (outputs.has(`${target}/index.html`)) return "needs-slash";
-  }
-  return "missing";
+  // Pages may have dots in their names ("/v1.2" -> v1.2.html), so extensions don't rule out pages.
+  if (outputs.has(target) || outputs.has(`${target}.html`)) return "ok";
+  return outputs.has(`${target}/index.html`) ? "needs-slash" : "missing";
 }
 
 /** The output file an "ok" site path is served from (for #fragment checks). */

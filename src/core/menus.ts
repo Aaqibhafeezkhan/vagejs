@@ -37,15 +37,20 @@ export function resolveMenus(site: SiteConfig, route: string, pages: readonly Pa
     let current = false;
     let active = items.some((i) => i.active);
     if (href && internal) {
-      const [, path = "/", rest = ""] = /^([^?#]*)(.*)$/.exec(href)!;
-      href = publicPath(path, site.trailingSlash) + rest;
-      const key = routeKey(path);
+      href = sitePath(href, site);
+      const key = routeKey(/^[^?#]*/.exec(href)![0]);
       current = key === here;
       active ||= current || (key !== "/" && here.startsWith(key));
     }
     return { label, ...(href ? { href } : {}), current, active, external: !!href && !internal, items };
   };
   return Object.fromEntries(Object.entries(site.menus).map(([name, list]) => [name, list.map(resolve)]));
+}
+
+/** A menu's site path in the site's form: with trailingSlash "never", "/docs/#x" becomes "/docs#x". */
+export function sitePath(href: string, site: SiteConfig): string {
+  const [, path = "/", rest = ""] = /^([^?#]*)(.*)$/.exec(href)!;
+  return publicPath(path, site.trailingSlash) + rest;
 }
 
 /** Every menu entry with where it is in the config, e.g. "menus.footer[1].items[0]". */

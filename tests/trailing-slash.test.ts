@@ -7,6 +7,7 @@ import { check } from "../src/checks/check.js";
 import { outFileFor, publicPath, routeKey } from "../src/core/routes.js";
 import { startDevServer } from "../src/dev/server.js";
 import { startPreviewServer } from "../src/dev/preview.js";
+import { tagList, type PageSummary } from "../src/core/pages.js";
 import { copyFixture, write } from "./helpers.js";
 
 /** The basic fixture with trailingSlash "never", links written without the slash, and a layout that prints what it sees. */
@@ -81,6 +82,25 @@ describe('trailingSlash: "never"', () => {
     expect(messages).toContain('link-trailing-slash: Link to "/blog/post/" redirects; use "/blog/post" (this site uses trailingSlash: "never").');
     expect(messages).toContain('link-broken: Link to "/nope" does not match any page or file.');
   });
+
+  it("finds pages with a dot in their name", async () => {
+    const root = neverFixture();
+    write(root, "src/pages/v1.2.md", "---\ntitle: Version 1.2\ndescription: Notes.\n---\n# 1.2\n");
+    write(root, "src/pages/about.md", "---\ntitle: About\ndescription: About the fixture.\n---\n# About\n\n[1.2](/v1.2)\n");
+    const findings = (await check(root)).findings.filter((f) => f.severity === "error" && (f.page === "/about/" || f.page === "/v1.2/"));
+    expect(findings).toEqual([]);
+  });
+
+  it("feeds link to the section without the slash, and tag addresses follow the setting", async () => {
+    const root = neverFixture();
+    const config = fs.readFileSync(path.join(root, "vage.config.ts"), "utf8");
+    write(root, "vage.config.ts", config.replace("seo: {", 'seo: {\n    feeds: [{ under: "/blog/" }],'));
+    await build(root);
+    expect(read(root, "blog/feed.xml")).toContain("<link>https://fixture.example/blog</link>");
+    const home = { route: "/", label: "Home", title: "Home", source: "src/pages/index.md", frontmatter: { title: "Home", tags: ["News"] } } as PageSummary;
+    expect(tagList([home], "never").map((t) => t.route)).toEqual(["/tags/news"]);
+    expect(tagList([home]).map((t) => t.route)).toEqual(["/tags/news/"]);
+  });
 });
 
 describe('servers with trailingSlash: "never"', () => {
@@ -113,6 +133,15 @@ describe('servers with trailingSlash: "never"', () => {
     expect(await page.text()).toContain("<h1>Post</h1>");
     expect((await get(`${url}/blog/post/`)).headers.get("location")).toBe("/blog/post");
     expect((await get(`${url}/nope`)).status).toBe(404);
+  });
+
+  it("preview serves pages with a dot in their name", async () => {
+    const root = neverFixture();
+    write(root, "src/pages/v1.2.md", "---\ntitle: Version 1.2\ndescription: Notes.\n---\n# 1.2\n");
+    await build(root);
+    const server = await startPreviewServer(root, {});
+    servers.push(server);
+    expect((await get(`${baseUrl(server)}/v1.2`)).status).toBe(200);
   });
 });
 
