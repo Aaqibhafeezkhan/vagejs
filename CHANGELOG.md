@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.3 (2026-10-26)
+
+### Changed
+- **Cloudflare deploys need `deploy.target` in `vage.config.ts`**, as Netlify deploys already did. `vage deploy --target cloudflare-pages` (or `cloudflare-workers`) with a different configured target deployed without `_redirects` and `_headers`, so config redirects and security headers were missing; it now stops and names the line to add.
+- **The starter `AGENTS.md` is 22% smaller** (27.7 KB to 21.7 KB), well under Codex's 32 KiB limit for `AGENTS.md`. Long explanations now link to the docs as Markdown (`https://vagejs.com/docs/<topic>.md`); every rule and owner-approval step is unchanged. Existing sites keep their own `AGENTS.md`.
+
 ## 0.11.2 (2026-10-26)
 
 ### Fixed
