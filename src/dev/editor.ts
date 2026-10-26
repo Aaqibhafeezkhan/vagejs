@@ -218,7 +218,8 @@ type PageStatus = "published" | "draft" | "scheduled" | "error";
 /** Every page in src/pages (drafts and scheduled pages too), as the editor lists them. */
 function listPages(root: string, site: SiteConfig) {
   const pagesDir = path.join(root, "src", "pages");
-  const files = discoverRoutes(pagesDir, site.trailingSlash).map((e) => ({ file: e.file, route: publicPath(e.route, site.trailingSlash) as string | null }));
+  // MDX pages are code; they're edited in a text editor.
+  const files = discoverRoutes(pagesDir, site.trailingSlash).filter((e) => e.file.endsWith(".md")).map((e) => ({ file: e.file, route: publicPath(e.route, site.trailingSlash) as string | null }));
   const notFound = findNotFoundPage(pagesDir);
   if (notFound) files.push({ file: notFound, route: null });
   return files.map(({ file, route }) => {

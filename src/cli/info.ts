@@ -31,6 +31,7 @@ export function frameworkInfo(cli: CAC, version: string) {
         "src/pages/about.md -> /about/",
         "src/pages/blog/index.md -> /blog/",
         "src/pages/blog/post.md -> /blog/post/",
+        "src/pages/pricing.mdx -> /pricing/ (MDX: Markdown with React components; needs react, react-dom and @mdx-js/mdx)",
         "with i18n: { locales: [\"fr\"] }, src/pages/fr/about.md -> /fr/about/, the French version of about.md (translationOf: /about/ for a translated address)",
         "src/pages/404.md -> dist/404.html (not a route)",
         "files or folders starting with _ are ignored",
@@ -40,7 +41,7 @@ export function frameworkInfo(cli: CAC, version: string) {
       drafts: "draft: true pages render in `vage dev` for preview, are skipped by build, and never appear in `pages`. A future datePublished does the same until a build on or after that date (scheduled pages)",
     },
     layouts: {
-      file: "src/layouts/<name>.ts, chosen with `layout: <name>` in frontmatter (default: default)",
+      file: "src/layouts/<name>.ts, chosen with `layout: <name>` in frontmatter (default: default). Also .tsx/.jsx (a React component) or .vue (a Vue component), rendered to HTML at build time with the same props; insert content with dangerouslySetInnerHTML / v-html",
       export: "default export ({ content, page, site, pages, menus }) => html`...` (or a string). The HTML must contain </head>.",
       props: {
         content: "the page's rendered, sanitized HTML: insert with raw(content)",

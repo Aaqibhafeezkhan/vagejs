@@ -36,7 +36,7 @@ export function outFileFor(route: string, mode: TrailingSlash): string {
 export const NOT_FOUND_PAGE = "404.md";
 
 /**
- * Maps src/pages/**\/*.md to routes:
+ * Maps src/pages/**\/*.md (and *.mdx) to routes:
  *   index.md       -> /
  *   about.md       -> /about/
  *   blog/index.md  -> /blog/
@@ -68,14 +68,14 @@ export function discoverRoutes(pagesDir: string, mode: TrailingSlash = "always")
 }
 
 function routeSegments(rel: string): string[] {
-  const segments = rel.slice(0, -".md".length).split("/");
+  const segments = rel.replace(/\.mdx?$/, "").split("/");
   if (segments.at(-1) === "index") segments.pop();
   return segments;
 }
 
 /** Route for a page path relative to src/pages (works for deleted files too). */
 export function routeForPage(rel: string): string | undefined {
-  if (!rel.endsWith(".md") || rel === NOT_FOUND_PAGE || rel.split("/").some((s) => s.startsWith("_") || s.startsWith("."))) return undefined;
+  if (!/\.mdx?$/.test(rel) || rel === NOT_FOUND_PAGE || rel.split("/").some((s) => s.startsWith("_") || s.startsWith("."))) return undefined;
   const segments = routeSegments(rel);
   return segments.length ? `/${segments.join("/")}/` : "/";
 }
@@ -99,7 +99,7 @@ function walk(dir: string, prefix = ""): string[] {
     if (entry.name.startsWith("_") || entry.name.startsWith(".")) continue;
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) out.push(...walk(path.join(dir, entry.name), rel));
-    else if (entry.isFile() && entry.name.endsWith(".md")) out.push(rel);
+    else if (entry.isFile() && /\.mdx?$/.test(entry.name)) out.push(rel);
   }
   return out;
 }

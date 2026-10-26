@@ -6,6 +6,7 @@ import { findConfigFile, loadConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
 import { baseViteConfig, viteLoader } from "../core/loader.js";
+import { componentPlugins } from "../core/components.js";
 import { renderPage } from "../core/render.js";
 import { cacheDir } from "../content/optimize.js";
 import { collection, collectPages, tagList } from "../core/pages.js";
@@ -32,7 +33,7 @@ export async function startDevServer(root: string, options: ServeOptions = {}): 
 
   const server = await createServer({
     ...baseViteConfig(root),
-    plugins: [devAccessGuard(root, new Set(Object.keys(DISCOVERY_FILES))), editorPlugin(root, editorEnabled(options.host))],
+    plugins: [devAccessGuard(root, new Set(Object.keys(DISCOVERY_FILES))), editorPlugin(root, editorEnabled(options.host)), ...(await componentPlugins(root))],
     server: { port: options.port, strictPort: options.port !== undefined, host: options.host },
   });
   const load = viteLoader(server);

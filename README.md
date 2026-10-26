@@ -117,6 +117,16 @@ const layout: Layout = ({ content, page, site, pages }) => html`<!doctype html>
 export default layout;
 ```
 
+### React, Vue and MDX
+
+Components render to plain HTML at build time; nothing runs in the browser, so pages stay at 0 KB of JavaScript. Install only what you use:
+
+- **React layouts:** `npm install react react-dom`, then write `src/layouts/default.tsx` as a React component. It gets the same props; insert the page with `<main dangerouslySetInnerHTML={{ __html: content }} />`.
+- **Vue layouts:** `npm install vue && npm install --save-dev @vitejs/plugin-vue`, then `src/layouts/default.vue` with `defineProps` for the props it uses and `<main v-html="content" />`.
+- **MDX pages:** `npm install react react-dom && npm install --save-dev @mdx-js/mdx`, then `src/pages/pricing.mdx`: the usual frontmatter, Markdown, and React components imported from `src/components/`. MDX components are React; Vue components work in layouts only.
+
+An `.mdx` page is code: it runs at build time like a layout and isn't sanitized like `.md` pages, so use it only for content you'd trust in a layout. `vage check` (links, link lock, hidden links, SEO) still checks its output. Components that need JavaScript in the browser (interactive islands) aren't supported yet.
+
 ### Everyday commands
 
 | Command | What it does |

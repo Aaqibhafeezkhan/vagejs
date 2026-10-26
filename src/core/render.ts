@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { frontmatterSchema, parseMarkdown, type Frontmatter } from "../content/markdown.js";
+import { frontmatterSchema, parseFrontmatter, parseMarkdown, type Frontmatter } from "../content/markdown.js";
 import { contentImageSources, imageVariants, sharpResize, type Resize } from "../content/optimize.js";
 import { enhanceTrustedHtml, sanitizeHtml, type ImageVariant } from "../content/sanitize.js";
 import type { ModuleLoader, SiteConfig } from "./config.js";
@@ -14,6 +14,7 @@ import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
 import type { PageSummary } from "./pages.js";
 import { resolveMenus, type MenuItem } from "./menus.js";
 import { pageLang, pageTranslations, type Translation } from "./i18n.js";
+import { componentKind, renderReact, renderVue } from "./components.js";
 
 export interface LayoutProps {
   /** Rendered page body HTML. Insert as-is; do not escape. */
@@ -73,7 +74,12 @@ export async function renderPage(options: {
   source?: string;
 }): Promise<RenderedPage> {
   const { root, file, route, site, load } = options;
-  const parsed = parseMarkdown(options.source ?? fs.readFileSync(file, "utf8"), file);
+  const source = options.source ?? fs.readFileSync(file, "utf8");
+  // An .mdx page is code (it can import components), rendered with React at build time.
+  const mdx = options.source === undefined && file.endsWith(".mdx");
+  const parsed = mdx
+    ? { ...parseFrontmatter(source, file), html: await renderReact(root, (await load(file)).default, {}, `MDX page ${path.relative(root, file)}`) }
+    : parseMarkdown(source, file);
   const { frontmatter, body } = parsed;
   const publicDir = path.join(root, "public");
   const assets = new Map<string, string>();
@@ -89,7 +95,7 @@ export async function renderPage(options: {
     }
   }
   const content =
-    site.markdown.html === "allow"
+    site.markdown.html === "allow" || mdx
       ? await enhanceTrustedHtml(parsed.html, publicDir, variants, site.markdown.headingIds)
       : await sanitizeHtml(parsed.html, { publicDir, inlineStyles: site.markdown.inlineStyles, variants, headingIds: site.markdown.headingIds });
   const layout = await applyLayoutFields(root, frontmatter, load, file);
@@ -114,7 +120,7 @@ export async function renderPage(options: {
   return { html: out, content, frontmatter, body, meta, assets };
 }
 
-const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs"];
+const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs", ".tsx", ".jsx", ".vue"];
 
 /** A Zod schema a layout can export as `frontmatter` to declare its own fields. */
 export type FieldSchema = { safeParse: (data: unknown) => { success: boolean; data?: unknown; error?: unknown }; strict?: () => FieldSchema };
@@ -133,13 +139,27 @@ export async function resolveLayout(
     throw new VageError(`Layout "${name}" not found. Expected src/layouts/${name}.ts`, pageFile);
   }
   const mod = await load(file);
-  const layout = mod.default;
-  if (typeof layout !== "function") {
-    throw new VageError("Layout files must default-export a function that returns an HTML string.", file);
-  }
   const schema = mod.frontmatter as FieldSchema | undefined;
   if (schema !== undefined && (typeof schema?.safeParse !== "function" || typeof (schema as { shape?: unknown }).shape !== "object")) {
     throw new VageError('`export const frontmatter` in a layout must be a Zod object schema: z.object({ ... }) (import { z } from "vagejs").', file);
+  }
+  const kind = componentKind(file);
+  if (kind) {
+    // A React or Vue component: rendered to HTML at build time, with the same props as other layouts.
+    const component = mod.default as object | undefined;
+    if (!component || (typeof component !== "function" && typeof component !== "object")) {
+      throw new VageError(`Layout files ending in ${path.extname(file)} must default-export a ${kind === "react" ? "React" : "Vue"} component.`, file);
+    }
+    const needed = `The layout src/layouts/${path.basename(file)}`;
+    const layout: Layout = async (props) => {
+      const out = kind === "react" ? await renderReact(root, component, props, needed) : await renderVue(root, component, props, needed);
+      return /^<html[\s>]/i.test(out) ? `<!doctype html>\n${out}` : out;
+    };
+    return { layout, schema };
+  }
+  const layout = mod.default;
+  if (typeof layout !== "function") {
+    throw new VageError("Layout files must default-export a function that returns an HTML string.", file);
   }
   return { layout: layout as Layout, schema };
 }
