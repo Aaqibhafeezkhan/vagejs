@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- **"Copy prompt for AI" in the editor.** It copies a prompt with the open page (unsaved edits included), its `vage check` problems and rules against invented facts, ready to paste into ChatGPT, Claude, Gemini or any AI chat. No API key needed.
 - **Sites in a subfolder, such as GitHub Pages project sites** (#4). Set `site: "https://<user>.github.io/<repo>"` and the build adds `/<repo>` to every root-relative link, image, script, stylesheet, form and CSS `url()` (in pages, redirect pages and stylesheets from `public/`), while canonical URLs, the sitemap, feeds, `llms.txt` and Markdown copies use the full address. Keep writing links from the site root (`/about/`): `vage check` checks them as before, and absolute links into the subfolder count as internal. `vage preview` serves the site under `/<repo>/`; the dev server and the editor stay at `/`. `vage deploy` publishes these sites to GitHub Pages, and stops when `site` doesn't name the repository's subfolder. Other files in `public/` (JavaScript, web manifests, SVG, HTML) are copied unchanged. `seo.robots` rules warn, because crawlers only read `robots.txt` at the root of a domain. Cloudflare, Netlify and contact forms still need a site at the root of a domain.
 
 ## 0.8.0 (2026-10-26)

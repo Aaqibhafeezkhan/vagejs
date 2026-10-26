@@ -190,6 +190,11 @@ async function api(root: string, load: ModuleLoader, req: IncomingMessage, res: 
     const page = await renderPage({ root, file, route: route ?? "/404/", notFound: route === undefined, site, load, pages, source: text });
     return send(res, 200, "text/html; charset=utf-8", page.html);
   }
+  if (action === "text" && method === "POST") {
+    // The page file as it would be saved, for "Copy prompt for AI" (unsaved edits included).
+    const { source, data, body } = await readJson(req);
+    return send(res, 200, "text/plain; charset=utf-8", compose(root, site, source, data, body).text);
+  }
   if (action === "findings" && method === "GET") {
     const { file } = pageFile(root, site, query.get("source"));
     const rel = path.relative(root, file);

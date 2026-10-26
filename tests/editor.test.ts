@@ -130,6 +130,14 @@ describe("local editor", () => {
     expect(fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8")).toBe(before);
   });
 
+  it("returns the page text as it would be saved, for the AI prompt", async () => {
+    const { root, api } = await editor();
+    const before = fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8");
+    const res = await api("text", { method: "POST", body: JSON.stringify({ source: "src/pages/about.md", data: { title: "Unsaved title", description: "About the fixture." }, body: "# New\n" }) });
+    expect(await res.text()).toBe("---\ntitle: Unsaved title\ndescription: About the fixture.\n---\n# New\n");
+    expect(fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8")).toBe(before);
+  });
+
   it("creates pages and posts as drafts", async () => {
     const { root, api } = await editor();
     const res = await api("new", { method: "POST", body: JSON.stringify({ kind: "page", name: "pricing", title: "Pricing" }) });

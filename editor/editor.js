@@ -155,6 +155,8 @@ async function showEditor(source) {
   const form = h("div", { class: "fields" });
   const statusSlot = h("span");
   const saveButton = h("button", { class: "primary", disabled: true, onclick: () => save() }, "Save");
+  const promptButton = h("button", { type: "button", onclick: () => copyPrompt(), title: "Copies a prompt with this page and its check results, to paste into ChatGPT, Claude, Gemini or another AI chat" }, "Copy prompt for AI");
+  let lastFindings = null;
   const saved = h("span", { class: "muted", role: "status" });
   const banner = h("div", { class: "error banner", role: "alert", hidden: true });
   const findings = h("section", { class: "findings", "aria-live": "polite" });
@@ -326,10 +328,48 @@ async function showEditor(source) {
     loadFindings();
   }
 
+  /** A prompt for any AI chat: rules, the change to make, the check results and the page as it stands. */
+  async function copyPrompt() {
+    let text;
+    try {
+      text = await call("text", { method: "POST", body: { source, data, body: body.value } });
+    } catch (err) {
+      return showBanner(err.message);
+    }
+    const problems = lastFindings ? [...lastFindings.findings, ...lastFindings.site] : [];
+    const prompt = [
+      "You are helping me edit one page of a website built with vagejs. The page is a Markdown file; the block between the --- lines at the top is YAML frontmatter (the page's details).",
+      "",
+      "Rules:",
+      "- Don't invent facts, numbers, prices, quotes, testimonials, names or links. If you need something I haven't given you, ask me instead.",
+      "- Keep my meaning and my wording where it works; fix what I ask for.",
+      "- Title under 60 characters, description under 160. Links to this site's own pages start with / (for example /about/).",
+      "- Reply with the new page text (everything below the second --- line) in one Markdown code block. Then list any frontmatter fields I should change, as \"field: new value\". Then a short list of what you changed and why.",
+      "",
+      "WHAT I WANT: DESCRIBE THE CHANGE HERE",
+      "",
+      "Problems vagejs found on this page:",
+      ...(problems.length ? problems.map((f) => `- ${f.severity} (${f.rule}): ${f.message}`) : [lastFindings ? "- None" : "- Not checked yet (save the page to check it)"]),
+      "",
+      `The page, ${source}:`,
+      "````markdown",
+      text.replace(/\n+$/, ""),
+      "````",
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(prompt);
+      saved.textContent = "Prompt copied: paste it into your AI chat and replace DESCRIBE THE CHANGE HERE";
+    } catch {
+      showBanner("The browser didn't allow copying. Select the prompt below and copy it yourself.");
+      banner.append(h("textarea", { rows: 10, class: "mono", readonly: true, "aria-label": "Prompt for AI" }, prompt));
+    }
+  }
+
   async function loadFindings() {
     findings.replaceChildren(h("h2", {}, "Checks"), h("p", { class: "muted" }, "Checking the site…"));
     try {
       const result = await call("findings", { query: { source } });
+      lastFindings = result;
       const list = (items) => h("ul", {}, ...items.map((f) => h("li", { class: f.severity }, h("strong", {}, f.severity === "error" ? "Error" : "Warning"), " ", f.message, h("span", { class: "rule" }, ` (${f.rule})`))));
       findings.replaceChildren(
         h("h2", {}, "Checks"),
@@ -397,6 +437,7 @@ async function showEditor(source) {
       page.route ? h("a", { href: SITE + page.route, target: "_blank", rel: "noopener" }, "Open page") : "",
       h("span", { class: "spacer" }),
       saved,
+      promptButton,
       saveButton,
     ),
     banner,
