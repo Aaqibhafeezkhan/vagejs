@@ -7,7 +7,7 @@ This website uses **vagejs** (pre-release). Only the features listed here exist 
 | Command           | What it does                                              |
 | ----------------- | --------------------------------------------------------- |
 | `npm run dev`     | Dev server with live reload. Prints the local URL and the same server's direct address (e.g. `http://[::1]:5173/`): if a browser shows HTTP 431 on localhost (too many cookies from other projects), use the direct address. Use this one yourself; it doesn't open a browser. |
-| `npm start`       | For people: the dev server, opened in the default browser at the direct address. The owner can edit pages in a browser at `/_vage/edit/` on that server (a local editor that writes the same files; it is off with `--host`). |
+| `npm start`       | For people: the dev server, opened in the default browser at the direct address. The owner can edit pages in a browser at the `editor:` address it prints (a local editor that writes the same files and won't overwrite a page changed since it was opened; it is off with `--host`). |
 | `npm run build`   | Static build into `dist/`. Exits non-zero on any error.   |
 | `npm run check`   | SEO, link, structured-data and basic a11y checks. Writes nothing. Exit 1 on errors (`--strict`: also on warnings). |
 | `npm run audit`   | Builds, then checks page-weight budgets and runs axe accessibility rules. `--lighthouse` adds a local Lighthouse run (install `lighthouse`; needs Chrome). `--url <https://...>` audits a deployed page via PageSpeed Insights (+ CrUX field data with `CRUX_API_KEY`). |

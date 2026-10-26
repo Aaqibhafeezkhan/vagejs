@@ -39,7 +39,7 @@ npm start
 ```
 `npm start` opens the site in your browser. Edit `src/pages/index.md` and the page reloads. (`npm run dev` does the same without opening a browser, and prints the address.)
 
-Prefer forms to files? While the dev server runs, open `/_vage/edit/` (for example `http://localhost:5173/_vage/edit/`): a local editor with every page, its fields, the text with a live preview, image upload and the page's check results. It edits the same files, only works on your own computer, and is never part of the built site.
+Prefer forms to files? While the dev server runs, open the `editor:` address it prints (or `/_vage/edit/` on the site): a local editor with every page, its fields, the text with a live preview, image upload and the page's check results. It edits the same files, refuses to overwrite a page that changed since you opened it, only works on your own computer, and is never part of the built site.
 
 ### Windows
 

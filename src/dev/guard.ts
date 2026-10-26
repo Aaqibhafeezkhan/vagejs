@@ -38,8 +38,6 @@ export function allowed(url: string, publicDir: string, allowedFiles: Set<string
   if (pathname.startsWith(VITE_CLIENT) || (pathname.startsWith("/@fs/") && pathname.includes(VITE_CLIENT))) return !pathname.includes("..");
   if (SOURCE_QUERY.test(`?${query}`)) return false;
   if (pathname.startsWith("/@")) return false; // /@fs/, /@id/ and other internals
-  // The local editor answers these itself (and refuses them when the server is on the network).
-  if (pathname === "/_vage/edit" || pathname.startsWith("/_vage/edit/")) return true;
   const ext = path.posix.extname(pathname);
   if (!ext || ext === ".html") return true; // rendered pages (our middleware decides 200/404)
   if (allowedFiles.has(pathname)) return true;

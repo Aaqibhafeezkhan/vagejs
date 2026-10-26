@@ -3,7 +3,9 @@
 "use strict";
 
 const TOKEN = document.querySelector('meta[name="vage-token"]').content;
-const API = "/_vage/edit/api/";
+// The site's pages are on the dev server's port: the editor has its own, so those pages can't read it.
+const SITE = document.querySelector('meta[name="vage-site"]').content;
+const API = "/api/";
 const app = document.getElementById("app");
 
 /** h("p", { class: "x", onclick }, "text", child) */
@@ -28,7 +30,7 @@ async function call(action, { method = "GET", query, body, raw, type } = {}) {
   const res = await fetch(url, { method, headers, body: raw ?? (body === undefined ? undefined : JSON.stringify(body)) });
   const isJson = (res.headers.get("content-type") || "").includes("json");
   const value = isJson ? await res.json() : await res.text();
-  if (!res.ok) throw new Error(isJson ? value.error : value);
+  if (!res.ok) throw Object.assign(new Error(isJson ? value.error : value), { status: res.status });
   return value;
 }
 
@@ -146,8 +148,10 @@ async function showEditor(source) {
   dirty = false;
 
   const data = { ...page.data };
+  let version = page.version;
   let fields = page.fields;
   const inputs = new Map();
+  const badJson = new Set();
   const form = h("div", { class: "fields" });
   const statusSlot = h("span");
   const saveButton = h("button", { class: "primary", disabled: true, onclick: () => save() }, "Save");
@@ -170,8 +174,11 @@ async function showEditor(source) {
     const value = data[f.key];
     let input;
     if (f.kind === "checkbox") input = h("input", { type: "checkbox", id, checked: value === true || (value === undefined && f.default === true) });
-    else if (f.kind === "select")
-      input = h("select", { id }, h("option", { value: "" }, f.key === "layout" ? "default" : "—"), ...(f.options ?? []).map((o) => h("option", { value: o, selected: String(value) === o }, o)));
+    else if (f.kind === "select") {
+      // A saved value that isn't one of the choices stays selectable, so saving never drops it.
+      const options = value !== undefined && !(f.options ?? []).some((o) => String(o) === String(value)) ? [...(f.options ?? []), value] : (f.options ?? []);
+      input = h("select", { id }, h("option", { value: "" }, f.key === "layout" ? "default" : "—"), ...options.map((o) => h("option", { value: String(o), selected: String(value) === String(o) }, String(o))));
+    }
     else if (f.kind === "textarea") input = h("textarea", { id, rows: 3 }, value ?? "");
     else if (f.kind === "json") input = h("textarea", { id, rows: 6, class: "mono" }, value === undefined ? "" : JSON.stringify(value, null, 2));
     else if (f.kind === "list") input = h("input", { id, value: Array.isArray(value) ? value.join(", ") : (value ?? "") });
@@ -194,6 +201,7 @@ async function showEditor(source) {
     const error = document.getElementById(`f-${f.key}-error`);
     error.textContent = "";
     let v;
+    if (f.kind === "json" && !input.value.trim()) badJson.delete(f.key);
     if (f.kind === "checkbox") v = input.checked ? true : f.default === true ? false : undefined;
     else if (f.kind === "number") v = input.value === "" ? undefined : Number(input.value);
     else if (f.kind === "list") {
@@ -204,12 +212,18 @@ async function showEditor(source) {
       else {
         try {
           v = JSON.parse(input.value);
+          badJson.delete(f.key);
         } catch {
           error.textContent = "This isn't valid JSON yet.";
+          badJson.add(f.key);
           return false;
         }
       }
-    } else v = input.value.trim() === "" ? undefined : input.value.trim();
+    } else if (f.kind === "select") {
+      // Back to the value the choice stands for (numbers stay numbers).
+      const choice = [...(f.options ?? []), data[f.key]].find((o) => o !== undefined && String(o) === input.value);
+      v = input.value === "" ? undefined : (choice ?? input.value);
+    } else v = input.value.trim() === "" ? undefined : input.value;
     if (v === undefined) delete data[f.key];
     else data[f.key] = v;
     return true;
@@ -245,6 +259,7 @@ async function showEditor(source) {
 
   function renderFields() {
     inputs.clear();
+    badJson.clear();
     fields = fields.filter((f) => f.group !== "other");
     const others = otherFields();
     fields = [...fields, ...others];
@@ -278,7 +293,8 @@ async function showEditor(source) {
       const html = await call("preview", { method: "POST", body: { source, data, body: body.value } });
       if (run !== previewRun) return;
       previewNote.hidden = true;
-      frame.srcdoc = html;
+      // Styles, fonts and images come from the dev server.
+      frame.srcdoc = html.replace(/<head(\s[^>]*)?>/i, (m) => `${m}<base href="${SITE}/">`);
     } catch (err) {
       if (run !== previewRun) return;
       previewNote.hidden = false;
@@ -292,12 +308,13 @@ async function showEditor(source) {
   }
 
   async function save() {
-    for (const f of fields) if (!read(f)) return showBanner("Fix the highlighted field first.");
+    // Fields are read as they change, so untouched ones keep their exact value.
+    if (badJson.size) return showBanner("Fix the highlighted field first.");
     showBanner();
     saveButton.disabled = true;
     saved.textContent = "Saving…";
     try {
-      await call("page", { method: "PUT", body: { source, data, body: body.value } });
+      ({ version } = await call("page", { method: "PUT", body: { source, data, body: body.value, version } }));
     } catch (err) {
       saveButton.disabled = false;
       saved.textContent = "Not saved";
@@ -377,7 +394,7 @@ async function showEditor(source) {
       h("a", { href: "#/", class: "back" }, "← All pages"),
       statusSlot,
       h("span", { class: "mono muted" }, page.route ?? source),
-      page.route ? h("a", { href: page.route, target: "_blank", rel: "noopener" }, "Open page") : "",
+      page.route ? h("a", { href: SITE + page.route, target: "_blank", rel: "noopener" }, "Open page") : "",
       h("span", { class: "spacer" }),
       saved,
       saveButton,

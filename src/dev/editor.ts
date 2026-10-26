@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import type { IncomingMessage, ServerResponse } from "node:http";
+import http, { type IncomingMessage, type ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Plugin } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 import { parseDocument } from "yaml";
 import { z } from "zod";
 import { check } from "../checks/check.js";
@@ -16,24 +17,29 @@ import { viteLoader } from "../core/loader.js";
 import { collectPages } from "../core/pages.js";
 import { applyLayoutFields, renderPage, resolveLayout } from "../core/render.js";
 import { discoverRoutes, findNotFoundPage, publicPath } from "../core/routes.js";
+import { directUrl } from "./listen.js";
 
 /**
- * The local editor at /_vage/edit/ in `vage dev`: a list of pages, a form for each page's
- * frontmatter (built from the built-in fields and the layout's own), the Markdown text with
- * a live preview, image upload, and the page's `vage check` findings. It edits the project's
- * files and nothing else, and only exists in the dev server, never in a build.
+ * The local editor for `vage dev`: a list of pages, a form for each page's frontmatter
+ * (built from the built-in fields, the layout's own and any others in the file), the Markdown
+ * text with a live preview, image upload, and the page's `vage check` findings. It edits the
+ * project's files and nothing else, and only exists alongside the dev server, never in a build.
  *
- * Safety: it runs only when the dev server listens on this computer (not with --host); every
- * request must name a loopback host (no DNS rebinding); API calls need the per-server key
- * from the editor page, which other websites can't read, and must come from the same origin.
- * Writes go only to existing pages in src/pages, new pages via `vage new`, and public/images/.
+ * Safety: it has its own port, so it is a separate origin from the site's pages: scripts on
+ * those pages (an embed in a layout, say) can't read it. It runs only when the dev server
+ * listens on this computer (not with --host) and listens on the same loopback address; every
+ * request must name a loopback host (no DNS rebinding); API calls need the per-server key from
+ * the editor page and must come from the editor's own origin. It sends no CORS headers.
+ * Writes go only to existing pages in src/pages (refused if the file changed since it was
+ * opened), new pages via `vage new`, and new files in public/images/.
  */
 export const EDITOR_PATH = "/_vage/edit/";
 
 const UI_DIR = fileURLToPath(new URL("../../editor/", import.meta.url));
-const UI_FILES: Record<string, string> = { "editor.js": "text/javascript; charset=utf-8", "editor.css": "text/css; charset=utf-8" };
+const UI_FILES: Record<string, string> = { "/editor.js": "text/javascript; charset=utf-8", "/editor.css": "text/css; charset=utf-8" };
 // The same pattern parseFrontmatter uses.
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+const LAYOUT_NAME = /^[\w-]+$/;
 const IMAGE_TYPES = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif", ".gif"]);
 const MAX_JSON = 2 * 1024 * 1024;
 const MAX_IMAGE = 10 * 1024 * 1024;
@@ -48,48 +54,97 @@ function isLoopback(hostname: string): boolean {
   return h === "localhost" || h.endsWith(".localhost") || h === "::1" || /^127(?:\.\d{1,3}){3}$/.test(h);
 }
 
-/** The host name from a Host header: "localhost:5173" -> "localhost", "[::1]:5173" -> "::1". */
-function hostName(header: string | undefined): string | undefined {
+/** The URL from a Host header ("localhost:5174", "[::1]:5174"), or undefined. */
+function hostUrl(header: string | undefined): URL | undefined {
   if (!header) return undefined;
   try {
-    return new URL(`http://${header}`).hostname;
+    return new URL(`http://${header}`);
   } catch {
     return undefined;
   }
 }
 
+// Keyed by the HTTP server: Vite hands plugins a different object than createServer returns.
+const editors = new WeakMap<object, Promise<string | undefined>>();
+
+/** The editor's address once the dev server listens; undefined when the editor is off. */
+export function editorUrl(server: ViteDevServer): Promise<string | undefined> {
+  return (server.httpServer && editors.get(server.httpServer)) ?? Promise.resolve(undefined);
+}
+
 export function editorPlugin(root: string, enabled: boolean): Plugin {
-  const token = crypto.randomBytes(24).toString("hex");
   return {
     name: "vage:editor",
     configureServer(server) {
+      if (!enabled) return;
+      const token = crypto.randomBytes(24).toString("hex");
       const load = viteLoader(server);
-      server.middlewares.use(async (req, res, next) => {
+      let devPort = 0;
+      const editor = http.createServer((req, res) => {
+        handle(req, res).catch((err: unknown) => {
+          server.config.logger.error((err as Error).stack ?? String(err));
+          if (!res.headersSent) json(res, 500, { error: (err as Error).message });
+        });
+      });
+
+      async function handle(req: IncomingMessage, res: ServerResponse) {
+        res.setHeader("X-Frame-Options", "DENY");
+        res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+        const host = hostUrl(req.headers.host);
+        if (!host || !isLoopback(host.hostname)) return send(res, 403, "text/plain", "Open the editor at the address vage dev prints.");
         const pathname = (req.url ?? "/").split(/[?#]/)[0]!;
-        if (pathname !== "/_vage/edit" && !pathname.startsWith(EDITOR_PATH)) return next();
-        if (!enabled) return send(res, 404, "text/plain", "The editor only runs when the dev server listens on this computer: start it without --host.");
-        const host = hostName(req.headers.host);
-        if (!host || !isLoopback(host)) return send(res, 403, "text/plain", "Open the editor at localhost.");
-        if (pathname === "/_vage/edit") return redirectTo(res, EDITOR_PATH);
-        if (pathname === EDITOR_PATH && req.method === "GET") {
-          const page = fs.readFileSync(path.join(UI_DIR, "index.html"), "utf8").replace("%TOKEN%", token);
+        if (req.method === "GET" && pathname === "/") {
+          // The site's pages, on the dev server's port at the same host name: for the preview and "Open page".
+          const site = new URL(host.href);
+          site.port = String(devPort);
+          const page = fs.readFileSync(path.join(UI_DIR, "index.html"), "utf8").replace("%TOKEN%", token).replace("%SITE%", site.origin);
           res.setHeader("Cache-Control", "no-store");
           return send(res, 200, "text/html; charset=utf-8", page);
         }
-        const asset = pathname.slice(EDITOR_PATH.length);
-        if (UI_FILES[asset] && req.method === "GET") {
+        if (req.method === "GET" && UI_FILES[pathname]) {
           res.setHeader("Cache-Control", "no-cache"); // a vagejs update brings a new editor
-          return send(res, 200, UI_FILES[asset]!, fs.readFileSync(path.join(UI_DIR, asset)));
+          return send(res, 200, UI_FILES[pathname]!, fs.readFileSync(path.join(UI_DIR, pathname.slice(1))));
         }
-        if (!pathname.startsWith(`${EDITOR_PATH}api/`)) return send(res, 404, "text/plain", "Not found");
+        if (!pathname.startsWith("/api/")) return send(res, 404, "text/plain", "Not found");
         if (!validKey(req.headers["x-vage-token"], token) || !sameOrigin(req)) return json(res, 403, { error: "This request didn't come from the editor page. Reload the editor." });
         try {
-          await api(root, load, req, res, pathname.slice(`${EDITOR_PATH}api/`.length));
+          await api(root, load, req, res, pathname.slice("/api/".length));
         } catch (err) {
           if (err instanceof VageError) return json(res, 400, { error: err.detail });
-          server.config.logger.error((err as Error).stack ?? String(err));
-          json(res, 500, { error: (err as Error).message });
+          throw err;
         }
+      }
+
+      // Same loopback address as the dev server; the next port when it's free, else any free port.
+      let ready!: (url: string | undefined) => void;
+      if (server.httpServer) editors.set(server.httpServer, new Promise((resolve) => (ready = resolve)));
+      server.httpServer?.once("listening", () => {
+        const address = server.httpServer!.address() as AddressInfo;
+        devPort = address.port;
+        const listen = (port: number) =>
+          new Promise<void>((resolve, reject) => {
+            editor.once("error", reject);
+            editor.listen(port, address.address, () => {
+              editor.off("error", reject);
+              resolve();
+            });
+          });
+        listen(devPort + 1)
+          .catch(() => listen(0))
+          .then(() => ready(directUrl(editor.address()) ?? `http://localhost:${(editor.address() as AddressInfo).port}/`))
+          .catch((err: unknown) => {
+            server.config.logger.error(`The editor couldn't start: ${(err as Error).message}`);
+            ready(undefined);
+          });
+      });
+      server.httpServer?.once("close", () => editor.close());
+
+      // /_vage/edit/ on the dev server leads to the editor's own address.
+      server.middlewares.use(async (req, res, next) => {
+        const pathname = (req.url ?? "/").split(/[?#]/)[0]!;
+        if (pathname !== "/_vage/edit" && pathname !== EDITOR_PATH) return next();
+        const url = await editorUrl(server);
+        return url ? redirectTo(res, url) : next();
       });
     },
   };
@@ -100,7 +155,7 @@ function validKey(given: string | string[] | undefined, token: string): boolean 
   return crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token));
 }
 
-/** Browsers send Origin on POST/PUT and Sec-Fetch-Site on all requests; both must say "this site". */
+/** Browsers send Origin on POST/PUT and Sec-Fetch-Site on all requests; both must say "this origin". */
 function sameOrigin(req: IncomingMessage): boolean {
   const site = req.headers["sec-fetch-site"];
   if (site !== undefined && site !== "same-origin" && site !== "none") return false;
@@ -114,13 +169,19 @@ async function api(root: string, load: ModuleLoader, req: IncomingMessage, res: 
   const method = req.method ?? "GET";
   if (action === "pages" && method === "GET") return json(res, 200, { site: site.title ?? "", pages: listPages(root, site) });
   if (action === "page" && method === "GET") return json(res, 200, await readPage(root, site, load, query.get("source")));
-  if (action === "schema" && method === "GET") return json(res, 200, { fields: await fields(root, load, query.get("layout") || undefined) });
+  if (action === "schema" && method === "GET") {
+    const layout = query.get("layout") || undefined;
+    if (layout !== undefined && !LAYOUT_NAME.test(layout)) throw new VageError("A layout name is a file name in src/layouts, without the extension.");
+    return json(res, 200, { fields: await fields(root, load, layout) });
+  }
   if (action === "page" && method === "PUT") {
-    const { source, data, body } = await readJson(req);
-    const { file, text } = compose(root, site, source, data, body);
+    const { source, data, body, version } = await readJson(req);
+    const { file, text, original } = compose(root, site, source, data, body);
+    // Someone else (an AI agent, another editor tab) changed the file since it was opened: don't overwrite their work.
+    if (version !== hash(original)) return json(res, 409, { error: "This page changed on disk since you opened it, perhaps in another tab or by an AI agent. Copy your changes, then reload the page to see the new version." });
     await validate(root, load, file, text);
     fs.writeFileSync(file, text);
-    return json(res, 200, { ok: true });
+    return json(res, 200, { ok: true, version: hash(text) });
   }
   if (action === "preview" && method === "POST") {
     const { source, data, body } = await readJson(req);
@@ -189,7 +250,8 @@ function split(text: string): { yaml: string; body: string } {
 
 async function readPage(root: string, site: SiteConfig, load: ModuleLoader, source: unknown) {
   const { file, route } = pageFile(root, site, source);
-  const { yaml, body } = split(fs.readFileSync(file, "utf8"));
+  const text = fs.readFileSync(file, "utf8");
+  const { yaml, body } = split(text);
   const doc = parseDocument(yaml);
   if (doc.errors.length) throw new VageError(`The frontmatter (the part between the --- lines) can't be read, so fix it in your text editor first:\n${doc.errors[0]!.message}`);
   const data = (doc.toJS() ?? {}) as Record<string, unknown>;
@@ -199,7 +261,9 @@ async function readPage(root: string, site: SiteConfig, load: ModuleLoader, sour
     route: route ? publicPath(route, site.trailingSlash) : null,
     data,
     body,
-    fields: await fields(root, load, typeof data.layout === "string" ? data.layout : undefined),
+    /** Sent back on save, so a file changed in the meantime isn't overwritten. */
+    version: hash(text),
+    fields: await fields(root, load, typeof data.layout === "string" && LAYOUT_NAME.test(data.layout) ? data.layout : undefined),
     layouts: layoutNames(root),
   };
 }
@@ -208,7 +272,7 @@ async function readPage(root: string, site: SiteConfig, load: ModuleLoader, sour
  * The page file with the edited frontmatter. Comments and field order stay, and only changed,
  * added and removed fields get new values (the yaml library may tidy spacing on other lines).
  */
-function compose(root: string, site: SiteConfig, source: unknown, data: unknown, body: unknown): { file: string; route?: string; text: string } {
+function compose(root: string, site: SiteConfig, source: unknown, data: unknown, body: unknown): { file: string; route?: string; text: string; original: string } {
   const { file, route } = pageFile(root, site, source);
   if (!data || typeof data !== "object" || Array.isArray(data) || typeof body !== "string") throw new VageError("Send the page's fields and text.");
   const original = fs.readFileSync(file, "utf8");
@@ -224,8 +288,10 @@ function compose(root: string, site: SiteConfig, source: unknown, data: unknown,
   const yaml = Object.keys(doc.toJS() ?? {}).length ? doc.toString() : "";
   let text = `---\n${yaml}---\n${body.replace(/\r\n/g, "\n")}`;
   if (crlf) text = text.replace(/\n/g, "\r\n");
-  return { file, route, text };
+  return { file, route, text, original };
 }
+
+const hash = (text: string) => crypto.createHash("sha256").update(text).digest("hex");
 
 const empty = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
 
@@ -251,7 +317,8 @@ export interface EditorField {
   help?: string;
   kind: "text" | "textarea" | "date" | "checkbox" | "number" | "select" | "list" | "json";
   required: boolean;
-  options?: string[];
+  /** Choices for "select", as the values they stand for (strings or numbers). */
+  options?: unknown[];
   /** The value used when the field is left out. */
   default?: unknown;
   /** "main" fields show first; "more" are the rarely needed built-in ones; "layout" come from the page's layout. */
@@ -292,11 +359,12 @@ async function fields(root: string, load: ModuleLoader, layout: string | undefin
       help: meta.help,
       kind: key === "layout" ? "select" : (meta.kind ?? kindOf(prop)),
       required: key === "title",
-      options: key === "layout" ? layoutNames(root) : prop.enum?.map(String),
+      options: key === "layout" ? layoutNames(root) : prop.enum,
       default: prop.default,
       group: meta.group,
     });
   }
+  if (layout !== undefined && !LAYOUT_NAME.test(layout)) return out; // only files in src/layouts
   let schema: unknown;
   try {
     ({ schema } = await resolveLayout(root, layout, load, path.join(root, "src", "pages")));
@@ -316,17 +384,19 @@ async function fields(root: string, load: ModuleLoader, layout: string | undefin
     if (known) {
       // A layout may make a built-in field required or narrow its choices.
       known.required ||= required.has(key) && prop.default === undefined;
-      if (prop.enum) known.options = prop.enum.map(String);
+      if (prop.enum) known.options = prop.enum;
       continue;
     }
-    out.push({ key, label: humanize(key), help: prop.description, kind: kindOf(prop), required: required.has(key) && prop.default === undefined, options: prop.enum?.map(String), default: prop.default, group: "layout" });
+    out.push({ key, label: humanize(key), help: prop.description, kind: kindOf(prop), required: required.has(key) && prop.default === undefined, options: prop.enum, default: prop.default, group: "layout" });
   }
   return out;
 }
 
 function kindOf(prop: JsonSchema): EditorField["kind"] {
   if (prop.enum) return "select";
-  const type = Array.isArray(prop.type) ? prop.type.find((t) => t !== "null") : prop.type;
+  const types = (Array.isArray(prop.type) ? prop.type : [prop.type]).filter((t) => t !== "null");
+  if (types.length !== 1) return "json"; // e.g. string | number: JSON keeps the value's type
+  const type = types[0];
   if (type === "boolean") return "checkbox";
   if (type === "number" || type === "integer") return "number";
   if (type === "string") return "text";

@@ -3,7 +3,7 @@ import http from "node:http";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ViteDevServer } from "vite";
-import { editorEnabled } from "../src/dev/editor.js";
+import { editorEnabled, editorUrl } from "../src/dev/editor.js";
 import { startDevServer } from "../src/dev/server.js";
 import { copyFixture, write } from "./helpers.js";
 
@@ -16,17 +16,19 @@ afterEach(async () => {
 async function editor(root = copyFixture(), host?: string | boolean) {
   const server = await startDevServer(root, { host });
   servers.push(server);
-  const address = server.httpServer!.address() as { port: number };
-  const base = `http://localhost:${address.port}`;
-  const page = await fetch(`${base}/_vage/edit/`);
-  const html = await page.text();
+  const devPort = (server.httpServer!.address() as { port: number }).port;
+  const url = await editorUrl(server);
+  const port = url ? Number(new URL(url).port) : 0;
+  const base = `http://localhost:${port}`;
+  const page = url ? await fetch(url) : undefined;
+  const html = (await page?.text()) ?? "";
   const token = /name="vage-token" content="([0-9a-f]+)"/.exec(html)?.[1];
   const api = (action: string, init: RequestInit & { query?: Record<string, string> } = {}) =>
-    fetch(`${base}/_vage/edit/api/${action}${init.query ? `?${new URLSearchParams(init.query)}` : ""}`, {
+    fetch(`${base}/api/${action}${init.query ? `?${new URLSearchParams(init.query)}` : ""}`, {
       ...init,
       headers: { "x-vage-token": token ?? "", ...(init.body && typeof init.body === "string" ? { "content-type": "application/json" } : {}), ...(init.headers as Record<string, string>) },
     });
-  return { root, base, page, html, token, api, port: address.port };
+  return { root, base, page, html, token, api, port, devPort, url, server };
 }
 
 /** A raw request, so the Host header can be anything (fetch always sends the real one). */
@@ -40,13 +42,19 @@ function rawGet(port: number, pathname: string, headers: Record<string, string>)
 }
 
 describe("local editor", () => {
-  it("serves the editor page with a key, and its script and styles", async () => {
-    const { base, page, token } = await editor();
-    expect(page.status).toBe(200);
+  it("serves the editor on its own port, with a key, its script and styles", async () => {
+    const { base, page, token, html, devPort, port, url } = await editor();
+    expect(page!.status).toBe(200);
+    expect(port).not.toBe(devPort);
     expect(token).toMatch(/^[0-9a-f]{48}$/);
-    expect((await fetch(`${base}/_vage/edit/editor.js`)).headers.get("content-type")).toContain("javascript");
-    expect((await fetch(`${base}/_vage/edit/editor.css`)).status).toBe(200);
-    expect((await fetch(`${base}/_vage/edit`, { redirect: "manual" })).headers.get("location")).toBe("/_vage/edit/");
+    // The site's address: the same host name the editor was opened with, on the dev server's port.
+    expect(html).toContain(`name="vage-site" content="http://${new URL(url!).host.replace(/:\d+$/, "")}:${devPort}"`);
+    expect((await fetch(`${base}/editor.js`)).headers.get("content-type")).toContain("javascript");
+    expect((await fetch(`${base}/editor.css`)).status).toBe(200);
+    // The dev server sends people to it, and serves none of its files.
+    const dev = `http://localhost:${devPort}`;
+    expect((await fetch(`${dev}/_vage/edit/`, { redirect: "manual" })).headers.get("location")).toBe(url);
+    expect((await fetch(`${dev}/_vage/edit/editor.js`)).status).toBe(404);
   });
 
   it("lists every page with its status", async () => {
@@ -62,25 +70,44 @@ describe("local editor", () => {
   it("saves fields and text, keeping comments, field order and fields it doesn't know", async () => {
     const { root, api } = await editor();
     write(root, "src/pages/about.md", "---\n# The page name\ntitle: About\ndescription:   About the fixture.\nextra: kept\n---\n# About\n\nOld text.\n");
-    const page = (await (await api("page", { query: { source: "src/pages/about.md" } })).json()) as { data: Record<string, unknown>; body: string; fields: { key: string }[] };
+    const page = (await (await api("page", { query: { source: "src/pages/about.md" } })).json()) as { data: Record<string, unknown>; body: string; version: string; fields: { key: string }[] };
     expect(page.data).toEqual({ title: "About", description: "About the fixture.", extra: "kept" });
     expect(page.body).toBe("# About\n\nOld text.\n");
     expect(page.fields.map((f) => f.key)).toContain("datePublished");
 
-    const res = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", data: { ...page.data, title: "About us", tags: ["News", "Team"] }, body: "# About us\n\nNew text.\n" }) });
+    const res = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", version: page.version, data: { ...page.data, title: "About us", tags: ["News", "Team"] }, body: "# About us\n\nNew text.\n" }) });
     expect(res.status).toBe(200);
     expect(fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8")).toBe(
       "---\n# The page name\ntitle: About us\ndescription: About the fixture.\nextra: kept\ntags:\n  - News\n  - Team\n---\n# About us\n\nNew text.\n",
     );
   });
 
+  it("refuses a save when the file changed since it was opened", async () => {
+    const { root, api } = await editor();
+    const { version } = (await (await api("page", { query: { source: "src/pages/about.md" } })).json()) as { version: string };
+    write(root, "src/pages/about.md", "---\ntitle: About\nauthor: An agent\n---\nAgent text.\n");
+    const res = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", version, data: { title: "Mine" }, body: "Mine.\n" }) });
+    expect(res.status).toBe(409);
+    expect(fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8")).toContain("Agent text.");
+  });
+
+  it("only loads layouts from src/layouts", async () => {
+    const { root, api } = await editor();
+    write(root, "evil.ts", `import fs from "node:fs"; fs.writeFileSync(${JSON.stringify(path.join(root, "ran.txt"))}, "x"); export default () => "";\n`);
+    expect((await api("schema", { query: { layout: "../../evil" } })).status).toBe(400);
+    write(root, "src/pages/about.md", "---\ntitle: About\nlayout: ../../evil\n---\nx\n");
+    expect((await api("page", { query: { source: "src/pages/about.md" } })).status).toBe(200);
+    expect(fs.existsSync(path.join(root, "ran.txt"))).toBe(false);
+  });
+
   it("refuses invalid fields and leaves the file as it was", async () => {
     const { root, api } = await editor();
     const before = fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8");
-    const res = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", data: { title: "" }, body: "x" }) });
+    const { version } = (await (await api("page", { query: { source: "src/pages/about.md" } })).json()) as { version: string };
+    const res = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", version, data: { title: "" }, body: "x" }) });
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toMatch(/title/);
-    const bad = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", data: { title: "A", datePublished: "26/10/2026" }, body: "x" }) });
+    const bad = await api("page", { method: "PUT", body: JSON.stringify({ source: "src/pages/about.md", version, data: { title: "A", datePublished: "26/10/2026" }, body: "x" }) });
     expect(((await bad.json()) as { error: string }).error).toMatch(/ISO date/);
     expect(fs.readFileSync(path.join(root, "src/pages/about.md"), "utf8")).toBe(before);
   });
@@ -134,13 +161,18 @@ describe("local editor", () => {
     expect(site.map((f) => f.rule)).toEqual(["menu-link"]);
   });
 
-  it("refuses requests without the key, from other sites, or for another host name", async () => {
-    const { api, port, base } = await editor();
+  it("refuses requests without the key, from other sites or the site's own pages, or for another host name", async () => {
+    const { api, port, base, devPort } = await editor();
     expect((await api("pages", { headers: { "x-vage-token": "nope" } })).status).toBe(403);
     expect((await api("pages", { headers: { origin: "https://evil.example" } })).status).toBe(403);
+    expect((await api("pages", { headers: { origin: `http://localhost:${devPort}`, "sec-fetch-site": "same-site" } })).status).toBe(403);
     expect((await api("pages", { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
-    expect(await rawGet(port, "/_vage/edit/", { host: "evil.example" })).toBe(403);
-    expect((await fetch(`${base}/_vage/edit/index.html`)).status).toBe(404);
+    expect(await rawGet(port, "/", { host: "evil.example" })).toBe(403);
+    expect((await fetch(`${base}/index.html`)).status).toBe(404);
+    // No CORS: other local sites can't read the page that holds the key.
+    const cors = await fetch(`${base}/`, { headers: { origin: "http://localhost:3000" } });
+    expect(cors.headers.get("access-control-allow-origin")).toBeNull();
+    expect(cors.headers.get("x-frame-options")).toBe("DENY");
   });
 
   it("is off when the dev server is on the network", async () => {
@@ -150,7 +182,7 @@ describe("local editor", () => {
     expect(editorEnabled(true)).toBe(false);
     expect(editorEnabled("0.0.0.0")).toBe(false);
     expect(editorEnabled("192.168.1.5")).toBe(false);
-    const { page } = await editor(copyFixture(), "0.0.0.0");
-    expect(page.status).toBe(404);
+    const { url } = await editor(copyFixture(), "0.0.0.0");
+    expect(url).toBeUndefined();
   });
 });

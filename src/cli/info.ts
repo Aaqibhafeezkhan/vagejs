@@ -68,7 +68,7 @@ export function frameworkInfo(cli: CAC, version: string) {
       markdownCopies: "seo.markdownCopies: true publishes /<path>.md copies of listed pages, made from each page's <main> and linked with rel=alternate type=text/markdown; layouts mark repeated extras (share links, calls to action) with data-vage-copy=\"skip\". On Cloudflare, _headers gives each copy a canonical Link header to its page",
       lastmod: 'seo.lastmod: "git" takes sitemap <lastmod> from each page\'s last commit (dateModified wins; skipped in shallow clones)',
       images: 'images: { optimize: true } (needs the sharp package) makes resized WebP copies of content images in /_vage/img/ and adds srcset/sizes; images: { avif: true } also makes AVIF copies, offered first through <picture>',
-      editor: "vage dev serves a local editor at /_vage/edit/ for people: page list, frontmatter form, Markdown with live preview, image upload to public/images/, new pages and posts, check findings. It writes the same files agents edit; it is off with --host",
+      editor: "vage dev also runs a local editor for people on its own port (printed as editor:, and /_vage/edit/ on the dev server forwards there): page list, frontmatter form, Markdown with live preview, image upload to public/images/, new pages and posts, check findings. It writes the same files agents edit, refuses to overwrite a page changed since it was opened, and is off with --host",
       navigation: "menus in vage.config.ts (props.menus) for header and footer menus; frontmatter order and navTitle; helpers tree(), breadcrumbs(), neighbors(); PageSummary.label",
     },
     checks: {
