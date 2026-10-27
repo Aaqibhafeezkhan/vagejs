@@ -1,8 +1,11 @@
 ---
 title: My first post
 description: The first post on this website.
-# For Article structured data, set `type: article` and add author / datePublished
-# (YYYY-MM-DD) only with real values.
+type: article
+datePublished: 2026-01-01
+# Add your real name (and a page about you) for Article structured data:
+# author: Your Name
+# authorUrl: https://example.com/about/
 ---
 
 # My first post

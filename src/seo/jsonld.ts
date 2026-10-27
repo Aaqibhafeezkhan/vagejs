@@ -25,13 +25,16 @@ export function article(o: {
   datePublished?: string;
   dateModified?: string;
   author?: string;
+  authorUrl?: string;
+  publisher?: { name: string; logo?: string };
 }): Thing {
-  const { author, url, ...rest } = o;
+  const { author, authorUrl, publisher, url, ...rest } = o;
   return compact({
     "@type": "Article",
     ...rest,
     mainEntityOfPage: url,
-    author: author ? { "@type": "Person", name: author } : undefined,
+    author: author ? compact({ "@type": "Person", name: author, url: authorUrl }) : undefined,
+    publisher: publisher ? organization(publisher) : undefined,
   });
 }
 

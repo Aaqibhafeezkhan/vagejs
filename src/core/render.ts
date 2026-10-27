@@ -11,7 +11,7 @@ import { clonePlain } from "./clone.js";
 import { escapeHtml, isSafeHtml, type SafeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
-import type { PageSummary } from "./pages.js";
+import { breadcrumbs, type PageSummary } from "./pages.js";
 import { resolveMenus, type MenuItem } from "./menus.js";
 import { pageLang, pageTranslations, type Translation } from "./i18n.js";
 import { componentKind, renderReact, renderVue } from "./components.js";
@@ -105,6 +105,8 @@ export async function renderPage(options: {
   const pageRoute = publicPath(route, site.trailingSlash);
   const translations = options.notFound ? [] : pageTranslations(site, { route: pageRoute, url: meta.canonical }, frontmatter, options.pages ?? []);
   meta.translations = translations;
+  meta.lang = pageLang(site, route);
+  if (site.seo.structuredData && site.seo.structuredData.breadcrumbs && !meta.noindex) meta.breadcrumbs = breadcrumbTrail(options.pages ?? [], pageRoute, meta.lang);
   const result = await layout({
     content,
     page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, lang: pageLang(site, route), translations: clonePlain(translations), frontmatter },
@@ -120,6 +122,13 @@ export async function renderPage(options: {
   const tags = options.analytics ? analyticsTags(site) : undefined;
   if (tags) out = injectAnalytics(out, tags, file);
   return { html: out, content, frontmatter, body, meta, assets };
+}
+
+/** The breadcrumbs() trail as JSON-LD items: same language, indexable pages, ending at this page. */
+function breadcrumbTrail(pages: readonly PageSummary[], route: string, lang: string): { name: string; url: string }[] | undefined {
+  const trail = breadcrumbs(pages, route).filter((p) => p.lang === lang && p.url);
+  if (trail.at(-1)?.route !== route) return undefined;
+  return trail.map((p) => ({ name: p.label, url: p.url! }));
 }
 
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs", ".tsx", ".jsx", ".vue"];

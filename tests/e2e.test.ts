@@ -59,18 +59,18 @@ describe("vage CLI (packed package)", () => {
     for (const f of ["links.lock.json", ".github/dependabot.yml", ".github/workflows/verify.yml"]) {
       expect(fs.existsSync(path.join(site, f)), `${f} survives npm pack`).toBe(true);
     }
-    for (const file of ["robots.txt", "sitemap.xml", "llms.txt"]) {
+    for (const file of ["robots.txt", "sitemap.xml", "llms.txt", "llms-full.txt", "blog/feed.xml", "blog/first-post.md"]) {
       expect(fs.existsSync(path.join(site, "dist", file)), file).toBe(true);
     }
 
-    // A fresh starter passes checks; the only warning is the placeholder site URL.
+    // A fresh starter passes checks; the warnings ask for the real site URL and the sample post's real author and image.
     // The MCP SDK is optional: without it, `vage mcp` explains how to add it instead of crashing.
     const mcp = npxSpawn(["vage", "mcp"], { cwd: site, encoding: "utf8", input: "" });
     expect(mcp.status).toBe(1);
     expect(mcp.stderr).toMatch(/npm install --save-dev @modelcontextprotocol\/sdk/);
     const checked = npxSpawn(["vage", "check", "--json"], { cwd: site, encoding: "utf8" });
     expect(checked.status, checked.stdout).toBe(0);
-    expect(JSON.parse(checked.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 1, findings: [{ rule: "config" }] });
+    expect(JSON.parse(checked.stdout)).toMatchObject({ ok: true, errors: 0, warnings: 2, findings: [{ rule: "config" }, { rule: "jsonld-article" }] });
     expect(npxSpawn(["vage", "check", "--strict"], { cwd: site, encoding: "utf8" }).status).toBe(1);
 
     // The starter is within budgets and has no automated accessibility violations.
@@ -108,12 +108,12 @@ describe("vage CLI (packed package)", () => {
       expect.objectContaining({ rule: "link-broken", source: path.join("src", "pages", "index.md"), message: expect.stringContaining("/service/") }),
     );
 
-    // 4. Fix, re-check, build; the new page is in the sitemap and llms.txt.
+    // 4. Fix, re-check, build; the new page is in the sitemap and llms.txt (as its Markdown copy).
     fs.writeFileSync(index, fs.readFileSync(index, "utf8").replace("/service/", "/services/"));
     expect(json(["check"]).data.errors).toBe(0);
     expect(json(["build"]).status).toBe(0);
     expect(fs.readFileSync(path.join(site, "dist/sitemap.xml"), "utf8")).toContain("https://example.com/services/");
-    expect(fs.readFileSync(path.join(site, "dist/llms.txt"), "utf8")).toContain("- [Services](https://example.com/services/): What we offer.");
+    expect(fs.readFileSync(path.join(site, "dist/llms.txt"), "utf8")).toContain("- [Services](https://example.com/services.md): What we offer.");
   }, 120_000);
 
   it("never publishes without confirmation", () => {

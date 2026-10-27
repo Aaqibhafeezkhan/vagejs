@@ -3,7 +3,7 @@ import type { SiteConfig } from "../core/config.js";
 import { VageError } from "../core/errors.js";
 import { escapeHtml } from "../core/html.js";
 import { feedTitle } from "../discovery/feed.js";
-import { article, jsonLdScript, organization, website, type Thing } from "./jsonld.js";
+import { article, breadcrumbList, jsonLdScript, organization, website, type Thing } from "./jsonld.js";
 import { publicPath } from "../core/routes.js";
 import type { Translation } from "../core/i18n.js";
 import { absoluteUrl } from "./urls.js";
@@ -17,6 +17,10 @@ export interface PageMeta {
   noindex: boolean;
   /** Language versions of the page (i18n), for hreflang links; set when rendering. */
   translations?: Translation[];
+  /** The page's language; set when rendering. */
+  lang?: string;
+  /** Trail from the home page for BreadcrumbList JSON-LD (structuredData.breadcrumbs); set when rendering. */
+  breadcrumbs?: { name: string; url: string }[];
 }
 
 export function pageMeta(site: SiteConfig, route: string, frontmatter: Frontmatter, notFound = false): PageMeta {
@@ -40,7 +44,8 @@ const meta = (attr: "name" | "property", key: string, content: string): Tag => (
 export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
   const fm = m.frontmatter;
   const description = fm.description ?? site.description;
-  const image = fm.image ? absoluteUrl(site.site, fm.image) : undefined;
+  const imagePath = fm.image ?? site.seo.defaultImage;
+  const image = imagePath ? absoluteUrl(site.site, imagePath) : undefined;
   const tags: Tag[] = [];
 
   if (description) tags.push(meta("name", "description", description));
@@ -71,6 +76,13 @@ export function headTags(site: SiteConfig, m: PageMeta): Tag[] {
   if (description) tags.push(meta("property", "og:description", description));
   if (m.canonical) tags.push(meta("property", "og:url", m.canonical));
   if (site.title) tags.push(meta("property", "og:site_name", site.title));
+  // og:locale is language_TERRITORY ("en_US"); a bare language ("en") has no valid form, so it is left out.
+  const locale = /^([a-z]{2,3})-([A-Z]{2})$/.exec(m.lang ?? "");
+  if (locale) tags.push(meta("property", "og:locale", `${locale[1]}_${locale[2]}`));
+  if (fm.type === "article") {
+    if (fm.datePublished) tags.push(meta("property", "article:published_time", fm.datePublished));
+    if (fm.dateModified) tags.push(meta("property", "article:modified_time", fm.dateModified));
+  }
   if (image) tags.push(meta("property", "og:image", image));
   tags.push(meta("name", "twitter:card", image ? "summary_large_image" : "summary"));
 
@@ -119,9 +131,14 @@ function structuredData(site: SiteConfig, m: PageMeta, description?: string, ima
         datePublished: fm.datePublished,
         dateModified: fm.dateModified,
         author: fm.author,
+        authorUrl: fm.author ? fm.authorUrl : undefined,
+        publisher: options.organization
+          ? { name: options.organization.name, logo: options.organization.logo ? absoluteUrl(site.site, options.organization.logo) : undefined }
+          : undefined,
       }),
     );
   }
+  if (options.breadcrumbs && m.breadcrumbs && m.breadcrumbs.length > 1) out.push(breadcrumbList(m.breadcrumbs));
   return out;
 }
 

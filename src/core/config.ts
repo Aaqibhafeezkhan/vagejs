@@ -4,6 +4,7 @@ import { z } from "zod";
 import { VageError } from "./errors.js";
 import { ruleData } from "../guidelines/pack.js";
 import { basePath } from "./base.js";
+import { pathOrUrl } from "../content/markdown.js";
 
 export const CONFIG_FILES = ["vage.config.ts", "vage.config.js", "vage.config.mjs"];
 
@@ -83,6 +84,11 @@ const seoSchema = z.strictObject({
     .enum(["frontmatter", "git"])
     .default("frontmatter")
     .describe('Where sitemap <lastmod> dates come from: "frontmatter" (dateModified/datePublished) or "git" (each page\'s last commit; dateModified still wins). Git dates are skipped in shallow clones.'),
+  defaultImage: z
+    .string()
+    .regex(pathOrUrl, 'must be a site path starting with a single "/" or an http(s) URL')
+    .optional()
+    .describe("Social preview image for pages without their own `image` (og:image, Article JSON-LD), e.g. /images/og.png. 1200x630 works on most networks."),
   markdownCopies: z.boolean().default(false).describe("Also publish each listed page as Markdown at /<path>.md (e.g. /docs/cli.md), linked from the page, for AI tools."),
   sitemap: z.boolean().default(true).describe("Generate sitemap.xml (needs `site`)."),
   llmsTxt: toggle(
@@ -101,8 +107,12 @@ const seoSchema = z.strictObject({
         })
         .optional()
         .describe("Organization JSON-LD on the home page. Only true, visible facts."),
+      breadcrumbs: z
+        .boolean()
+        .default(false)
+        .describe("BreadcrumbList JSON-LD on pages below the home page, from the pages that exist at each level (as breadcrumbs() returns them). Turn on only when the layout shows that trail."),
     }),
-  ).describe("Automatic JSON-LD (WebSite, Organization, Article)."),
+  ).describe("Automatic JSON-LD (WebSite, Organization, Article, BreadcrumbList)."),
 });
 
 const score = z.number().int().min(0).max(100);

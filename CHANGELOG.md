@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Site-wide share image (`seo.defaultImage`).** Pages without their own `image:` use it for `og:image`, `twitter:card` (`summary_large_image`) and Article JSON-LD.
+- **BreadcrumbList JSON-LD (`seo.structuredData.breadcrumbs: true`).** Pages below the home page describe the trail `breadcrumbs(pages, page.route)` returns: same-language, indexable pages only, ending at the page. Off by default, because the markup must match a trail the layout shows.
+- **Article JSON-LD names a publisher and an author page.** The configured Organization becomes the article's `publisher`, and the new `authorUrl` frontmatter field (used only with `author`) becomes the author's `url`.
+- **More Open Graph tags:** `article:published_time` and `article:modified_time` for articles, and `og:locale` when `lang` has a region (`en-US` becomes `en_US`; a bare `en` has no valid form, so it's left out).
+
+### Changed
+- **New sites start with more search and AI-discovery features on:** `llms-full.txt`, Markdown copies of every page, an RSS feed for `/blog/`, and breadcrumbs. The starter layout shows the breadcrumb trail, wraps articles in `<article>` with their date and author, and has a footer. The sample post is an article dated the day the site is created, so a new site's `vage check` also suggests adding a real author and a share image. The config has commented examples for `defaultImage`, `lastmod: "git"` and a fuller Organization. Existing sites don't change.
+
 ## 0.12.0 (2026-10-26)
 
 ### Added

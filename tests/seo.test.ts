@@ -54,6 +54,34 @@ describe("head tags", () => {
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
   });
 
+  it("falls back to seo.defaultImage, and a page's own image wins", async () => {
+    const site = { site: "https://a.example", seo: { defaultImage: "/og.png" } };
+    expect(await render(site, "title: P")).toContain('<meta property="og:image" content="https://a.example/og.png" />');
+    const own = await render(site, "title: P\nimage: /mine.png");
+    expect(own).toContain('content="https://a.example/mine.png"');
+    expect(own).not.toContain("/og.png");
+  });
+
+  it("adds article dates for articles only", async () => {
+    const yaml = "title: P\ndatePublished: 2026-01-15\ndateModified: 2026-02-01";
+    const html = await render({ site: "https://a.example" }, `${yaml}\ntype: article`);
+    expect(html).toContain('<meta property="og:type" content="article" />');
+    expect(html).toContain('<meta property="article:published_time" content="2026-01-15" />');
+    expect(html).toContain('<meta property="article:modified_time" content="2026-02-01" />');
+    expect(await render({ site: "https://a.example" }, yaml)).not.toContain("article:");
+  });
+
+  it("adds an author URL only with an author", async () => {
+    const site = { site: "https://a.example", seo: { structuredData: {} } };
+    const ld = (html: string) => JSON.parse(parse(html).querySelector('script[type="application/ld+json"]')!.rawText);
+    expect(ld(await render(site, "title: P\ntype: article\nauthor: Ann\nauthorUrl: https://a.example/about/")).author).toEqual({
+      "@type": "Person",
+      name: "Ann",
+      url: "https://a.example/about/",
+    });
+    expect(ld(await render(site, "title: P\ntype: article\nauthorUrl: https://a.example/about/")).author).toBeUndefined();
+  });
+
   it("does not duplicate tags the layout already writes", async () => {
     const layout = '<html><head><meta name="description" content="mine"><link rel="canonical" href="https://x.example/"></head></html>';
     const html = await render({ site: "https://a.example" }, "title: P\ndescription: Desc", "/page/", false, layout);
@@ -107,7 +135,32 @@ describe("JSON-LD", () => {
       dateModified: "2026-02-01",
       mainEntityOfPage: "https://fixture.example/blog/post/",
       author: { "@type": "Person", name: "Test Author" },
+      publisher: { "@type": "Organization", name: "Fixture Org", logo: "https://fixture.example/images/logo.png" },
     });
+  });
+
+  it("adds BreadcrumbList when the layout shows breadcrumbs, and not otherwise", async () => {
+    const root = copyFixture();
+    const ldOf = (file: string) =>
+      JSON.parse(parse(fs.readFileSync(path.join(root, "dist", file), "utf8")).querySelector('script[type="application/ld+json"]')?.rawText ?? "null");
+    await build(root);
+    expect(JSON.stringify(ldOf("blog/post/index.html"))).not.toContain("BreadcrumbList");
+    // og:locale needs a region: the fixture's lang is "en-GB".
+    expect(fs.readFileSync(path.join(root, "dist", "index.html"), "utf8")).toContain('<meta property="og:locale" content="en_GB" />');
+
+    const configFile = path.join(root, "vage.config.ts");
+    fs.writeFileSync(configFile, fs.readFileSync(configFile, "utf8").replace('structuredData: { organization:', "structuredData: { breadcrumbs: true, organization:"));
+    await build(root);
+    expect(ldOf("blog/post/index.html")["@graph"]).toContainEqual({
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: "https://fixture.example/" },
+        { "@type": "ListItem", position: 2, name: "Blog", item: "https://fixture.example/blog/" },
+        { "@type": "ListItem", position: 3, name: "Post", item: "https://fixture.example/blog/post/" },
+      ],
+    });
+    // The home page has no trail; noindex pages get no JSON-LD at all.
+    expect(JSON.stringify(ldOf("index.html"))).not.toContain("BreadcrumbList");
   });
 
   it("rejects malformed dates", () => {

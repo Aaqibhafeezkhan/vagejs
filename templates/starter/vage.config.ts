@@ -20,9 +20,20 @@ export default defineConfig({
       // aiSearch: "allow",      // OAI-SearchBot, Claude-SearchBot, PerplexityBot
     },
     sitemap: true,
-    llmsTxt: { full: false },
+    // llms.txt plus llms-full.txt, and a Markdown copy of each page (/about/ -> /about.md), for AI tools.
+    llmsTxt: { full: true },
+    markdownCopies: true,
+    // RSS feed for the blog at /blog/feed.xml.
+    feeds: [{ under: "/blog/" }],
+    // Once the project is in git: sitemap <lastmod> dates from each page's last commit.
+    // lastmod: "git",
+    // Social preview image for pages without their own `image:` (1200x630 PNG or JPG in public/).
+    // defaultImage: "/images/og.png",
     structuredData: {
-      // organization: { name: "Your Company", logo: "/images/logo.png" },
+      // BreadcrumbList for the trail src/layouts/default.ts shows.
+      breadcrumbs: true,
+      // Who runs the site (home page JSON-LD, and the publisher of articles). Only true facts.
+      // organization: { name: "Your Company", url: "https://example.com", logo: "/images/logo.png", sameAs: ["https://www.linkedin.com/company/..."] },
     },
   },
 

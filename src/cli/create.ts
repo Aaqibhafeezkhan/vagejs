@@ -35,6 +35,13 @@ export function createProject(dir: string, vageSpec: string): CreateResult {
   pkg.devDependencies.vagejs = vageSpec;
   fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 
+  // The sample post is published today, so its date is real.
+  const post = path.join(dir, "src", "pages", "blog", "first-post.md");
+  if (fs.existsSync(post)) {
+    const today = new Date().toISOString().slice(0, 10);
+    fs.writeFileSync(post, fs.readFileSync(post, "utf8").replace(/^datePublished: .*$/m, `datePublished: ${today}`));
+  }
+
   return { dir, files: listFiles(dir) };
 }
 

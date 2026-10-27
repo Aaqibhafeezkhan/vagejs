@@ -12,7 +12,7 @@ const isoDate = z.preprocess(
 // Single line, no control characters: these values end up in <title>, meta tags and llms.txt lines.
 const singleLine = z.string().regex(/^[^\u0000-\u001f\u007f]*$/, "must be a single line without control characters");
 // A site path ("/x", not "//host") or an absolute http(s) URL.
-const pathOrUrl = /^(\/(?!\/)|https?:\/\/)/;
+export const pathOrUrl = /^(\/(?!\/)|https?:\/\/)/;
 
 export const frontmatterSchema = z.looseObject({
   title: singleLine.min(1, "title is required").describe("Page title. Required; never invented."),
@@ -32,6 +32,7 @@ export const frontmatterSchema = z.looseObject({
   image: z.string().regex(pathOrUrl, 'must be a site path starting with a single "/" or an http(s) URL').optional().describe("Social preview image: site path (e.g. /images/og.png) or absolute URL."),
   type: z.enum(["website", "article"]).default("website").describe('"article" emits og:type=article and Article JSON-LD.'),
   author: singleLine.min(1).optional().describe("Article author name. Only use a real author."),
+  authorUrl: z.url({ protocol: /^https?$/ }).optional().describe("A page about the author (profile, about page), for Article JSON-LD. Only with a real author."),
   datePublished: isoDate.optional().describe("ISO date or datetime. Only use a real date."),
   dateModified: isoDate.optional().describe("ISO date or datetime; also the sitemap <lastmod>."),
   order: z.number().finite().optional().describe('Position in navigation lists (lower first). Used by collection(pages, { sort: "order" }) and tree().'),

@@ -65,9 +65,10 @@ draft: true              # left out of builds and `pages`; visible in dev; links
 layout: default          # loads src/layouts/<name>
 noindex: true            # robots noindex; left out of sitemap.xml and llms.txt
 canonical: /other/       # canonical override (path or absolute URL); page then leaves the sitemap
-image: /images/og.png    # og:image (made absolute using `site`)
+image: /images/og.png    # og:image (made absolute using `site`); else seo.defaultImage
 type: article            # og:type + Article JSON-LD (default: website)
 author: Jane Doe         # Article author
+authorUrl: https://example.com/about/  # page about the author (Article JSON-LD)
 datePublished: 2026-01-31  # a future date schedules the page
 dateModified: 2026-02-15 # sitemap <lastmod> (else datePublished, or git with seo.lastmod: "git")
 order: 2                 # position in tree() / sort: "order" (lower first)
@@ -102,7 +103,7 @@ With `deploy.target` set to a Cloudflare target or `netlify`, the build writes `
 
 `page.url` is the absolute canonical URL (when `site` is set and the page is indexable); `page.lang` is its language (use it for `<html lang>`); with `i18n`, `page.translations` lists its versions. `pages` lists every published page (`route`, `url`, `title`, `description`, `lang`, `frontmatter`).
 
-The layout must contain `</head>`. vagejs inserts before it, unless the layout already writes them: meta description, robots noindex, canonical, hreflang, Open Graph, `twitter:card` and JSON-LD (WebSite + configured Organization on `/`, Article for `type: article`; skipped if the layout writes its own `application/ld+json`). Helpers: `organization`, `website`, `article`, `breadcrumbList`, `jsonLdScript`. Only mark up what is visible on the page. Details: `https://vagejs.com/docs/templates-and-layouts.md`.
+The layout must contain `</head>`. vagejs inserts before it, unless the layout already writes them: meta description, robots noindex, canonical, hreflang, Open Graph (`og:locale` when `lang` has a region, e.g. `en-US`; `article:published_time` for articles), `twitter:card` and JSON-LD (WebSite + configured Organization on `/`, Article for `type: article` with the Organization as publisher, BreadcrumbList with `seo.structuredData.breadcrumbs: true`; skipped if the layout writes its own `application/ld+json`). The starter layout shows the breadcrumb trail and an article's date and author, matching that markup; keep them visible if you change it. Helpers: `organization`, `website`, `article`, `breadcrumbList`, `jsonLdScript`. Only mark up what is visible on the page. Details: `https://vagejs.com/docs/templates-and-layouts.md`.
 
 ## Generated files
 
@@ -110,7 +111,7 @@ From the published pages and config (a hand-written `public/robots.txt` etc. is 
 
 ## Config
 
-`vage.config.ts` keys: `site` (origin, or a GitHub Pages subfolder address), `title`, `description`, `lang`, `i18n: { locales }`, `trailingSlash`, `menus`, `seo: { robots, sitemap, llmsTxt, structuredData, feeds, markdownCopies, lastmod }`, `redirects`, `markdown: { html, inlineStyles, headingIds }`, `tags: { pages, layout }`, `contact: { to, from, path, sent, failed, perMinute }`, `images: { optimize, widths, quality, avif, sizes }`, `assets: { minifyCss, fingerprint }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject, netlifySite }`, `security: { headers, csp, cspSources, outboundLinks, spamPatterns }`, `integrations`, `guidelines`. Unknown keys are an error; `npx vage info --json` has the full schema.
+`vage.config.ts` keys: `site` (origin, or a GitHub Pages subfolder address), `title`, `description`, `lang`, `i18n: { locales }`, `trailingSlash`, `menus`, `seo: { robots, sitemap, llmsTxt, structuredData: { organization, breadcrumbs }, feeds, markdownCopies, lastmod, defaultImage }`, `redirects`, `markdown: { html, inlineStyles, headingIds }`, `tags: { pages, layout }`, `contact: { to, from, path, sent, failed, perMinute }`, `images: { optimize, widths, quality, avif, sizes }`, `assets: { minifyCss, fingerprint }`, `performance`, `deploy: { target, cloudflareWorker, cloudflareProject, netlifySite }`, `security: { headers, csp, cspSources, outboundLinks, spamPatterns }`, `integrations`, `guidelines`. Unknown keys are an error; `npx vage info --json` has the full schema.
 
 `trailingSlash: "never"` (default `"always"`) serves `/about` instead of `/about/` (written as `about.html`); routes, canonical URLs, the sitemap, feeds and `llms.txt` follow, so write links without the slash (`vage check` flags the slashed form). On Vercel add `"cleanUrls": true` to `vercel.json`.
 
