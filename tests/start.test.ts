@@ -129,8 +129,14 @@ describe("choosing what to build the site with", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vage-path-"));
     fs.writeFileSync(path.join(dir, "claude"), "");
     fs.writeFileSync(path.join(dir, "code.cmd"), "");
-    expect(onPath("claude", { PATH: dir }, "linux")).toBe(true);
-    expect(onPath("codex", { PATH: dir }, "linux")).toBe(false);
-    expect(onPath("code", { PATH: dir, PATHEXT: ".EXE;.CMD" }, "win32")).toBe(true);
+    // Each platform's PATH separator only works with its own paths ("C:\\..." has a colon), so test the real one.
+    if (process.platform === "win32") {
+      expect(onPath("code", { PATH: dir, PATHEXT: ".EXE;.CMD" }, "win32")).toBe(true);
+      expect(onPath("claude", { PATH: dir, PATHEXT: ".EXE;.CMD" }, "win32")).toBe(false); // no extension: not runnable
+    } else {
+      expect(onPath("claude", { PATH: dir }, process.platform)).toBe(true);
+      expect(onPath("codex", { PATH: dir }, process.platform)).toBe(false);
+      expect(onPath("code.cmd", { PATH: `/nowhere:${dir}` }, process.platform)).toBe(true);
+    }
   });
 });
