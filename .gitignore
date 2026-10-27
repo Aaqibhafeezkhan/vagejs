@@ -11,3 +11,6 @@ coverage/
 
 # Private build spec, kept locally only
 VAGE_JS_BUILD_SPEC.md
+
+# Claude Code agent worktrees
+.claude/worktrees/
