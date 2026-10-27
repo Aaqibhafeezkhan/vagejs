@@ -4,7 +4,7 @@
 
 ### Added
 - **Site-wide share image (`seo.defaultImage`).** Pages without their own `image:` use it for `og:image`, `twitter:card` (`summary_large_image`) and Article JSON-LD.
-- **BreadcrumbList JSON-LD (`seo.structuredData.breadcrumbs: true`).** Pages below the home page describe the trail `breadcrumbs(pages, page.route)` returns: same-language, indexable pages only, ending at the page. Off by default, because the markup must match a trail the layout shows.
+- **BreadcrumbList JSON-LD (`seo.structuredData.breadcrumbs: true`).** Pages below the home page describe the trail `breadcrumbs(pages, page.route)` returns: same-language, indexable pages only, ending at the page. Off by default, because the markup must match a trail the layout shows. Layouts get that same trail as `page.breadcrumbs`, so the visible trail and the markup can't disagree.
 - **Article JSON-LD names a publisher and an author page.** The configured Organization becomes the article's `publisher`, and the new `authorUrl` frontmatter field (used only with `author`) becomes the author's `url`.
 - **More Open Graph tags:** `article:published_time` and `article:modified_time` for articles, and `og:locale` when `lang` has a region (`en-US` becomes `en_US`; a bare `en` has no valid form, so it's left out).
 

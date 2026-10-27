@@ -382,7 +382,7 @@ function checkJsonLd(raw: string, add: (f: Omit<Finding, "page" | "source">) => 
         add({
           rule: "jsonld-article",
           severity: "warning",
-          message: `Article JSON-LD lacks properties Google recommends: ${missing.join(", ")}. Add them to the frontmatter only if they are true.`,
+          message: `Article JSON-LD lacks properties Google recommends: ${missing.join(", ")}. Add them to the frontmatter (image: or seo.defaultImage) only if they are true.`,
           docs: DOCS.article,
         });
       }

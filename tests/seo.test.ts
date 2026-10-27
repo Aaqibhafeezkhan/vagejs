@@ -163,6 +163,26 @@ describe("JSON-LD", () => {
     expect(JSON.stringify(ldOf("index.html"))).not.toContain("BreadcrumbList");
   });
 
+  it("gives layouts the same trail: noindex and canonical-elsewhere pages are left out", async () => {
+    const root = copyFixture();
+    const configFile = path.join(root, "vage.config.ts");
+    fs.writeFileSync(configFile, fs.readFileSync(configFile, "utf8").replace('structuredData: { organization:', "structuredData: { breadcrumbs: true, organization:"));
+    fs.writeFileSync(path.join(root, "src/layouts/trail.ts"), 'export default ({ page }) => `<html><head><title>t</title></head><body><p id="trail">${page.breadcrumbs.map((p) => p.label).join(">")}</p></body></html>`;\n');
+    fs.mkdirSync(path.join(root, "src/pages/hidden"));
+    fs.writeFileSync(path.join(root, "src/pages/hidden/child.md"), "---\ntitle: Child\nlayout: trail\n---\n");
+    fs.writeFileSync(path.join(root, "src/pages/blog/dup.md"), "---\ntitle: Dup\nlayout: trail\ncanonical: https://other.example/x\n---\n");
+    await build(root);
+    const read = (file: string) => fs.readFileSync(path.join(root, "dist", file), "utf8");
+    const ld = (file: string) => parse(read(file)).querySelector('script[type="application/ld+json"]')?.rawText ?? "";
+
+    // hidden.md is noindex: skipped in the visible trail and in the markup alike.
+    expect(parse(read("hidden/child/index.html")).querySelector("#trail")!.text).toBe("Home>Child");
+    expect(JSON.parse(ld("hidden/child/index.html")).itemListElement.map((i: { name: string }) => i.name)).toEqual(["Home", "Child"]);
+    // A page whose canonical is elsewhere gets neither.
+    expect(parse(read("blog/dup/index.html")).querySelector("#trail")!.text).toBe("");
+    expect(ld("blog/dup/index.html")).not.toContain("BreadcrumbList");
+  });
+
   it("rejects malformed dates", () => {
     expect(() => fm("title: P\ndatePublished: last tuesday")).toThrow(/ISO date/);
   });

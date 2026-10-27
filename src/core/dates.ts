@@ -5,11 +5,13 @@
  */
 export function scheduledFor(datePublished: string | undefined, now = new Date()): string | undefined {
   if (!datePublished) return undefined;
-  if (datePublished.length === 10) {
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    return datePublished > today ? datePublished : undefined;
-  }
+  if (datePublished.length === 10) return datePublished > localDate(now) ? datePublished : undefined;
   return Date.parse(datePublished) > now.getTime() ? datePublished : undefined;
+}
+
+/** The machine's local calendar date, YYYY-MM-DD: the day scheduledFor() treats as today. */
+export function localDate(now = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
 /** A frontmatter date as a point in time ("2026-10-24" = midnight UTC); NaN when missing. */

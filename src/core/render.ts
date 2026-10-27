@@ -10,6 +10,7 @@ import { VageError } from "./errors.js";
 import { clonePlain } from "./clone.js";
 import { escapeHtml, isSafeHtml, type SafeHtml } from "./html.js";
 import { headTags, injectHead, pageMeta, type PageMeta } from "../seo/head.js";
+import { absoluteUrl } from "../seo/urls.js";
 import { analyticsTags, injectAnalytics } from "../integrations/tags.js";
 import { breadcrumbs, type PageSummary } from "./pages.js";
 import { resolveMenus, type MenuItem } from "./menus.js";
@@ -30,6 +31,12 @@ export interface LayoutProps {
     lang: string;
     /** With i18n: every language version of this page, itself included (`current: true`), for a language switcher. Empty otherwise. */
     translations: Translation[];
+    /**
+     * The trail from the home page to this page, for visible breadcrumbs: `breadcrumbs()` limited to
+     * same-language pages that are their own canonical, ending at this page (empty otherwise). It is
+     * the trail BreadcrumbList JSON-LD describes, so a layout showing it matches that markup.
+     */
+    breadcrumbs: PageSummary[];
     frontmatter: Frontmatter;
   };
   site: SiteConfig;
@@ -106,10 +113,13 @@ export async function renderPage(options: {
   const translations = options.notFound ? [] : pageTranslations(site, { route: pageRoute, url: meta.canonical }, frontmatter, options.pages ?? []);
   meta.translations = translations;
   meta.lang = pageLang(site, route);
-  if (site.seo.structuredData && site.seo.structuredData.breadcrumbs && !meta.noindex) meta.breadcrumbs = breadcrumbTrail(options.pages ?? [], pageRoute, meta.lang);
+  const trail = ownPage(site, pageRoute, frontmatter, meta.canonical) && !options.notFound ? breadcrumbTrail(site, options.pages ?? [], pageRoute, meta.lang) : [];
+  if (site.seo.structuredData && site.seo.structuredData.breadcrumbs && trail.length > 1 && trail.every((p) => p.url)) {
+    meta.breadcrumbs = trail.map((p) => ({ name: p.label, url: p.url! }));
+  }
   const result = await layout({
     content,
-    page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, lang: pageLang(site, route), translations: clonePlain(translations), frontmatter },
+    page: { route: pageRoute, title: frontmatter.title, description: frontmatter.description, url: meta.canonical, lang: meta.lang, translations: clonePlain(translations), breadcrumbs: clonePlain(trail), frontmatter },
     site,
     pages: options.pages ?? [],
     menus: resolveMenus(site, pageRoute, options.pages ?? []),
@@ -124,11 +134,15 @@ export async function renderPage(options: {
   return { html: out, content, frontmatter, body, meta, assets };
 }
 
-/** The breadcrumbs() trail as JSON-LD items: same language, indexable pages, ending at this page. */
-function breadcrumbTrail(pages: readonly PageSummary[], route: string, lang: string): { name: string; url: string }[] | undefined {
-  const trail = breadcrumbs(pages, route).filter((p) => p.lang === lang && p.url);
-  if (trail.at(-1)?.route !== route) return undefined;
-  return trail.map((p) => ({ name: p.label, url: p.url! }));
+/** breadcrumbs() limited to same-language pages that are their own canonical, ending at this page; else empty. */
+function breadcrumbTrail(site: SiteConfig, pages: readonly PageSummary[], route: string, lang: string): PageSummary[] {
+  const trail = breadcrumbs(pages, route).filter((p) => p.lang === lang && ownPage(site, p.route, p.frontmatter, p.url));
+  return trail.at(-1)?.route === route ? trail : [];
+}
+
+/** Indexable, and not pointing its canonical at another address (with or without `site`). */
+function ownPage(site: SiteConfig, route: string, fm: Frontmatter, canonical: string | undefined): boolean {
+  return !fm.noindex && (fm.canonical === undefined || canonical === absoluteUrl(site.site, route));
 }
 
 const LAYOUT_EXTENSIONS = [".ts", ".js", ".mjs", ".tsx", ".jsx", ".vue"];

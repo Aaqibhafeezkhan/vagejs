@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { VageError } from "../core/errors.js";
+import { localDate } from "../core/dates.js";
 
 /**
  * `vage new page <path>` and `vage new post <title>`: start a page with valid frontmatter.
@@ -47,11 +48,6 @@ const titleFromSlug = (slug: string) => {
   return last === "index" ? "Overview" : last.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
 };
 
-const today = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-};
-
 /** YAML double-quoted scalars are JSON strings, so any title is written safely. */
 const yaml = (value: string) => JSON.stringify(value);
 
@@ -94,7 +90,7 @@ export function createPage(root: string, kind: "page" | "post", name: string, op
   if (options.description?.trim()) lines.push(`description: ${yaml(options.description.trim())}`);
   else lines.push("# description: one or two sentences for search results (until then, the site's description is used)");
   if (kind === "post") {
-    lines.push("type: article", `datePublished: ${options.date ?? today()}`);
+    lines.push("type: article", `datePublished: ${options.date ?? localDate()}`);
     if (options.author?.trim()) lines.push(`author: ${yaml(options.author.trim())}`);
   }
   lines.push("# Remove the next line when the page is ready to publish.", "draft: true", "---", "", `# ${title}`, "", "Write here.", "");

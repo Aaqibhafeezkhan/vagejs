@@ -1,11 +1,11 @@
-import { breadcrumbs, html, raw, type Layout } from "vagejs";
+import { html, raw, type Layout } from "vagejs";
 
 // `html` escapes every ${value}; `raw(content)` inserts the page's already-sanitized HTML.
-const layout: Layout = ({ content, page, site, pages, menus }) => {
+const layout: Layout = ({ content, page, site, menus }) => {
   const title = site.title && site.title !== page.title ? `${page.title} | ${site.title}` : page.title;
   const fm = page.frontmatter;
-  // The same trail vagejs describes in BreadcrumbList JSON-LD (seo.structuredData.breadcrumbs).
-  const trail = page.route === "/" ? [] : breadcrumbs(pages, page.route);
+  // The trail vagejs describes in BreadcrumbList JSON-LD (seo.structuredData.breadcrumbs).
+  const trail = page.breadcrumbs;
   // Articles show who wrote them and when: the same facts as their Article JSON-LD.
   const byline =
     fm.type === "article" && (fm.datePublished || fm.author)

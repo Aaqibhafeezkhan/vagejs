@@ -342,6 +342,7 @@ const BUILT_IN: Record<string, { label: string; help: string; group: "main" | "m
   layout: { label: "Layout", help: "The design this page uses. Empty: the default layout.", group: "more" },
   type: { label: "Type", help: '"article" for blog posts and news.', group: "more" },
   dateModified: { label: "Date updated", help: "YYYY-MM-DD, when the page last changed in a meaningful way.", group: "more", kind: "date" },
+  authorUrl: { label: "Author page", help: "A page about the author, e.g. https://example.com/about/. Only with an author.", group: "more" },
   image: { label: "Share image", help: "Shown when the page is shared, e.g. /images/cover.png.", group: "more" },
   navTitle: { label: "Menu title", help: "A shorter name for menus and breadcrumbs.", group: "more" },
   order: { label: "Order", help: "Position in menus and sidebars (lower first).", group: "more" },

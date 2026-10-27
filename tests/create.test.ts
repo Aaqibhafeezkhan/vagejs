@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createProject } from "../src/cli/create.js";
+import { localDate } from "../src/core/dates.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "vage-create-"));
 
@@ -18,6 +19,9 @@ describe("createProject", () => {
     expect(pkg.name).toBe("my-site");
     expect(pkg.devDependencies.vagejs).toBe("file:../vagejs.tgz");
     expect(fs.readFileSync(path.join(dir, ".gitignore"), "utf8")).toContain(".env");
+    // The sample post is dated today on the local calendar, the one scheduling reads (a UTC date
+    // can be tomorrow west of UTC, which would hide the post as scheduled).
+    expect(fs.readFileSync(path.join(dir, "src/pages/blog/first-post.md"), "utf8")).toMatch(new RegExp(`^datePublished: ${localDate()}$`, "m"));
   });
 
   it("refuses to write into a non-empty directory", () => {
