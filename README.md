@@ -24,7 +24,7 @@
 - **Checks before you ship**: `vage check` (links, SEO, structured data, accessibility) and `vage audit` (page-weight budgets, axe, optional Lighthouse and PageSpeed).
 - **Safe by default**: page content is sanitized; secrets, build output and force-pushes are refused; Cloudflare and Netlify deploys get a computed Content-Security-Policy.
 - **Agent-friendly**: every site ships with `AGENTS.md`, and `vage info --json` describes every command and config option.
-- **Edit in your browser**: `npm run dev` also starts a local editor: a form for each page, the text with a live preview in your site's design, image upload and the check results. It edits the same files and is never part of the built site.
+- **Edit in your browser**: `npm run dev` also starts a local editor: next steps for a new site, a form for each page, the text with a live preview in your site's design, image upload and the check results. It edits the same files and is never part of the built site.
 - **Contact forms without JavaScript** (Cloudflare Workers): `contact: { to, from }` plus `contactForm(site)` in a layout; `vage deploy` adds a Worker that emails each message, with a spam trap and a per-visitor limit.
 - **Runs everywhere**: macOS, Windows and Linux, tested on every change. Deploys to GitHub Pages, Cloudflare Workers and Netlify built in; any other static host (Vercel) works with `npm run build` and the `dist` folder.
 

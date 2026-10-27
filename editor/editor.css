@@ -114,3 +114,21 @@ textarea.body { min-height: 28rem; font-family: var(--mono); font-size: 0.9rem; 
 .preview-note { margin: 0 0 0.4rem; font-size: 0.85rem; color: var(--warn); }
 iframe.preview { width: 100%; height: calc(100vh - 7rem); border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 @media (max-width: 64rem) { .preview-col { position: static; } iframe.preview { height: 70vh; } }
+
+/* Next steps for a new site (page list) */
+.next-steps { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+.next-head { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.next-head h2 { margin: 0; }
+.next-head button { margin-left: auto; }
+.steps { list-style: none; padding: 0; margin: 0.75rem 0 0; display: grid; gap: 0.6rem; }
+.step { display: flex; gap: 0.6rem; align-items: flex-start; }
+.step .tick { width: 1.2rem; flex: none; color: var(--muted); font-weight: 700; }
+.step.done .tick { color: var(--ok); }
+.step.done strong { color: var(--muted); font-weight: 500; }
+.step p { margin: 0.15rem 0; }
+.connect { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: 0.75rem; }
+.connect summary { cursor: pointer; font-weight: 600; }
+.copy-block { margin-top: 0.6rem; }
+.copy-block pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem 0.75rem; overflow-x: auto; margin: 0.25rem 0; white-space: pre; }
+.copy-block .muted { margin-left: 0.5rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

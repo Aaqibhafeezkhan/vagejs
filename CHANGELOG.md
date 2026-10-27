@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- **Next steps in the local editor.** The page list starts with what a new site still needs: its real address and name, a home and About page in your own words, your name on the first post, your own icon and a share image. Each step ticks itself off from the project files, so changes made in the editor, by hand or by an AI assistant all count; deleted sample pages count as done. It also shows how to let an AI assistant work on the site (AGENTS.md, and the copy-ready commands for the `vage mcp` tools in Claude Code and apps with an `mcpServers` setting). Hide it with one click; it is only in the editor, never in the site.
+
 ### Fixed
 - **Windows: the hint in `vage check`'s missing-translation warning names the right file.** It suggested a mixed path like `src/pages/fr/src\pages\blog\post.md` instead of `src/pages/fr/blog/post.md`. CI is green on Windows again: since 0.10 its job had failed on tests that compared file paths with `/`, while MDX pages, islands and multi-language checks themselves worked.
 

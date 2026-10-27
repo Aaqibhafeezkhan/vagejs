@@ -42,6 +42,107 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/* ---------- Next steps (new sites) ---------- */
+
+const HIDE_KEY = "vage-editor-next-steps-hidden";
+function hiddenSteps() {
+  try {
+    return localStorage.getItem(HIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function setHiddenSteps(value) {
+  try {
+    if (value) localStorage.setItem(HIDE_KEY, "1");
+    else localStorage.removeItem(HIDE_KEY);
+  } catch {
+    // Storage blocked: the panel just shows again next time.
+  }
+}
+
+/** A copy button for a command or snippet, with the text visible beside it. */
+function copyBlock(label, text) {
+  const status = h("span", { class: "muted", role: "status" });
+  return h(
+    "div",
+    { class: "copy-block" },
+    h("p", { class: "help" }, label),
+    h("pre", { class: "mono" }, text),
+    h(
+      "button",
+      {
+        type: "button",
+        onclick: async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            status.textContent = "Copied.";
+          } catch {
+            status.textContent = "Select the text above and copy it.";
+          }
+        },
+      },
+      "Copy",
+    ),
+    status,
+  );
+}
+
+/** "Next steps": what still has the starter's placeholder content, and how to connect an AI assistant. */
+async function nextSteps() {
+  let data;
+  try {
+    data = await call("setup");
+  } catch {
+    return h("div"); // Optional help: never block the page list.
+  }
+  const done = data.steps.filter((s) => s.done).length;
+  const total = data.steps.length;
+  const box = h("section", { class: "next-steps", "aria-labelledby": "next-steps-title" });
+  const render = () => {
+    const hidden = hiddenSteps();
+    const head = h(
+      "div",
+      { class: "next-head" },
+      h("h2", { id: "next-steps-title" }, done === total ? "Your site is set up" : "Next steps for your site"),
+      h("span", { class: "muted" }, `${done} of ${total} done`),
+      h("button", { type: "button", onclick: () => (setHiddenSteps(!hidden), render()) }, hidden ? "Show" : "Hide"),
+    );
+    if (hidden) return box.replaceChildren(head);
+    const items = data.steps.map((s) =>
+      h(
+        "li",
+        { class: s.done ? "step done" : "step" },
+        h("span", { class: "tick", "aria-hidden": "true" }, s.done ? "✓" : "○"),
+        h(
+          "div",
+          {},
+          h("strong", {}, s.label),
+          s.done ? h("span", { class: "visually-hidden" }, " (done)") : "",
+          s.done ? "" : h("p", { class: "help" }, s.help),
+          !s.done && s.page ? h("a", { href: `#/edit/${encodeURIComponent(s.page)}` }, "Open the page") : "",
+        ),
+      ),
+    );
+    const connect = h(
+      "details",
+      { class: "connect" },
+      h("summary", {}, "Let an AI assistant work on your site"),
+      h(
+        "p",
+        { class: "help" },
+        "Open this folder in Claude Code, Cursor, Codex or Copilot: the AGENTS.md file tells them how vagejs works. To also give them vagejs's own tools (checks, page lists), install the connector once, then add it to your assistant. On any page, \"Copy prompt for AI\" makes a prompt for chat apps like ChatGPT or Claude.",
+      ),
+      copyBlock("1. In this folder, once:", data.connect.install),
+      copyBlock("2. Claude Code, in this folder:", data.connect.claudeCode),
+      copyBlock("Or for Cursor, Claude Desktop and other apps with an mcpServers setting:", data.connect.mcpJson),
+    );
+    box.replaceChildren(head, h("ol", { class: "steps" }, items), connect);
+  };
+  render();
+  return box;
+}
+
 /* ---------- Pages list ---------- */
 
 async function showList() {
@@ -115,6 +216,7 @@ async function showList() {
   };
 
   app.replaceChildren(
+    await nextSteps(),
     h(
       "div",
       { class: "list-head" },

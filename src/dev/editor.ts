@@ -18,6 +18,7 @@ import { collectPages } from "../core/pages.js";
 import { applyLayoutFields, renderPage, resolveLayout } from "../core/render.js";
 import { discoverRoutes, findNotFoundPage, publicPath } from "../core/routes.js";
 import { directUrl } from "./listen.js";
+import { connectInstructions, setupSteps } from "./setup.js";
 
 /**
  * The local editor for `vage dev`: a list of pages, a form for each page's frontmatter
@@ -168,6 +169,7 @@ async function api(root: string, load: ModuleLoader, req: IncomingMessage, res: 
   const site = await loadConfig(root, load);
   const method = req.method ?? "GET";
   if (action === "pages" && method === "GET") return json(res, 200, { site: site.title ?? "", pages: listPages(root, site) });
+  if (action === "setup" && method === "GET") return json(res, 200, { steps: setupSteps(root, site), connect: connectInstructions(root) });
   if (action === "page" && method === "GET") return json(res, 200, await readPage(root, site, load, query.get("source")));
   if (action === "schema" && method === "GET") {
     const layout = query.get("layout") || undefined;

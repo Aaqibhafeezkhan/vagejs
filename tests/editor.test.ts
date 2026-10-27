@@ -57,6 +57,16 @@ describe("local editor", () => {
     expect((await fetch(`${dev}/_vage/edit/editor.js`)).status).toBe(404);
   });
 
+  it("serves next steps and the commands to connect an assistant, behind the key", async () => {
+    const { api } = await editor();
+    const res = await api("setup");
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.steps.map((s: { id: string }) => s.id)).toEqual(["site", "title", "home", "about", "author", "icon", "share-image"]);
+    expect(data.connect.claudeCode).toContain("vage mcp");
+    expect((await api("setup", { headers: { "x-vage-token": "wrong" } })).status).toBe(403);
+  });
+
   it("lists every page with its status", async () => {
     const { api } = await editor();
     const { pages } = (await (await api("pages")).json()) as { pages: { source: string; route: string | null; status: string; title: string }[] };
