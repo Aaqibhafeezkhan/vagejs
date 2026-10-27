@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.13.0 (2026-10-27)
 
 ### Added
 - **Site-wide share image (`seo.defaultImage`).** Pages without their own `image:` use it for `og:image`, `twitter:card` (`summary_large_image`) and Article JSON-LD.
