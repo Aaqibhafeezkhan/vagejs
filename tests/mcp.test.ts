@@ -17,7 +17,7 @@ describe("vage mcp", () => {
   it("offers only read-only tools", async () => {
     const client = await connect(copyFixture());
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["vage_check", "vage_info", "vage_links", "vage_pages"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["vage_check", "vage_info", "vage_links", "vage_next_steps", "vage_pages"]);
     for (const t of tools) expect(t.annotations?.readOnlyHint).toBe(true);
     await client.close();
   });

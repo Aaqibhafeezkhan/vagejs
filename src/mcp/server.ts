@@ -6,6 +6,7 @@ import { linkStatus } from "../checks/links.js";
 import { VageError } from "../core/errors.js";
 import { createBuildLoader } from "../core/loader.js";
 import { renderSite } from "../core/site.js";
+import { projectNextSteps } from "../dev/setup.js";
 
 /** The MCP SDK is optional: only people who run `vage mcp` install it. */
 const SDK = "@modelcontextprotocol/sdk";
@@ -85,13 +86,15 @@ export async function startMcpServer(root: string, options: { version: string; i
     { name: "vagejs", version: options.version },
     {
       instructions:
-        "Tools for a vagejs website project. Use vage_info for commands, settings and page fields; vage_check after every change (fix every error it reports; each finding names the file); vage_pages to see what exists; vage_links for outbound domains. Never approve link domains or deploy without the site owner: those stay CLI commands (npx vage links approve, npx vage deploy).",
+        "Tools for a vagejs website project. Use vage_info for commands, settings and page fields; vage_check after every change (fix every error it reports; each finding names the file); vage_pages to see what exists; vage_links for outbound domains; vage_next_steps on a new site, to go through what still has the starter's placeholder content with the owner (ask them for real details, never invent them). Never approve link domains or deploy without the site owner: those stay CLI commands (npx vage links approve, npx vage deploy).",
     },
   );
   server.registerTool("vage_info", { title: "Describe vagejs", description: "Commands, configuration options and page frontmatter fields, with their JSON Schemas (the same as `vage info --json`).", annotations: READ_ONLY }, tool(async () => options.info()));
   server.registerTool("vage_check", { title: "Check the site", description: "Checks every page for broken links, missing titles and descriptions, structured data, accessibility basics and unapproved outbound links (the same as `vage check --json`). Writes nothing.", annotations: READ_ONLY }, tool(() => check(root)));
   server.registerTool("vage_pages", { title: "List pages", description: "Every published page (route, source file, title, description, layout, noindex), the drafts and scheduled pages that are skipped, and pages that fail to render.", annotations: READ_ONLY }, tool(() => listPages(root)));
   server.registerTool("vage_links", { title: "List outbound domains", description: "External domains the site links to, which pages link there, and whether each is approved in links.lock.json. Only the site owner approves new domains.", annotations: READ_ONLY }, tool(() => linkStatus(root)));
+
+  server.registerTool("vage_next_steps", { title: "Next steps for a new site", description: "What still has the starter's placeholder content (site address and name, home and About pages, the first post's author, icon, share image), each with done: true/false, what to do and the page to edit (the same as `vage next-steps --json`). Ask the owner for the real details.", annotations: READ_ONLY }, tool(() => projectNextSteps(root)));
 
   await server.connect(options.transport ?? new sdk.StdioServerTransport());
 }

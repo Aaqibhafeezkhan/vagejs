@@ -4,7 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createProject } from "../src/cli/create.js";
 import { parseConfig } from "../src/core/config.js";
-import { connectInstructions, setupSteps } from "../src/dev/setup.js";
+import { connectInstructions, projectNextSteps, setupSteps } from "../src/dev/setup.js";
+import { copyFixture } from "./helpers.js";
 
 const starterConfig = { site: "https://example.com", title: "My Website", description: "A website built with vagejs." };
 const done = (steps: { id: string; done: boolean }[]) => Object.fromEntries(steps.map((s) => [s.id, s.done]));
@@ -63,6 +64,13 @@ describe("editor next steps", () => {
     const steps = done(setupSteps(root, await parseConfig(starterConfig)));
     expect(steps.author).toBe(true);
     expect(steps.home).toBe(false); // the same text with CRLF is still the starter's
+  });
+
+  it("loads the project's own config for vage next-steps and the MCP tool", async () => {
+    const result = await projectNextSteps(copyFixture());
+    expect(result.total).toBe(7);
+    expect(result.steps.find((s) => s.id === "site")!.done).toBe(true); // the fixture's site is https://fixture.example
+    expect(result.done).toBe(result.steps.filter((s) => s.done).length);
   });
 
   it("gives the documented commands to connect an assistant, with this site's folder", () => {

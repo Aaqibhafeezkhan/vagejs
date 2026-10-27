@@ -2,6 +2,10 @@
 
 This website uses **vagejs** (pre-release). Only the features listed here exist today. Full docs, as Markdown for AI tools: `https://vagejs.com/docs/<topic>.md` (topics below).
 
+## New site? Start here
+
+If this site was just created, set it up with the owner before anything else: run `npm install` (if `node_modules` is missing) and `npm run dev`, then `npx vage next-steps` (or the `vage_next_steps` MCP tool). It lists what still has the starter's placeholder content: the site's address and name, the home and About pages, the first post's author, the icon and a share image. Ask the owner for each real detail (who they are, what they offer, their domain), then make the changes and run `npm run check`. Never invent names, facts or addresses; leave a step undone rather than guess.
+
 ## Commands
 
 | Command           | What it does |
@@ -12,6 +16,7 @@ This website uses **vagejs** (pre-release). Only the features listed here exist 
 | `npm run check`   | SEO, link, structured-data and basic a11y checks. Writes nothing. Exit 1 on errors (`--strict`: also warnings). |
 | `npm run audit`   | Builds, then checks page-weight budgets and axe accessibility rules. `--lighthouse` adds Lighthouse (install `lighthouse`; needs Chrome); `--url <https://...>` audits a deployed page via PageSpeed Insights. |
 | `npm run preview` | Serves `dist/` locally. |
+| `npx vage next-steps` | What a new site still needs (placeholder content to replace with the owner's real details). Writes nothing. |
 
 Add `--json` to `npx vage build`, `check` or `audit` for machine-readable output (`{ ok: false, error }` on failure). Run `npm run check` after every change and fix all errors before finishing. Every check rule is explained at `https://vagejs.com/docs/checks.md`.
 
@@ -23,7 +28,7 @@ Tested on Windows on every change. Needs Node.js **22.12 or newer** (`node --ver
 
 `npx vage info --json` prints every command and option, JSON Schemas for `vage.config.ts` and page frontmatter, and what's not implemented. Prefer it over guessing.
 
-**MCP server (optional):** `npx vage mcp` runs read-only tools over stdio (`vage_info`, `vage_check`, `vage_pages`, `vage_links`); needs `npm install --save-dev @modelcontextprotocol/sdk`. Claude Code, in the project folder: `claude mcp add --transport stdio --scope project vagejs -- npx -p vagejs vage mcp`. Others: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["-p", "vagejs", "vage", "mcp", "--root", "/absolute/path/to/the/site"] } } }` (`-p vagejs` runs the project's vagejs, never another package called `vage`). Approving link domains and deploying stay CLI commands the owner approves. Layouts must not write to `process.stdout`: in MCP mode it carries the protocol (vagejs moves `console.log` to stderr).
+**MCP server (optional):** `npx vage mcp` runs read-only tools over stdio (`vage_info`, `vage_check`, `vage_pages`, `vage_links`, `vage_next_steps`); needs `npm install --save-dev @modelcontextprotocol/sdk`. Claude Code, in the project folder: `claude mcp add --transport stdio --scope project vagejs -- npx -p vagejs vage mcp`. Others: `{ "mcpServers": { "vagejs": { "command": "npx", "args": ["-p", "vagejs", "vage", "mcp", "--root", "/absolute/path/to/the/site"] } } }` (`-p vagejs` runs the project's vagejs, never another package called `vage`). Approving link domains and deploying stay CLI commands the owner approves. Layouts must not write to `process.stdout`: in MCP mode it carries the protocol (vagejs moves `console.log` to stderr).
 
 ## Recipes
 

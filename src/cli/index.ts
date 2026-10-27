@@ -56,7 +56,8 @@ cli
   .option("--port <port>", "Port (fails if taken; default picks a free port from 5173)")
   .option("--host [host]", "Expose on the network")
   .option("--open", "Open the site in your browser (at the direct address, so localhost cookies can't cause HTTP 431)")
-  .action((opts: ServeFlags) =>
+  .option("--open-editor", "Also open the local editor in your browser")
+  .action((opts: ServeFlags & { openEditor?: boolean }) =>
     run(opts, async () => {
       const server = await startDevServer(opts.root, { port: parsePort(opts.port), host: opts.host });
       const direct = directUrl(server.httpServer?.address());
@@ -65,6 +66,7 @@ cli
       if (editor) console.log(`  editor: ${editor} (edit pages in your browser; only on this computer)`);
       const target = direct ?? server.resolvedUrls?.local[0] ?? server.resolvedUrls?.network[0];
       if (opts.open && target) openBrowser(target);
+      if (opts.openEditor && editor) openBrowser(editor);
     }),
   );
 
@@ -101,6 +103,20 @@ cli
         console.log("Passing checks do not guarantee indexing, rankings, rich results or AI citations.");
       }
       if (!result.ok) process.exit(1);
+    }),
+  );
+
+cli
+  .command("next-steps", "What a new site still needs: placeholder content to replace with the owner's real details (writes nothing)")
+  .option("--root <dir>", "Project root", { default: "." })
+  .option("--json", "Print machine-readable JSON")
+  .action((opts: CommonOptions) =>
+    run(opts, async () => {
+      const { projectNextSteps } = await import("../dev/setup.js");
+      const result = await projectNextSteps(opts.root);
+      if (opts.json) return print({ ok: true, ...result });
+      for (const s of result.steps) console.log(`  ${s.done ? "[x]" : "[ ]"} ${s.label}${s.done ? "" : `\n      ${s.help}${s.page ? ` (${s.page})` : ""}`}`);
+      console.log(`\n${result.done} of ${result.total} done.${result.done < result.total ? " Ask the site owner for the real details; never invent them." : ""}`);
     }),
   );
 

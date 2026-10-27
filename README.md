@@ -37,7 +37,7 @@ Requires **Node.js 22.12 or newer**.
 ```bash
 npm create vagejs@latest my-site
 ```
-It asks "Install and start the site now?". Press Enter, and it installs everything and opens the site in your browser. Edit `src/pages/index.md` and the page reloads. Next time, start it with `cd my-site` and `npm start` (`npm run dev` does the same without opening a browser, and prints the address). When an AI assistant or a script runs the command, nothing is asked or started: it prints the next steps (`cd my-site`, `npm install`, `npm start`). `-- --yes` installs and starts without asking; `-- --no-install` only creates the files.
+It asks "Install and start the site now?". Press Enter, pick what to build the site with (Claude Code, Codex, Gemini CLI, VS Code or Cursor if you have them, or the browser editor), and it installs everything, opens the site in your browser and starts your assistant with a first prompt. Edit `src/pages/index.md` and the page reloads. Next time, start it with `cd my-site` and `npm start` (`npm run dev` does the same without opening a browser, and prints the address). When an AI assistant or a script runs the command, nothing is asked or started: it prints the next steps (`cd my-site`, `npm install`, `npm start`). `-- --yes` installs and starts without asking; `-- --no-install` only creates the files.
 
 Prefer forms to files? While the dev server runs, open the `editor:` address it prints (or `/_vage/edit/` on the site): a local editor with every page, its fields, the text with a live preview, image upload and the page's check results. It edits the same files, refuses to overwrite a page that changed since you opened it, only works on your own computer, and is never part of the built site.
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Start with your AI assistant.** After `npm create vagejs@latest`, a person at a terminal picks what to build the site with: the assistants found on their computer (Claude Code, Codex, Gemini CLI, VS Code with Copilot chat, Cursor), the browser editor, or just the site. Terminal assistants start right there with a first prompt (read AGENTS.md, ask the owner about their business, work through the next steps) while the site runs in the background; quitting the assistant stops it. VS Code opens its chat with that prompt; Cursor opens the folder and the prompt is printed to paste. The browser editor opens next to the site. If a tool doesn't start, the prompt is printed to use by hand. Nothing is asked with `--yes`, or when an AI assistant or a script runs create.
+- **`vage next-steps`** (and `--json`, and the `vage_next_steps` MCP tool): the editor's next steps for a new site, for AI assistants. When an assistant runs create for someone, the output now tells it to read AGENTS.md and go through these steps with the owner, asking for real details; the starter's AGENTS.md starts with a "New site? Start here" section that says the same.
+- **`vage dev --open-editor`** also opens the local editor.
+
 ## 0.14.0 (2026-10-27)
 
 ### Added

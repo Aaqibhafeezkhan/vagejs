@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
-import type { SiteConfig } from "../core/config.js";
+import { loadConfig, type SiteConfig } from "../core/config.js";
+import { createBuildLoader } from "../core/loader.js";
 
 const TEMPLATE_DIR = fileURLToPath(new URL("../../templates/starter", import.meta.url));
 
@@ -84,6 +85,20 @@ export function setupSteps(root: string, site: SiteConfig): SetupStep[] {
       done: !!site.seo.defaultImage,
     },
   ];
+}
+
+/**
+ * The next steps for the project at `root`, with its config loaded: what `vage next-steps`,
+ * the vage_next_steps MCP tool and the editor's panel show.
+ */
+export async function projectNextSteps(root: string): Promise<{ done: number; total: number; steps: SetupStep[] }> {
+  const loader = await createBuildLoader(root);
+  try {
+    const steps = setupSteps(root, await loadConfig(root, loader.load));
+    return { done: steps.filter((s) => s.done).length, total: steps.length, steps };
+  } finally {
+    await loader.close();
+  }
 }
 
 /** How to give an AI assistant vagejs's tools (`vage mcp`), as documented in the starter's AGENTS.md. */
