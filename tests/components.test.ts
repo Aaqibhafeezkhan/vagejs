@@ -84,7 +84,7 @@ Our plans, from **{1 + 1}** options:
 `,
     );
     const result = await build(root);
-    expect(result.pages).toContainEqual({ route: "/pricing/", source: "src/pages/pricing.mdx", output: "pricing/index.html" });
+    expect(result.pages).toContainEqual({ route: "/pricing/", source: path.join("src", "pages", "pricing.mdx"), output: "pricing/index.html" });
     const html = read(root, "pricing/index.html");
     expect(html).toContain("<title>Pricing | Fixture Site</title>");
     expect(html).toContain('<meta name="description" content="Plans and prices." />');
@@ -98,7 +98,7 @@ Our plans, from **{1 + 1}** options:
     const root = siteWithPackages();
     write(root, "src/pages/pricing.mdx", "---\ntitle: Pricing\ndescription: Plans and prices.\n---\n\n# Pricing\n\n[Gone](/nowhere/)\n");
     const result = await check(root);
-    expect(result.findings).toContainEqual(expect.objectContaining({ source: "src/pages/pricing.mdx", severity: "error", message: expect.stringContaining("/nowhere/") }));
+    expect(result.findings).toContainEqual(expect.objectContaining({ source: path.join("src", "pages", "pricing.mdx"), severity: "error", message: expect.stringContaining("/nowhere/") }));
   });
 
   it("refuses two layouts with the same name", async () => {

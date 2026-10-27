@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- **Windows: the hint in `vage check`'s missing-translation warning names the right file.** It suggested a mixed path like `src/pages/fr/src\pages\blog\post.md` instead of `src/pages/fr/blog/post.md`. CI is green on Windows again: since 0.10 its job had failed on tests that compared file paths with `/`, while MDX pages, islands and multi-language checks themselves worked.
+
 ## 0.13.0 (2026-10-27)
 
 ### Added

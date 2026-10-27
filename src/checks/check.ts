@@ -513,7 +513,8 @@ function checkTranslations(model: SiteModel): Finding[] {
         source: p.source,
         rule: "translation-missing",
         severity: "warning",
-        message: `No ${missing.join(", ")} version of this page. Add ${missing.map((l) => `src/pages/${l}/${p.source.replace(/^src\/pages\//, "")}`).join(", ")} (or a page with translationOf: ${publicPath(p.route, site.trailingSlash)}).`,
+        // p.source uses the system's separator ("src\pages\..." on Windows).
+        message: `No ${missing.join(", ")} version of this page. Add ${missing.map((l) => `src/pages/${l}/${p.source.split(path.sep).join("/").replace(/^src\/pages\//, "")}`).join(", ")} (or a page with translationOf: ${publicPath(p.route, site.trailingSlash)}).`,
       });
     }
   }

@@ -44,7 +44,7 @@ describe("interactive islands (client:load / client:visible / client:idle)", () 
     expect(html).toMatch(/<vage-island data-island="counter-[0-9a-f]{8}-Greeting" data-when="visible"/);
     expect(html).toContain("<p>Hello static</p>");
     expect(html).toContain('<script type="module" src="/_vage/islands/runtime.js"></script>');
-    const findings = (await check(root)).findings.filter((f) => f.source === "src/pages/demo.mdx");
+    const findings = (await check(root)).findings.filter((f) => f.source === path.join("src", "pages", "demo.mdx"));
     expect(findings).toEqual([]);
     // Pages without islands send nothing.
     expect(read(root, "about/index.html")).not.toContain("<script type=\"module\"");
@@ -111,7 +111,7 @@ export default function Layout({ content, page }) {
     const root = siteWithCounter();
     write(root, "src/components/Wrap.tsx", 'import Counter from "./Counter.tsx";\nexport default function Wrap() {\n  return <div><Counter client:load start={9} /></div>;\n}\n');
     write(root, "src/pages/demo.mdx", page("<Wrap client:visible />", 'import Wrap from "../components/Wrap.tsx";'));
-    expect((await check(root)).findings.find((f) => f.source === "src/pages/demo.mdx")?.message).toMatch(/is inside another interactive component/);
+    expect((await check(root)).findings.find((f) => f.source === path.join("src", "pages", "demo.mdx"))?.message).toMatch(/is inside another interactive component/);
     write(root, "src/pages/demo.mdx", page('<vage-island data-island="example">static</vage-island>', ""));
     await expect(build(root)).rejects.toThrow(/<vage-island data-island="example"> that vagejs didn't make/);
   });
@@ -130,10 +130,10 @@ export default function Layout({ content, page }) {
     for (const [body, message] of cases) {
       write(root, "src/pages/demo.mdx", page(body));
       const result = await check(root);
-      expect(result.findings.find((f) => f.source === "src/pages/demo.mdx")?.message, body).toMatch(message);
+      expect(result.findings.find((f) => f.source === path.join("src", "pages", "demo.mdx"))?.message, body).toMatch(message);
     }
     write(root, "src/pages/demo.mdx", page("export function Local() { return <p>local</p>; }\n\n<Local client:load />", ""));
-    expect((await check(root)).findings.find((f) => f.source === "src/pages/demo.mdx")?.message).toMatch(/<Local client:load> must be a function component exported from a file in src\/components\//);
+    expect((await check(root)).findings.find((f) => f.source === path.join("src", "pages", "demo.mdx"))?.message).toMatch(/<Local client:load> must be a function component exported from a file in src\/components\//);
   });
 
   it("counts island code in the page's JavaScript budget", async () => {

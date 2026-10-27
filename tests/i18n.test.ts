@@ -103,7 +103,7 @@ describe("multi-language sites (i18n)", () => {
     write(root, "src/pages/fr/a-propos.md", "---\ntitle: À propos 2\ndescription: Encore nous.\ntranslationOf: /about/\n---\n# À propos\n");
     write(root, "src/pages/hidden.md", "---\ntitle: Hidden\ndescription: Not listed.\nnoindex: true\ntranslationOf: /about/\n---\n# Hidden\n");
     const result = await check(root);
-    const by = (rule: string) => result.findings.filter((f) => f.rule === rule).map((f) => `${f.source}: ${f.message}`);
+    const by = (rule: string) => result.findings.filter((f) => f.rule === rule).map((f) => `${f.source}: ${f.message}`.replaceAll(path.sep, "/")); // sources use the system separator
     expect(by("translation")).toEqual([
       expect.stringMatching(/^src\/pages\/de\/kontakt\.md: translationOf: \/contact\/ is not a published page/),
       expect.stringContaining('src/pages/fr/about.md: src/pages/fr/about.md and src/pages/fr/a-propos.md are both the "fr" version of /about/.'),
