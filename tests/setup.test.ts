@@ -29,9 +29,30 @@ describe("editor next steps", () => {
     fs.appendFileSync(path.join(root, "src/pages/about.md"), "\nWe bake bread.\n");
     const post = path.join(root, "src/pages/blog/first-post.md");
     fs.writeFileSync(post, fs.readFileSync(post, "utf8").replace("type: article\n", "type: article\nauthor: Ann Baker\n"));
-    fs.writeFileSync(path.join(root, "public/favicon.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+    for (const f of ["favicon.svg", "favicon.ico", "apple-touch-icon.png"]) fs.writeFileSync(path.join(root, "public", f), "mine");
     const site = await parseConfig({ ...starterConfig, site: "https://ann.example", title: "Ann's Bakery", seo: { defaultImage: "/images/og.png" } });
     expect(done(setupSteps(root, site))).toEqual({ site: true, title: true, home: false, about: true, author: true, icon: true, "share-image": true });
+  });
+
+  it("needs a real author value, and reads files with a byte-order mark", async () => {
+    const root = newSite();
+    const post = path.join(root, "src/pages/blog/first-post.md");
+    const original = fs.readFileSync(post, "utf8");
+    const authorDone = async () => done(setupSteps(root, await parseConfig(starterConfig))).author;
+    fs.writeFileSync(post, original.replace("type: article\n", "type: article\nauthor:\nauthorUrl: https://a.example/about/\n"));
+    expect(await authorDone()).toBe(false);
+    fs.writeFileSync(post, original.replace("type: article\n", 'type: article\nauthor: ""\n'));
+    expect(await authorDone()).toBe(false);
+    fs.writeFileSync(post, "\uFEFF" + original.replace("type: article\n", "type: article\nauthor: Ann Baker\n"));
+    expect(await authorDone()).toBe(true);
+  });
+
+  it("wants all three icon files replaced", async () => {
+    const root = newSite();
+    fs.writeFileSync(path.join(root, "public/favicon.svg"), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+    expect(done(setupSteps(root, await parseConfig(starterConfig))).icon).toBe(false);
+    for (const f of ["favicon.ico", "apple-touch-icon.png"]) fs.writeFileSync(path.join(root, "public", f), "mine");
+    expect(done(setupSteps(root, await parseConfig(starterConfig))).icon).toBe(true);
   });
 
   it("counts deleted sample pages as done and ignores line endings", async () => {

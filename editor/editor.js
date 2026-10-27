@@ -106,7 +106,7 @@ async function nextSteps() {
       { class: "next-head" },
       h("h2", { id: "next-steps-title" }, done === total ? "Your site is set up" : "Next steps for your site"),
       h("span", { class: "muted" }, `${done} of ${total} done`),
-      h("button", { type: "button", onclick: () => (setHiddenSteps(!hidden), render()) }, hidden ? "Show" : "Hide"),
+      h("button", { type: "button", "aria-expanded": String(!hidden), "aria-controls": "next-steps-list", onclick: () => (setHiddenSteps(!hidden), render()) }, hidden ? "Show" : "Hide"),
     );
     if (hidden) return box.replaceChildren(head);
     const items = data.steps.map((s) =>
@@ -118,7 +118,7 @@ async function nextSteps() {
           "div",
           {},
           h("strong", {}, s.label),
-          s.done ? h("span", { class: "visually-hidden" }, " (done)") : "",
+          h("span", { class: "visually-hidden" }, s.done ? " (done)" : " (to do)"),
           s.done ? "" : h("p", { class: "help" }, s.help),
           !s.done && s.page ? h("a", { href: `#/edit/${encodeURIComponent(s.page)}` }, "Open the page") : "",
         ),
@@ -137,7 +137,7 @@ async function nextSteps() {
       copyBlock("2. Claude Code, in this folder:", data.connect.claudeCode),
       copyBlock("Or for Cursor, Claude Desktop and other apps with an mcpServers setting:", data.connect.mcpJson),
     );
-    box.replaceChildren(head, h("ol", { class: "steps" }, items), connect);
+    box.replaceChildren(head, h("ol", { class: "steps", id: "next-steps-list" }, items), connect);
   };
   render();
   return box;

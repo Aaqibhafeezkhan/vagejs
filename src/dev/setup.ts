@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 import type { SiteConfig } from "../core/config.js";
 
 const TEMPLATE_DIR = fileURLToPath(new URL("../../templates/starter", import.meta.url));
@@ -15,13 +16,28 @@ export interface SetupStep {
   page?: string;
 }
 
-/** Same file content as the starter's copy, ignoring line endings. False when either file is missing. */
+/** Same content as the starter's copy (text ignoring line endings). False when either file is missing. */
 function unchanged(root: string, rel: string): boolean {
   const mine = path.join(root, rel);
   const starter = path.join(TEMPLATE_DIR, rel);
   if (!fs.existsSync(mine) || !fs.existsSync(starter)) return false;
-  const norm = (f: string) => fs.readFileSync(f).toString("utf8").replace(/\r\n/g, "\n");
+  // Text files ignore line endings; images (.ico, .png) are compared byte for byte.
+  if (/\.(ico|png)$/.test(rel)) return fs.readFileSync(mine).equals(fs.readFileSync(starter));
+  const norm = (f: string) => fs.readFileSync(f, "utf8").replace(/\r\n/g, "\n");
   return norm(mine) === norm(starter);
+}
+
+/** Whether a page's frontmatter names a real author (a non-empty author: value). Unreadable frontmatter: no. */
+function hasAuthor(file: string): boolean {
+  const text = fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "");
+  const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+  if (!match) return false;
+  try {
+    const author = (parseYaml(match[1] ?? "") as { author?: unknown } | null)?.author;
+    return typeof author === "string" && author.trim() !== "";
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -32,7 +48,7 @@ function unchanged(root: string, rel: string): boolean {
 export function setupSteps(root: string, site: SiteConfig): SetupStep[] {
   const post = "src/pages/blog/first-post.md";
   const postFile = path.join(root, post);
-  const postAuthorMissing = fs.existsSync(postFile) && !/^author:\s*\S/m.test(fs.readFileSync(postFile, "utf8").split(/^---\s*$/m)[1] ?? "");
+  const postAuthorMissing = fs.existsSync(postFile) && !hasAuthor(postFile);
   return [
     {
       id: "site",
@@ -59,7 +75,7 @@ export function setupSteps(root: string, site: SiteConfig): SetupStep[] {
       id: "icon",
       label: "Use your own icon",
       help: "Replace favicon.svg, favicon.ico and apple-touch-icon.png in public/ with your icon, keeping the names.",
-      done: !unchanged(root, "public/favicon.svg"),
+      done: ["public/favicon.svg", "public/favicon.ico", "public/apple-touch-icon.png"].every((f) => !unchanged(root, f)),
     },
     {
       id: "share-image",
