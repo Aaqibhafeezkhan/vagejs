@@ -111,9 +111,20 @@ describe("choosing what to build the site with", () => {
     const code = await scenario({ interactive: true, tools: ["code"], pick: "vscode" });
     expect(code.calls).toEqual(["npm install @ /abs/my-site", `launch code chat ${P} @ /abs/my-site`, "npm start @ /abs/my-site"]);
     const cursor = await scenario({ interactive: true, tools: ["cursor"], pick: "cursor" });
-    expect(cursor.calls[1]).toBe("launch cursor /abs/my-site @ /abs/my-site");
+    expect(cursor.calls[1]).toBe("launch cursor . @ /abs/my-site"); // never a full path through cmd.exe
     expect(cursor.out).toContain(`In its chat, start with:\n  ${P}`);
     expect((await scenario({ interactive: true, tools: ["cursor"], pick: "cursor", launched: false })).out).toContain("open Cursor in my-site yourself");
+  });
+
+  it("falls back to the usual start when the project's vage CLI can't be found (Yarn Plug'n'Play)", async () => {
+    const noCli = () => {
+      throw new Error("Cannot find module 'vagejs/cli'");
+    };
+    const assistant = await scenario({ interactive: true, tools: ["claude"], pick: "claude", cli: noCli });
+    expect(assistant.calls).toEqual(["npm install @ /abs/my-site", "npm start @ /abs/my-site"]);
+    expect(assistant.out).toContain("didn't start in the background");
+    const editor = await scenario({ interactive: true, pick: "editor", cli: noCli });
+    expect(editor.calls).toEqual(["npm install @ /abs/my-site", "npm start @ /abs/my-site"]);
   });
 
   it("opens the browser editor next to the site", async () => {

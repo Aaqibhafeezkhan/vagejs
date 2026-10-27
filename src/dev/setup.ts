@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
 import { loadConfig, type SiteConfig } from "../core/config.js";
+import { VageError } from "../core/errors.js";
 import { createBuildLoader } from "../core/loader.js";
 
 const TEMPLATE_DIR = fileURLToPath(new URL("../../templates/starter", import.meta.url));
@@ -92,6 +93,9 @@ export function setupSteps(root: string, site: SiteConfig): SetupStep[] {
  * the vage_next_steps MCP tool and the editor's panel show.
  */
 export async function projectNextSteps(root: string): Promise<{ done: number; total: number; steps: SetupStep[] }> {
+  if (!fs.existsSync(path.join(root, "src", "pages"))) {
+    throw new VageError(`${path.resolve(root)} isn't a vagejs site (no src/pages folder). Run this in the site's folder, or pass --root.`);
+  }
   const loader = await createBuildLoader(root);
   try {
     const steps = setupSteps(root, await loadConfig(root, loader.load));

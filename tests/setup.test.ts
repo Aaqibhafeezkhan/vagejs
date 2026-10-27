@@ -73,6 +73,10 @@ describe("editor next steps", () => {
     expect(result.done).toBe(result.steps.filter((s) => s.done).length);
   });
 
+  it("says so when the folder isn't a vagejs site", async () => {
+    await expect(projectNextSteps(path.join(os.tmpdir(), "no-such-vage-site"))).rejects.toThrow(/isn't a vagejs site/);
+  });
+
   it("gives the documented commands to connect an assistant, with this site's folder", () => {
     const c = connectInstructions("/sites/bakery");
     expect(c.claudeCode).toBe("claude mcp add --transport stdio --scope project vagejs -- npx -p vagejs vage mcp");

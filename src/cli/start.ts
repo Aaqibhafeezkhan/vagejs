@@ -52,7 +52,8 @@ const TOOLS: Tool[] = [
   { id: "codex", label: "Codex", command: "codex", kind: "terminal", args: () => [FIRST_PROMPT] },
   { id: "gemini", label: "Gemini CLI", command: "gemini", kind: "terminal", args: () => ["-i", FIRST_PROMPT] },
   { id: "vscode", label: "VS Code (Copilot chat)", command: "code", kind: "app", args: () => ["chat", FIRST_PROMPT] },
-  { id: "cursor", label: "Cursor", command: "cursor", kind: "app", args: (dir) => [dir] },
+  // "." (the cwd is the site's folder): a full path would pass through cmd.exe on Windows, where & ^ % mean something.
+  { id: "cursor", label: "Cursor", command: "cursor", kind: "app", args: () => ["."] },
   { id: "editor", label: "The browser editor (no coding tool needed)", kind: "browser" },
   { id: "site", label: "Just open the site", kind: "browser" },
 ];
@@ -134,11 +135,10 @@ export async function installAndStart(o: StartOptions): Promise<number> {
 
   if (tool.kind === "terminal") {
     // The assistant gets this terminal; the site runs in the background until it exits.
-    const cli = (o.cli ?? projectCli)(o.dir);
     const background = o.background ?? startBackground;
     let server: Background;
     try {
-      server = await background(process.execPath, [cli, "dev", "--open"], o.dir);
+      server = await background(process.execPath, [(o.cli ?? projectCli)(o.dir), "dev", "--open"], o.dir);
     } catch (err) {
       log(`\nThe site didn't start in the background (${(err as Error).message}). Starting it here instead.${paste}`);
       return run(o.pm, ["start"], o.dir);
@@ -147,8 +147,25 @@ export async function installAndStart(o: StartOptions): Promise<number> {
     log(`\nStarting ${tool.label} in ${o.rel}. The site keeps running while it's open; quitting it stops the site too.`);
     // Assistants ask before working in a folder they haven't seen; Claude Code's default answer is "No, exit".
     log(`If ${tool.label} asks whether you trust this folder, choose yes: it's the site you just created.\n`);
-    const code = run(tool.command!, tool.args!(o.dir), o.dir);
-    server.stop();
+    // Ctrl+C belongs to the assistant (Claude Code and Codex use it to interrupt a reply): ignore it here
+    // while it runs. The site is in its own process group, so Ctrl+C doesn't reach it either. If this
+    // process ends some other way (the terminal closes), the site stops with it.
+    const ignore = () => {};
+    const stopAndExit = () => (server.stop(), process.exit(1));
+    process.on("SIGINT", ignore);
+    process.once("SIGHUP", stopAndExit);
+    process.once("SIGTERM", stopAndExit);
+    process.once("exit", server.stop);
+    let code: number;
+    try {
+      code = run(tool.command!, tool.args!(o.dir), o.dir);
+    } finally {
+      process.off("SIGINT", ignore);
+      process.off("SIGHUP", stopAndExit);
+      process.off("SIGTERM", stopAndExit);
+      process.off("exit", server.stop);
+      server.stop();
+    }
     if (code !== 0) log(paste);
     log(`\n${again}`);
     return 0;
@@ -166,8 +183,16 @@ export async function installAndStart(o: StartOptions): Promise<number> {
   // Said before starting: once the dev server runs, Ctrl+C ends this command too.
   log(`\nStarting the site. Ctrl+C stops it. ${again}\n`);
   if (tool.id === "editor") {
-    log("The editor opens too, with the next steps for your site.\n");
-    return run(process.execPath, [(o.cli ?? projectCli)(o.dir), "dev", "--open", "--open-editor"], o.dir);
+    let cli: string | undefined;
+    try {
+      cli = (o.cli ?? projectCli)(o.dir);
+    } catch {
+      // No node_modules to find it in (Yarn Plug'n'Play): start the site the usual way; the editor's address is printed.
+    }
+    if (cli) {
+      log("The editor opens too, with the next steps for your site.\n");
+      return run(process.execPath, [cli, "dev", "--open", "--open-editor"], o.dir);
+    }
   }
   return run(o.pm, ["start"], o.dir);
 }
@@ -177,41 +202,53 @@ function projectCli(dir: string): string {
   return createRequire(path.join(dir, "package.json")).resolve("vagejs/cli");
 }
 
-/** Windows: commands installed by npm are .cmd files, which need a shell; quote arguments with spaces. */
+/**
+ * Windows: commands installed by npm are .cmd files, which need a shell. The arguments here are
+ * fixed (the first prompt, ".", "dev"...), never paths or user text; ones with spaces are quoted.
+ */
 function shellArgs(args: string[]): string[] {
   return process.platform === "win32" ? args.map((a) => (/\s/.test(a) ? `"${a}"` : a)) : args;
 }
 
 async function launchApp(cmd: string, args: string[], cwd: string): Promise<boolean> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, shellArgs(args), { cwd, stdio: "ignore", detached: true, shell: process.platform === "win32" });
+    const child = spawn(cmd, shellArgs(args), { cwd, stdio: "ignore", detached: true, shell: process.platform === "win32", windowsHide: true });
     child.on("error", () => resolve(false));
     child.on("spawn", () => (child.unref(), resolve(true)));
   });
 }
 
-/** Starts the dev server without the terminal, waits for its "running at" line, and keeps it quiet afterwards. */
+/**
+ * Starts the dev server without the terminal and resolves once it has printed its addresses.
+ * It runs in its own process group (detached), so Ctrl+C typed into the assistant doesn't reach it.
+ */
 function startBackground(cmd: string, args: string[], cwd: string): Promise<Background> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
-    const lines: string[] = [];
+    const child = spawn(cmd, args, { cwd, stdio: ["ignore", "pipe", "pipe"], detached: true, windowsHide: true });
+    let text = "";
     let ready = false;
+    let stopped = false;
     const done = () => {
       if (ready) return;
       ready = true;
-      resolve({ lines, stop: () => child.kill() });
+      const stop = () => {
+        if (!stopped) (stopped = true), child.kill();
+      };
+      resolve({ lines: text.split(/\r?\n/).filter(Boolean), stop });
     };
     const read = (chunk: Buffer) => {
       if (ready) return; // keep draining, so the server never blocks on a full pipe
-      lines.push(...chunk.toString().split(/\r?\n/).filter(Boolean));
-      if (lines.some((l) => l.includes("editor:"))) done();
+      text += chunk.toString();
+      // The editor's address is printed last, on a complete line.
+      if (/editor:.*\n/.test(text)) done();
     };
     child.stdout.on("data", read);
     child.stderr.on("data", read);
     child.on("error", reject);
-    child.on("exit", (code) => (ready ? undefined : reject(new Error(`The dev server stopped (exit code ${code}):\n${lines.join("\n")}`))));
-    // The editor line is printed last; if it never comes (editor off), go on after a short wait.
-    setTimeout(() => lines.length && done(), 15_000).unref();
+    child.on("exit", (code) => (ready ? undefined : reject(new Error(`The dev server stopped (exit code ${code}):\n${text}`))));
+    // If the editor line never comes (the editor is off), go on once the site has said where it runs.
+    const wait = setInterval(() => /running at/.test(text) && (clearInterval(wait), setTimeout(done, 1500)), 500);
+    wait.unref();
   });
 }
 
@@ -221,9 +258,11 @@ async function askChoice(tools: Tool[]): Promise<ToolId> {
     const list = tools.map((t, i) => `  ${i + 1}. ${t.label}`).join("\n");
     const answer = await rl.question(`\nBuild your site with:\n${list}\nChoose a number (Enter for 1): `);
     const n = answer.trim() === "" ? 1 : Number(answer.trim());
-    return tools[n - 1]?.id ?? "site";
+    const tool = tools[n - 1];
+    if (!tool) console.log(`"${answer.trim()}" isn't one of the numbers: just opening the site.`);
+    return tool?.id ?? "site";
   } catch {
-    return "site"; // Ctrl+C or Ctrl+D: just start the site
+    return "site"; // Ctrl+C at the question: just start the site
   } finally {
     rl.close();
   }
