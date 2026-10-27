@@ -95,6 +95,7 @@ describe("choosing what to build the site with", () => {
     expect(r.calls).toEqual(["npm install @ /abs/my-site", "background dev --open @ /abs/my-site", `claude ${P} @ /abs/my-site`, "stop site"]);
     expect(r.out).toContain("running at http://localhost:5173/");
     expect(r.out).toContain("quitting it stops the site too");
+    expect(r.out).toContain("If Claude Code asks whether you trust this folder, choose yes");
   });
 
   it("starts Gemini CLI interactively with the prompt (-i)", async () => {

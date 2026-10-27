@@ -144,7 +144,9 @@ export async function installAndStart(o: StartOptions): Promise<number> {
       return run(o.pm, ["start"], o.dir);
     }
     log(server.lines.join("\n"));
-    log(`\nStarting ${tool.label} in ${o.rel}. The site keeps running while it's open; quitting it stops the site too.\n`);
+    log(`\nStarting ${tool.label} in ${o.rel}. The site keeps running while it's open; quitting it stops the site too.`);
+    // Assistants ask before working in a folder they haven't seen; Claude Code's default answer is "No, exit".
+    log(`If ${tool.label} asks whether you trust this folder, choose yes: it's the site you just created.\n`);
     const code = run(tool.command!, tool.args!(o.dir), o.dir);
     server.stop();
     if (code !== 0) log(paste);
