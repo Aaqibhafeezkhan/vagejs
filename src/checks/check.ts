@@ -503,8 +503,20 @@ function checkTranslations(model: SiteModel): Finding[] {
       findings.push({ ...at, rule: "translation", severity: "error", message: `${p.source} and ${other.source} are both the "${lang}" version of ${translationKey(site, p.route, p.frontmatter)}. Keep one, or point translationOf at a different page.` });
     } else seen.set(key, p);
   }
+  // i18n.pages: only these addresses ("/docs/*" covers that section, its index included) need every language.
+  const wanted = site.i18n.pages && [...new Set(site.i18n.pages.map((w) => (w.endsWith("/*") ? w.slice(0, -1) : routeKey(w))))];
+  const matches = (w: string, route: string) => (site.i18n!.pages!.includes(`${w}*`) ? route.startsWith(w) : route === w);
+  const translate = (route: string) => !wanted || wanted.some((w) => matches(w, route));
+  // Like menus: pages that failed to render count as present (they're reported already).
+  const known = [...mainRoutes, ...model.pageErrors.flatMap((e) => (e.route && pageLang(site, e.route) === site.lang ? [e.route] : []))];
+  for (const w of wanted ?? []) {
+    if (!known.some((r) => matches(w, r))) {
+      const shown = site.i18n.pages!.includes(`${w}*`) ? `${w}*` : publicPath(w, site.trailingSlash);
+      findings.push({ rule: "translation", severity: "warning", source: "vage.config.ts", message: `i18n.pages lists ${shown}, which matches no published page in the main language (${site.lang}): moved, deleted, a draft or scheduled? Fix the address or remove it.` });
+    }
+  }
   for (const p of pages) {
-    if (p.meta.noindex || pageLang(site, p.route) !== site.lang) continue;
+    if (p.meta.noindex || pageLang(site, p.route) !== site.lang || !translate(p.route)) continue;
     const have = new Set((p.meta.translations ?? []).map((t) => t.lang));
     const missing = site.i18n.locales.filter((l) => !have.has(l));
     if (missing.length) {

@@ -247,6 +247,11 @@ export const configSchema = z.strictObject({
         .min(1)
         .refine((l) => new Set(l).size === l.length, "must not repeat a language")
         .describe('Other languages, e.g. ["fr", "de"]. Pages in src/pages/fr/ are French and served at /fr/...; fr/about.md is the translation of about.md.'),
+      pages: z
+        .array(z.string().regex(/^(?:\/[^*]*)?\/\*$|^\/[^*]*$/, 'must be a page address like "/about/", or a section like "/docs/*"'))
+        .min(1)
+        .optional()
+        .describe('Main-language pages that should exist in every language, e.g. ["/", "/about/", "/docs/*"] ("/docs/*" matches that section, its index page included). When set, vage check reports missing translations only for these; other pages stay in the main language.'),
     })
     .optional()
     .describe("Multi-language sites: sets <html lang> per page, adds hreflang links between translations, and vage check reports missing ones."),

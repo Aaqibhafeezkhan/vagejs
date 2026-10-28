@@ -115,6 +115,29 @@ describe("multi-language sites (i18n)", () => {
     expect(missing.some((m) => m.startsWith("src/pages/hidden.md"))).toBe(false);
   });
 
+  it("asks for translations of only the pages in i18n.pages", async () => {
+    const root = i18nSite();
+    write(root, "vage.config.ts", CONFIG.replace('locales: ["fr", "de"] }', 'locales: ["fr", "de"], pages: ["/", "/about", "/about/", "/blog/*", "/gone/", "/blgo/*"] }'));
+    write(root, "src/pages/blog/post.md", "---\ntitle: Post\ndescription: An English post.\ndatePublished: 2026-01-02\n---\n# Post\n");
+    const result = await check(root);
+    const missing = result.findings.filter((f) => f.rule === "translation-missing").map((f) => f.page).sort();
+    expect(missing).toEqual(["/", "/blog/", "/blog/post/"]); // /about/ has both; other pages stay English
+    const listed = result.findings.filter((f) => f.rule === "translation");
+    expect(listed.map((f) => f.message)).toEqual([
+      "i18n.pages lists /gone/, which matches no published page in the main language (en): moved, deleted, a draft or scheduled? Fix the address or remove it.",
+      "i18n.pages lists /blgo/*, which matches no published page in the main language (en): moved, deleted, a draft or scheduled? Fix the address or remove it.",
+    ]);
+    expect(listed.every((f) => f.source === "vage.config.ts")).toBe(true); // so the editor shows them
+    for (const bad of [["about/"], ["/blog*"], ["/*/x/"], []]) expect(() => parseConfig({ i18n: { locales: ["fr"], pages: bad } })).toThrow();
+  });
+
+  it("writes i18n.pages addresses the way the site does", async () => {
+    const root = i18nSite();
+    write(root, "vage.config.ts", CONFIG.replace('locales: ["fr", "de"] }', 'locales: ["fr", "de"], pages: ["/nope"] }').replace("lang: \"en\",", 'lang: "en",\n  trailingSlash: "never",'));
+    const result = await check(root);
+    expect(result.findings.find((f) => f.rule === "translation" && f.message.startsWith("i18n.pages"))?.message).toMatch(/^i18n\.pages lists \/nope, which/);
+  });
+
   it("flags a layout whose <html lang> ignores the page's language", async () => {
     const root = i18nSite();
     write(root, "src/layouts/default.ts", "export default ({ content, page, site }) => `<!doctype html><html lang=\"${site.lang}\"><head><title>${page.title}</title></head><body><main>${content}</main></body></html>`;\n");

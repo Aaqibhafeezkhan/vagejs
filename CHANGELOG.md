@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.1 (2026-10-28)
+
+### Added
+- **Translate only some pages.** `i18n: { pages: ["/", "/about/", "/docs/*"] }` lists the main-language pages that should exist in every language (`"/docs/*"` covers that section, its index page included). `vage check` then reports missing translations only for those, so a site with a few translated pages doesn't get a warning for every other page. An entry that matches no published page is a warning, shown in the editor too.
+
 ## 0.15.0 (2026-10-27)
 
 ### Added
