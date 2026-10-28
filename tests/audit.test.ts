@@ -8,7 +8,8 @@ import { budgetFindings, measurePages } from "../src/audit/budgets.js";
 import { runLighthouse } from "../src/audit/lighthouse.js";
 import { cruxField, pageSpeed, redact } from "../src/audit/remote.js";
 import { rate } from "../src/audit/vitals.js";
-import { parseConfig } from "../src/core/config.js";
+import { z } from "zod";
+import { configSchema, parseConfig } from "../src/core/config.js";
 import { removeApiKey, resolveApiKey, saveApiKey } from "../src/integrations/api-keys.js";
 import { copyFixture, write, WINDOWS } from "./helpers.js";
 
@@ -66,6 +67,39 @@ describe("page weight budgets", () => {
       "6 requests, over the budget of 5 (performance.budgets.requests).",
     ]);
     expect(findings.every((f) => f.severity === "warning")).toBe(true);
+  });
+
+  it("lets one page have its own budget while the rest keep the site's", () => {
+    const [w] = measurePages(site(), [{ route: "/", outFile: "index.html" }]);
+    const other = { ...w!, route: "/blog/" };
+    const strict = { ...budgets, javascriptKb: 1 };
+    const findings = budgetFindings([w!, other], strict, { "/": { javascriptKb: 3 } });
+    expect(findings.filter((f) => f.message.startsWith("javascript")).map((f) => `${f.page} ${f.message}`)).toEqual([
+      "/blog/ javascript is 2.0 KB, over the 1 KB budget (performance.budgets.javascriptKb).",
+    ]);
+    // The page's own limit is named when that page is over it.
+    expect(budgetFindings([{ ...w!, route: "/tools/x/" }], strict, { "/tools/x": { javascriptKb: 1.5 } })[0]!.message).toBe(
+      'javascript is 2.0 KB, over the 1.5 KB budget (performance.pageBudgets["/tools/x"].javascriptKb).',
+    );
+    expect(parseConfig({ performance: { pageBudgets: { "/tools/x/": { javascriptKb: 8 } } } }).performance.pageBudgets).toEqual({ "/tools/x/": { javascriptKb: 8 } });
+    expect(() => parseConfig({ performance: { pageBudgets: { "tools/x/": { javascriptKb: 8 } } } })).toThrow(/pageBudgets\["tools\/x\/"\]/);
+    expect(() => parseConfig({ performance: { pageBudgets: { "/x/": { jsKb: 8 } } } })).toThrow();
+  });
+
+  it("checks pageBudgets: sizes only, real pages, each page once", () => {
+    const [w] = measurePages(site(), [{ route: "/", outFile: "index.html" }]);
+    // Lighthouse scores stay site-wide; addresses with ? or # can't be pages.
+    for (const bad of [{ "/x/": { performance: 50 } }, { "/x/?a": { javascriptKb: 8 } }, { "/x/#top": { javascriptKb: 8 } }, { "/x": { javascriptKb: 8 }, "/x/": { cssKb: 9 } }]) {
+      expect(() => parseConfig({ performance: { pageBudgets: bad } })).toThrow();
+    }
+    const typo = budgetFindings([w!], budgets, { "/tools/buidler/": { javascriptKb: 8 } });
+    expect(typo).toEqual([expect.objectContaining({ severity: "warning", source: "vage.config.ts", message: expect.stringContaining('pageBudgets lists "/tools/buidler/", which isn\'t a page') })]);
+  });
+
+  it("describes pageBudgets fields for vage info", () => {
+    const schema = JSON.stringify(z.toJSONSchema(configSchema, { io: "input", unrepresentable: "any" }));
+    expect(schema).toContain("Max uncompressed JavaScript per page, KB.");
+    expect(schema.match(/Max uncompressed JavaScript per page, KB\./g)!.length).toBeGreaterThanOrEqual(2);
   });
 
   it("keeps default budgets for keys the config does not override", () => {

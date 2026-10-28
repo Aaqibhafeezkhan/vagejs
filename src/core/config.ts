@@ -131,8 +131,25 @@ const budgetsSchema = z.strictObject({
   requests: z.number().int().positive().default(30).describe("Max resource requests per page (incl. the HTML)."),
 });
 
+/**
+ * One page's size and request budgets: only the keys given, so the rest still come from
+ * performance.budgets. Lighthouse scores stay site-wide (they run on lighthouse.pages).
+ */
+const PAGE_BUDGET_KEYS = ["javascriptKb", "cssKb", "imageKb", "fontKb", "totalKb", "requests"] as const;
+const pageBudgetSchema = budgetsSchema.pick(Object.fromEntries(PAGE_BUDGET_KEYS.map((k) => [k, true])) as Record<(typeof PAGE_BUDGET_KEYS)[number], true>);
+const pageBudgetFields = z.strictObject(
+  Object.fromEntries(Object.entries(pageBudgetSchema.shape).map(([key, field]) => [key, field.removeDefault().optional().describe(field.description ?? "")])) as {
+    [K in keyof typeof pageBudgetSchema.shape]: z.ZodOptional<ReturnType<(typeof pageBudgetSchema.shape)[K]["removeDefault"]>>;
+  },
+);
+
 const performanceSchema = z.strictObject({
   budgets: budgetsSchema.default(() => budgetsSchema.parse({})).describe("Starting points, not universal standards. Adjust per site."),
+  pageBudgets: z
+    .record(z.string().regex(/^\/[^?#]*$/, 'must be a page address like "/tools/builder/"'), pageBudgetFields)
+    .refine((b) => new Set(Object.keys(b).map((k) => (k.endsWith("/") ? k : `${k}/`))).size === Object.keys(b).length, "lists the same page twice")
+    .default({})
+    .describe('Size and request budgets for single pages, over the site-wide ones: { "/tools/builder/": { javascriptKb: 8 } } for one interactive page while every other page keeps the stricter limit. Lighthouse score budgets stay site-wide.'),
   lighthouse: z
     .strictObject({
       enabled: z.boolean().default(false).describe("Run Lighthouse in `vage audit` without --lighthouse. Needs the lighthouse package and Chrome."),

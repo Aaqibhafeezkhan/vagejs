@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.0 (2026-10-28)
+
+### Added
+- **Budgets for single pages.** `performance.pageBudgets: { "/tools/builder/": { javascriptKb: 8 } }` gives one page its own limits, so an interactive tool can have more JavaScript while every other page keeps the stricter site-wide budget. It covers the size and request budgets (Lighthouse score budgets stay site-wide), only the keys you list change, `vage audit` names the page's own setting when that page is over it, and an address that isn't a page is a warning.
+
 ## 0.15.1 (2026-10-28)
 
 ### Added

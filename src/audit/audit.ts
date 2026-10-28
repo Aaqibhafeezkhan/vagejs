@@ -59,7 +59,7 @@ async function auditLocal(root: string, strategies: Strategy[], options: AuditOp
   const site = model.site;
   const pages = model.notFound ? [...model.pages, model.notFound] : model.pages;
   const weights = measurePages(result.outDir, pages, site.site);
-  const findings: Finding[] = budgetFindings(weights, site.performance.budgets);
+  const findings: Finding[] = budgetFindings(weights, site.performance.budgets, site.performance.pageBudgets);
   const notes: string[] = ["Sizes are uncompressed bytes of local files; transfer size depends on your host's compression."];
 
   const needsReview = new Map<string, number>();

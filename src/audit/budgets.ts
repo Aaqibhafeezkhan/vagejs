@@ -5,6 +5,7 @@ import { parse } from "node-html-parser";
 import type { SiteConfig } from "../core/config.js";
 import type { Finding } from "../checks/check.js";
 import { ISLANDS_DIR } from "../core/islands.js";
+import { routeKey } from "../core/routes.js";
 
 export type ResourceKind = "html" | "javascript" | "css" | "image" | "font";
 
@@ -117,9 +118,26 @@ const BUDGET_KEYS: [keyof SiteConfig["performance"]["budgets"], ResourceKind | "
   ["totalKb", "total"],
 ];
 
-export function budgetFindings(weights: PageWeight[], budgets: SiteConfig["performance"]["budgets"]): Finding[] {
+export function budgetFindings(
+  weights: PageWeight[],
+  siteBudgets: SiteConfig["performance"]["budgets"],
+  pageBudgets: SiteConfig["performance"]["pageBudgets"] = {},
+): Finding[] {
   const findings: Finding[] = [];
+  // Addresses as written in the config ("/tools/builder" or "/tools/builder/") match either form;
+  // messages quote the key as written.
+  const perPage = new Map(Object.entries(pageBudgets).map(([written, b]) => [routeKey(written), { written, b }]));
+  const routes = new Set(weights.map((w) => routeKey(w.route)));
+  for (const [key, { written }] of perPage) {
+    if (!routes.has(key)) {
+      findings.push({ rule: "budget", severity: "warning", source: "vage.config.ts", message: `performance.pageBudgets lists "${written}", which isn't a page on this site (use its address without any base path). Fix the address or remove it.` });
+    }
+  }
   for (const w of weights) {
+    const page = perPage.get(routeKey(w.route));
+    const own = page?.b;
+    const budgets = own ? { ...siteBudgets, ...own } : siteBudgets;
+    const where = (key: string) => (own && key in own ? `performance.pageBudgets["${page!.written}"].${key}` : `performance.budgets.${key}`);
     for (const [key, kind] of BUDGET_KEYS) {
       const bytes = kind === "total" ? w.total : w.bytes[kind];
       if (bytes > budgets[key] * 1024) {
@@ -127,7 +145,7 @@ export function budgetFindings(weights: PageWeight[], budgets: SiteConfig["perfo
           rule: "budget",
           severity: "warning",
           page: w.route,
-          message: `${kind} is ${kbText(bytes)}, over the ${budgets[key]} KB budget (performance.budgets.${key}).`,
+          message: `${kind} is ${kbText(bytes)}, over the ${budgets[key]} KB budget (${where(key)}).`,
         });
       }
     }
@@ -136,7 +154,7 @@ export function budgetFindings(weights: PageWeight[], budgets: SiteConfig["perfo
         rule: "budget",
         severity: "warning",
         page: w.route,
-        message: `${w.requests} requests, over the budget of ${budgets.requests} (performance.budgets.requests).`,
+        message: `${w.requests} requests, over the budget of ${budgets.requests} (${where("requests")}).`,
       });
     }
   }
