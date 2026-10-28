@@ -44,9 +44,13 @@ npm view create-vagejs version
 cd /tmp && npm create vagejs@latest test-site && cd test-site && npm install && npm run build
 ```
 
-## Automated releases (after 0.1.0)
+## How releases are published now
 
-Every later release publishes from GitHub Actions (`.github/workflows/release.yml`). It uses **trusted publishing**: npm trusts that workflow directly, so no npm token is stored anywhere, and npm adds a signed provenance record automatically (public repo and package).
+The owner publishes each release by hand from their own Terminal (`npm publish` in the repo root, then in `packages/create-vagejs`), after the version commit is pushed and CI is green. The version tag (`vX.Y.Z`) and GitHub release are created afterwards, once npm shows the new version. The `Release` workflow below is **disabled** in GitHub Actions (since 0.16.1), because a tag push after a manual publish made it fail with "cannot publish over the previously published version". To switch to publishing from CI instead, run `gh workflow enable Release` and stop publishing by hand; the tag push then publishes with provenance.
+
+## Automated releases (workflow kept, currently disabled)
+
+The workflow publishes from GitHub Actions (`.github/workflows/release.yml`). It uses **trusted publishing**: npm trusts that workflow directly, so no npm token is stored anywhere, and npm adds a signed provenance record automatically (public repo and package).
 
 One-time setup:
 
