@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.1 (2026-10-28)
+
+### Fixed
+- **Links to your own pages inside a closed `<details>` are no longer reported as hidden.** FAQ accordions and "show more" sections can link to other pages on the site without a `link-hidden` warning. Links to other websites inside a closed `<details>` are still reported, since that's how injected spam hides, and so are links hidden any other way.
+
 ## 0.16.0 (2026-10-28)
 
 ### Added

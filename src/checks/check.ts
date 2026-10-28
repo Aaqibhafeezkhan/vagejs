@@ -537,7 +537,9 @@ function checkTranslations(model: SiteModel): Finding[] {
 function checkHiddenLink(a: HTMLElement, href: string, model: SiteModel, add: (f: Omit<Finding, "page" | "source">) => void) {
   const external = externalHost(href, model.site.site) !== undefined;
   const hidden = hiddenReason(a) ?? (external && isEmptyLink(a) ? { reason: "empty (no text or image)", strength: "strong" as const } : undefined);
-  if (!hidden) return;
+  // A link to this site's own pages inside a closed <details> (an FAQ accordion, "show more")
+  // is ordinary page design, not injected spam: spam links point to other sites.
+  if (!hidden || (!external && hidden.reason === "inside a closed <details>")) return;
   add({
     rule: "link-hidden",
     severity: external && hidden.strength === "strong" ? "error" : "warning",

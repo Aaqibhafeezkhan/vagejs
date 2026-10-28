@@ -168,6 +168,20 @@ describe("final-review regressions", () => {
     expect([...new Set(hidden)]).toEqual(["plain"]);
   });
 
+  it("doesn't flag links to the site's own pages in a closed <details>, but still flags outside ones", async () => {
+    const root = copyFixture();
+    write(root, "vage.config.ts", CONFIG(', security: { outboundLinks: "off" }'));
+    write(
+      root,
+      "src/layouts/plain.ts",
+      'export default ({ content }) => `<html lang="en"><head><title>t</title></head><body><main>${content}<details><summary>Is it free?</summary><p>Yes, see <a href="/about/">about</a> and <a href="https://fixture.example/about/">the same page</a>.</p><a href="https://spam.example/">x</a></details><div hidden><a href="/about/">hidden</a></div></main></body></html>`;',
+    );
+    const hidden = (await rules(root)).filter((f) => f.rule === "link-hidden").map((f) => f.message);
+    expect(hidden.some((m) => m.includes("https://spam.example/"))).toBe(true);
+    expect(hidden.some((m) => m.includes("closed <details>") && (m.includes('"/about/"') || m.includes("fixture.example")))).toBe(false);
+    expect(hidden.some((m) => m.includes('"/about/"') && m.includes("hidden <div>"))).toBe(true); // other ways of hiding still count
+  });
+
   it("accepts real hosts in any spelling and rejects URLs", () => {
     expect(parseHost("Bücher.DE.")).toBe("xn--bcher-kva.de");
     expect(parseHost("xn--e1afmkfd.xn--p1ai")).toBe("xn--e1afmkfd.xn--p1ai");
