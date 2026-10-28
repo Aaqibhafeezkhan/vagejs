@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.2 (2026-10-28)
+
+### Changed
+- **Sitemap dates use one format.** Every `<lastmod>` in `sitemap.xml` is now a plain date (`2026-10-28`). Dates from git used to be full timestamps while dates from frontmatter were dates, so one sitemap mixed both. A timestamp keeps the day it has in its own time zone.
+
 ## 0.16.1 (2026-10-28)
 
 ### Fixed

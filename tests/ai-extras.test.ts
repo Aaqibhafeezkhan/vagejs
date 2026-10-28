@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { build } from "../src/core/build.js";
 import { copySource, markdownCopy } from "../src/discovery/markdown-copy.js";
+import { lastmodDate } from "../src/discovery/sitemap.js";
 import { copyFixture, WINDOWS, write } from "./helpers.js";
 
 const read = (root: string, rel: string) => fs.readFileSync(path.join(root, "dist", rel), "utf8");
@@ -32,6 +33,15 @@ describe("Markdown copies", () => {
   });
 });
 
+describe("sitemap lastmod format", () => {
+  it("writes every date as YYYY-MM-DD, keeping a timestamp's own day", () => {
+    expect(lastmodDate("2026-10-26")).toBe("2026-10-26");
+    expect(lastmodDate("2026-10-26T23:30:00+05:30")).toBe("2026-10-26");
+    expect(lastmodDate("2026-10-26T04:05:06Z")).toBe("2026-10-26");
+    expect(lastmodDate("yesterday")).toBeUndefined();
+  });
+});
+
 describe("sitemap lastmod from git", () => {
   function repo() {
     const root = copyFixture();
@@ -48,8 +58,8 @@ describe("sitemap lastmod from git", () => {
     const root = repo();
     await build(root);
     const xml = read(root, "sitemap.xml");
-    expect(xml).toMatch(/fixture\.example\/about\/<\/loc>\s*<lastmod>2026-02-03T04:05:06Z<\/lastmod>/);
-    expect(xml).toMatch(/fixture\.example\/<\/loc>\s*<lastmod>2026-01-02T03:04:05Z<\/lastmod>/);
+    expect(xml).toMatch(/fixture\.example\/about\/<\/loc>\s*<lastmod>2026-02-03<\/lastmod>/);
+    expect(xml).toMatch(/fixture\.example\/<\/loc>\s*<lastmod>2026-01-02<\/lastmod>/);
     expect(xml).toMatch(/blog\/post\/<\/loc>\s*<lastmod>2026-02-01<\/lastmod>/); // its dateModified
   });
 
@@ -156,8 +166,8 @@ describe("git dates review fixes", () => {
     git(root, ["add", "-A"]);
     git(root, ["commit", "-q", "-m", "one"], "2026-03-04T05:06:07Z");
     await build(root);
-    expect(read(root, "sitemap.xml")).toMatch(/caf%C3%A9\/<\/loc>\s*<lastmod>2026-03-04T05:06:07Z<\/lastmod>/i);
-    expect(read(root, "sitemap.xml")).toMatch(/my%20page\/<\/loc>\s*<lastmod>2026-03-04T05:06:07Z<\/lastmod>/i);
+    expect(read(root, "sitemap.xml")).toMatch(/caf%C3%A9\/<\/loc>\s*<lastmod>2026-03-04<\/lastmod>/i);
+    expect(read(root, "sitemap.xml")).toMatch(/my%20page\/<\/loc>\s*<lastmod>2026-03-04<\/lastmod>/i);
 
     const plain = fs.mkdtempSync(path.join(os.tmpdir(), "vage-nogit-"));
     fs.cpSync(copyFixture(), plain, { recursive: true });
